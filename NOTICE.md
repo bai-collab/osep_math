@@ -38,5 +38,5 @@ tutor guidance rules are teaching content, separate from the GPL-3.0 code
 license. They are adapted from the author's own five-stage conjecturing
 lesson designs for educational, non-commercial use.
 
-The county/city contest problems and M0–M3 courses distributed with
-osep-judge are **not** included in this repository.
+Problem banks and courses distributed with osep-judge are **not** included
+in this repository or its history.

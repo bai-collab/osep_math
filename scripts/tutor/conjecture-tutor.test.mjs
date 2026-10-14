@@ -85,7 +85,7 @@ test('提示只含本階段的學生可見內容，不含結論、理由或名�
         assert.deepEqual(guardOutput({...rule, stage: 'EX'}, reply), {ok: true, reason: ''}, stage);
         assert.equal(prompt.includes('reasoning'), stage === 'JU');
     }
-    assert.equal(stageRuleFor('114EKeelung-1'), null);
+    assert.equal(stageRuleFor('q1-not-a-stage'), null);
 });
 
 test('證實階段的提示寫明表徵事實：改包數時零散不變，追問要問整個數的剩餘（2026-10-14 真模型測試發現的誤導追問）', () => {

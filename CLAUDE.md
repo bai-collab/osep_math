@@ -17,7 +17,7 @@
 
 ## 已移除（P5a，2026-10-14）
 
-- 114 縣市賽與 M0～M3 題庫（`src/lib/judge-content/courses/*`、`static/judge-content/*`）及產生器 `scripts/judge-dev-tools/*`（只保留 `hand-author-builder.js`，供產生半成品 sb3 參考）。
+- osep-judge 的題庫與課程（`src/lib/judge-content/courses/*`、`static/judge-content/*`）及產生器 `scripts/judge-dev-tools/*`（只保留 `hand-author-builder.js`，供產生半成品 sb3 參考）。
 - 造訪計數器（`workers/visit-counter/` 與面板中的計數）。
 - 教學鷹架對照表內容（`SCAFFOLD_MAP` 改為空物件）。
 

@@ -4,7 +4,7 @@
  *
  * 2026-09-01：從單一2MB的judge-content.js（全部課程渾然一體，見上一版git history）拆成
  * manifest（輕量課程/題目清單）＋courses/{code}.js（每課程各自完整資料，動態載入）兩層，
- * 讓「上架一個新縣市」只讓新增的那個課程檔案雜湊變動，不拖累其他課程或平台程式碼的
+ * 讓「上架一個新單元」只讓新增的那個課程檔案雜湊變動，不拖累其他課程或平台程式碼的
  * 瀏覽器快取。manifest本身很小，直接靜態import跟著這個模組一起載入即可。
  *
  * answerProjectUrl用document.baseURI（相對目前頁面路徑）動態產生，能正確處理GitHub Pages
