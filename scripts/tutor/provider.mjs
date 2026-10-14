@@ -24,6 +24,8 @@ question 追問一個學生沒講清楚、但與解題關鍵有關的地方（�
 學生只寫「不知道」或與題目無關時，guidance 溫和地請他從程式的第一步說起，question 問他程式最先做什麼。
 relatedBlocks 給空陣列。`;
 const text = (value, max) => typeof value === 'string' ? value.slice(0, max) : '';
+// 臆測階段：學生在任務面板上的作品摘要（不可信、只當參考）；server 依題目代碼決定是否套用階段規則。
+const cleanStageWork = value => text(value, 1500);
 
 // 額外選取白名單欄位，避免客戶端帶入 testCases、answerProjectUrl 或其他資產。
 export function sanitizeContext(input) {
@@ -68,6 +70,7 @@ export function sanitizeContext(input) {
                 .filter(category => typeof category === 'string').map(category => text(category, 80))
         },
         omittedBlocks: Number.isSafeInteger(input.omittedBlocks) && input.omittedBlocks >= 0 ? input.omittedBlocks : 0,
+        stageWork: cleanStageWork(input.stageWork),
         grading: input.grading && Number.isSafeInteger(input.grading.passed) &&
             Number.isSafeInteger(input.grading.total) && input.grading.passed >= 0 &&
             input.grading.total >= input.grading.passed ? {
@@ -163,7 +166,7 @@ const cleanTutorText = (value, context) => {
 };
 
 export async function requestGuidance({apiKey, context, question, history, signal, fetchImpl = fetch,
-    purpose = 'help'}) {
+    purpose = 'help', stageInstructions = ''}) {
     let response;
     try { response = await fetchImpl(ENDPOINT, {
         method: 'POST', redirect: 'error', signal,
@@ -173,7 +176,8 @@ export async function requestGuidance({apiKey, context, question, history, signa
         },
         body: JSON.stringify({model: MODEL, reasoning: {effort: 'max'}, max_output_tokens: 1600,
             store: false, stream: false,
-            input: [{role: 'system', content: purpose === 'reflection' ? `${instructions}\n${reflectionInstructions}` : instructions},
+            input: [{role: 'system', content: purpose === 'reflection' ? `${instructions}\n${reflectionInstructions}` :
+                (purpose === 'stage' ? `${instructions}\n${stageInstructions}` : instructions)},
                 ...history.map(turn => ({role: turn.role, content: turn.text})),
                 {role: 'user', content: JSON.stringify({context, studentQuestion: question})}]
         })
@@ -220,5 +224,7 @@ export async function requestGuidance({apiKey, context, question, history, signa
     if (!guidance || !cleanedQuestion) throw providerError('INVALID_MODEL_OUTPUT');
     const relatedBlocks = groundRelatedBlocks(result.relatedBlocks, context.editor);
     if (JSON.stringify(relatedBlocks).includes(apiKey)) throw providerError('INVALID_MODEL_OUTPUT');
-    return {guidance, question: cleanedQuestion, relatedBlocks};
+    // 證實階段的說理建議只接受兩個值；其他階段不回傳。
+    const reasoning = purpose === 'stage' && ['pending', 'possible'].includes(result.reasoning) ? result.reasoning : null;
+    return {guidance, question: cleanedQuestion, relatedBlocks, ...(reasoning ? {reasoning} : {})};
 }

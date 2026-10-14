@@ -4,6 +4,7 @@ import React, {useState, useEffect, useRef} from 'react';
 import PropTypes from 'prop-types';
 import {connect} from 'react-redux';
 import {buildTutorContext} from '../../lib/tutor-context.js';
+import {getWork, setReasoning} from '../../lib/conjecture-stage-work.js';
 import {readTutorEditor} from '../../lib/tutor-editor.js';
 import {groundRelatedBlocks, createTutorBlockHighlight} from '../../lib/tutor-block-highlight.js';
 import LazyScratchBlocks from '../../lib/tw-lazy-scratch-blocks';
@@ -101,6 +102,9 @@ export const TutorTab = ({task, vm, grading, apiKey, mode, toolboxXML, visible =
         setRunning(true);
         try {
             const context = observe();
+            // osep_math：臆測階段附上學生目前在任務面板寫的作品，讓導師先指向學生自己的作品。
+            const stageWork = task.kind === 'conjecture' ? getWork(task.code) : '';
+            if (stageWork) context.stageWork = stageWork;
             let learning;
             let recordWarning = '';
             if (validStudentId(studentId)) {
@@ -144,6 +148,7 @@ export const TutorTab = ({task, vm, grading, apiKey, mode, toolboxXML, visible =
             if (controller.signal.aborted) return false;
             const relatedBlocks = groundRelatedBlocks(data.relatedBlocks, context.editor);
             const turnId = ++turnIdRef.current;
+            if (task.kind === 'conjecture' && data.reasoning) setReasoning(task.code, data.reasoning);
             setTurns(previous => [...previous, {question: submittedQuestion,
                 guidance: data.guidance,
                 followup: data.question,

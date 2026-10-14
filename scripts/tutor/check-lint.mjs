@@ -15,7 +15,8 @@ const added = ['src/lib/learning-records.js', 'src/lib/tutor-context.js', 'src/l
     'src/lib/conjecture-progress.js', 'src/lib/conjecture-vm.js', 'src/lib/conjecture-stage-view.js',
     'src/lib/conjecture-units/c2-1.js', 'src/lib/judge-content/manifest.js', 'src/lib/judge-content/courses/C2-1.js',
     'src/components/judge-panel/conjecture-panel.jsx',
-    'scripts/conjecture-dev-tools/sb3-kit.js', 'scripts/conjecture-dev-tools/build-c2-1-sb3.js'];
+    'scripts/conjecture-dev-tools/sb3-kit.js', 'scripts/conjecture-dev-tools/build-c2-1-sb3.js',
+    'src/lib/conjecture-stage-work.js', 'scripts/tutor/stage-rules.mjs'];
 const newResults = await eslint.lintFiles(added.map(p => path.join(root, p)));
 let failures = newResults.reduce((n, r) => n + r.errorCount, 0);
 const changed = 'src/components/judge-panel/judge-panel.jsx';

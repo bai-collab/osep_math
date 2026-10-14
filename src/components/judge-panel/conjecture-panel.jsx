@@ -10,6 +10,7 @@ import {loadProgress, saveProgress, isUnlocked, checkStage, completeStage, apply
     looksLikeEnumeration, CHECK_LABELS} from '../../lib/conjecture-progress.js';
 import {applyInjection, readNumberList} from '../../lib/conjecture-vm.js';
 import unitC21 from '../../lib/conjecture-units/c2-1.js';
+import {describeDraft, setWork, getReasoning} from '../../lib/conjecture-stage-work.js';
 
 /**
  * osep_math 臆測五階段任務面板（取代一般題目的說明／自行測試／評分分頁）。
@@ -543,6 +544,10 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
 
     const unlocked = isUnlocked(progress, stage);
     const draft = progress.drafts[stage] || {};
+    // 給導師的作品摘要（求助時附上）；每次草稿改變就更新。
+    useEffect(() => {
+        setWork(task.code, describeDraft(stage, draft, progress.artifacts));
+    }, [task.code, stage, draft, progress.artifacts]);
 
     const send = useCallback((type, payload) => {
         if (!validStudentId(studentId)) return Promise.resolve('未記錄：請先填寫有效的學生代號（作品仍保存在這台電腦）。');
@@ -608,7 +613,7 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
     const gate = progress.gates[stage];
 
     const handleComplete = async () => {
-        const result = completeStage(stage, draft, unit);
+        const result = completeStage(stage, draft, unit, {aiReasoning: getReasoning(task.code)});
         if (result.error) {
             setMessage('還有欄位沒填完整，先看看上面的檢核點。');
             return;

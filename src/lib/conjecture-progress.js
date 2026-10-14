@@ -143,8 +143,14 @@ const buildArtifact = (stage, draft, unit) => {
 };
 
 // 完成本階段：組作品、清理、算判定。成功回傳 {artifact, gate}；格式不完整回傳 {error}。
-const completeStage = (stage, draft, unit) => {
-    const {checks, activityDone} = checkStage(stage, draft, unit);
+// options.aiReasoning：證實階段導師最近一次的說理建議（pending／possible）；只當建議，記為 by:'ai'。
+const completeStage = (stage, draft, unit, options = {}) => {
+    const programResult = checkStage(stage, draft, unit);
+    const activityDone = programResult.activityDone;
+    const checks = [...programResult.checks];
+    const aiReasoning = stage === 'JU' && ['pending', 'possible'].includes(options.aiReasoning) ?
+        options.aiReasoning : null;
+    if (aiReasoning) checks.push({id: 'ai-reasoning-suggestion', met: aiReasoning === 'possible', by: 'ai'});
     let artifact;
     try {
         artifact = artifactLib.cleanArtifact(stage, buildArtifact(stage, draft, unit));
@@ -153,7 +159,7 @@ const completeStage = (stage, draft, unit) => {
     }
     const gate = artifactLib.cleanGate(stage, {
         activityDone,
-        reasoningStatus: stage === 'JU' ? 'pending' : 'not_applicable',
+        reasoningStatus: stage === 'JU' ? (aiReasoning || 'pending') : 'not_applicable',
         checks
     });
     return {artifact, gate};
@@ -176,7 +182,8 @@ const CHECK_LABELS = {
     'tested-pool-conjecture': '也檢驗了猜想池裡的一句',
     'revised': '寫出修改後、和原本不同的說法',
     'has-reason': '寫出修改的理由',
-    'has-because-so': '用「因為…所以…」寫出理由'
+    'has-because-so': '用「因為…所以…」寫出理由',
+    'ai-reasoning-suggestion': '導師建議：理由可能符合（老師最後確認）'
 };
 
 module.exports = {

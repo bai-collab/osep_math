@@ -8,6 +8,7 @@ import {fileURLToPath} from 'node:url';
 import {MODEL, sanitizeContext, mockGuidance, mockReflection, requestGuidance} from './provider.mjs';
 import {createRecordStore, isRecordLimitError, RECORD_LIMIT} from './record-store.mjs';
 import {createSheetClient} from './sheet-client.mjs';
+import {stageRuleFor, stageInstructions, guardOutput, safeStageReply} from './stage-rules.mjs';
 import {randomBytes, timingSafeEqual} from 'node:crypto';
 import {createTeacherSettings, sheetScope} from './teacher-settings.mjs';
 import {selectAnalysisRecords, analysisContext, mockAnalysis, requestAnalysis} from './teacher-analysis.mjs';
@@ -136,7 +137,9 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
         if (!recordStore || typeof recordStore.full !== 'function') return false;
         try { return await recordStore.full(); } catch { return false; }
     };
-    const recordTutor = async (learning, context, question, source, result, errorCode = '', purpose = 'help') => {
+    // errorCode=LEAK_FILTERED 時仍是成功的回覆（學生看到安全提問），只標記給老師知道原回覆被攔下。
+    const recordTutor = async (learning, context, question, source, result, errorCode = '', purpose = 'help',
+        stageRule = null) => {
         if (!learning) return undefined;
         if (!recordStore) return {status: 'failed'};
         try {
@@ -145,8 +148,9 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
                 id: learning.id, studentId: learning.studentId,
                 program: learning.program, task: {code: context.task.code, title: context.task.title},
                 type: purpose === 'reflection' ? 'reflection' : 'ai',
-                status: errorCode ? 'failed' : 'completed', source, question,
-                guidance: result?.guidance || '', followup: result?.question || '', errorCode});
+                status: errorCode && errorCode !== 'LEAK_FILTERED' ? 'failed' : 'completed', source, question,
+                guidance: result?.guidance || '', followup: result?.question || '', errorCode,
+                ...(stageRule ? {unit: stageRule.unit, stage: stageRule.stage} : {})});
             recordStore.autoSync();
             return recording;
         } catch (error) { return {status: isRecordLimitError(error) ? 'limit' : 'failed'}; }
@@ -346,10 +350,13 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
                 .map(t => ({role: t.role, text: t.text.slice(0, 2000)}));
             if (includesSecret({context, question, history, learning: body.learning})) return json(res, 400, {error: '請勿把連線密鑰放在提問或程式中。'});
             // purpose=reflection：評分後學生說明解題想法，導師只回饋與追問，紀錄存成 reflection。
-            const purpose = body.purpose === 'reflection' ? 'reflection' : 'help';
+            // osep_math：題目代碼對到臆測階段時，一律改用階段規則（由服務端決定，不信任客戶端宣稱）。
+            const stageRule = stageRuleFor(context.task.code);
+            const purpose = stageRule ? 'stage' : (body.purpose === 'reflection' ? 'reflection' : 'help');
             if (body.mode === 'mock') {
-                const result = purpose === 'reflection' ? mockReflection() : mockGuidance(context, question);
-                const recording = await recordTutor(body.learning, context, question, 'mock', result, '', purpose);
+                const result = stageRule ? safeStageReply(stageRule) :
+                    (purpose === 'reflection' ? mockReflection() : mockGuidance(context, question));
+                const recording = await recordTutor(body.learning, context, question, 'mock', result, '', purpose, stageRule);
                 return json(res, 200, {...result, source: 'mock', model: null, ...(recording ? {recording} : {})});
             }
             if (teacherSettings && body.apiKey) return json(res, 400, {error: '此電腦由教師設定金鑰，學生頁不能覆寫。'});
@@ -376,11 +383,27 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
             const cancel = () => controller.abort();
             res.on('close', cancel);
             try {
-                const result = await requestGuidance({apiKey, context, question, history, signal: controller.signal, fetchImpl,
-                    purpose});
+                let result = await requestGuidance({apiKey, context, question, history, signal: controller.signal, fetchImpl,
+                    purpose, stageInstructions: stageRule ? stageInstructions(stageRule) : ''});
                 if (includesSecret(result)) throw Object.assign(new Error('SECRET_ECHO'), {code: 'INVALID_MODEL_OUTPUT'});
-                const recording = await recordTutor(body.learning, context, question, 'nmking', result, '', purpose);
-                json(res, 200, {...result, source: 'nmking', model: MODEL, ...(recording ? {recording} : {})});
+                // 臆測階段：送給學生前檢查這輪與先前導師回覆的累積內容，命中結論就改用安全的階段提問。
+                let filtered = '';
+                // 說理建議只屬於證實階段。
+                if (result.reasoning && stageRule?.stage !== 'JU') {
+                    const {reasoning, ...rest} = result;
+                    result = rest;
+                }
+                if (stageRule) {
+                    const guard = guardOutput(stageRule, result, history.filter(t => t.role === 'assistant').map(t => t.text));
+                    if (!guard.ok) {
+                        filtered = 'LEAK_FILTERED';
+                        result = safeStageReply(stageRule);
+                    }
+                }
+                const recording = await recordTutor(body.learning, context, question, 'nmking', result, filtered, purpose,
+                    stageRule);
+                json(res, 200, {...result, source: 'nmking', model: MODEL, ...(filtered ? {filtered: true} : {}),
+                    ...(recording ? {recording} : {})});
             } catch (error) {
                 const code = controller.signal.aborted ? 'TIMEOUT' :
                     Object.hasOwn(messages, error?.code) ? error.code : 'INTERNAL_ERROR';
@@ -388,7 +411,7 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
                     ['NETWORK_BLOCKED', 'UPSTREAM_NETWORK'].includes(code) ? 503 : 502;
                 const providerStatus = Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599 ?
                     error.status : null;
-                const recording = await recordTutor(body.learning, context, question, 'nmking', null, code, purpose);
+                const recording = await recordTutor(body.learning, context, question, 'nmking', null, code, purpose, stageRule);
                 json(res, status, {error: `${messages[code]}（${code}）`, code, providerStatus,
                     ...(recording ? {recording} : {})});
             } finally {
