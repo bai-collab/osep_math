@@ -138,16 +138,36 @@ test('GE：前階段資料帶入，驗算機可用', async () => {
     vm.quit();
 });
 
-test('JU：位值表徵依滑桿變數組成數；分組顯示每包、零散與整體的剩餘', async () => {
+// run() 會記下每次「詢問」的題目，方便檢查學生答錯時是否重問。
+async function runWithQuestions (vm, trigger, answers) {
+    const asked = [];
+    const onQuestion = question => {
+        if (question) asked.push(question);
+    };
+    vm.runtime.on('QUESTION', onQuestion);
+    const said = await run(vm, trigger, answers);
+    vm.runtime.off('QUESTION', onQuestion);
+    return {said, asked};
+}
+
+test('JU：位值表徵依滑桿變數組成數；每包與零散的剩餘由學生自己算，答錯就重問，最後先預測再揭曉', async () => {
     const vm = await load('JU');
     assert.deepEqual(await run(vm, () => vm.greenFlag()), ['這個數是 34']);
-    const said = await run(vm, pressKey(vm, 'space'));
-    assert.deepEqual(said, ['每一包 10 平分成 2 份，剩下 0', '零散的平分成 2 份，剩下 0', '整個數平分後剩下 0']);
+    // 34 ÷ 2：每包剩 0、零散 4 剩 0；學生預測 0。
+    let result = await runWithQuestions(vm, pressKey(vm, 'space'), ['0', '0', '0']);
+    assert.deepEqual(result.said, ['對！每一包都剩下 0', '對！零散的剩下 0', '你預測 0；整個數平分後剩下 0']);
+    assert.deepEqual(result.asked, ['每一包 10 個平分成 2 份，會剩下幾個？', '零散的 4 個平分成 2 份，會剩下幾個？',
+        '那整個數平分後，你預測會剩下幾個？']);
+    // 程式在學生回答前不說出每包的餘數。
+    assert.ok(result.asked.every(q => !/剩下 \d/.test(q)));
     const stage = vm.runtime.getTargetForStage();
     stage.lookupVariableByNameAndType('包數', '').value = 7;
     stage.lookupVariableByNameAndType('除數', '').value = 4;
     assert.deepEqual(await run(vm, () => vm.greenFlag()), ['這個數是 74']);
-    assert.equal((await run(vm, pressKey(vm, 'space')))[2], '整個數平分後剩下 2');
+    // 74 ÷ 4：學生先答錯每包剩 1（重問），再答 2；零散 4 剩 0；預測 1，揭曉 2。
+    result = await runWithQuestions(vm, pressKey(vm, 'space'), ['1', '2', '0', '1']);
+    assert.equal(result.asked[1], '再算算看：10 ÷ 4 ＝ ？… ？ 剩下幾個？');
+    assert.deepEqual(result.said, ['對！每一包都剩下 2', '對！零散的剩下 0', '你預測 1；整個數平分後剩下 2']);
     vm.quit();
 });
 

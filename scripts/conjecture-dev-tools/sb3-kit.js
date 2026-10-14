@@ -177,6 +177,8 @@ const blocks = (p, s) => {
     b.join = (a, c) => s.block('operator_join', {inputs: {STRING1: a, STRING2: c}});
     b.repeat = (times, body) => s.block('control_repeat', {inputs: {TIMES: times,
         ...(body ? {SUBSTACK: sub(body)} : {})}});
+    b.repeatUntil = (cond, body) => s.block('control_repeat_until', {inputs: {CONDITION: bool(cond),
+        ...(body ? {SUBSTACK: sub(body)} : {})}});
     b.if = (cond, body) => s.block('control_if', {inputs: {CONDITION: bool(cond),
         ...(body ? {SUBSTACK: sub(body)} : {})}});
     b.ifElse = (cond, a, c) => s.block('control_if_else', {inputs: {

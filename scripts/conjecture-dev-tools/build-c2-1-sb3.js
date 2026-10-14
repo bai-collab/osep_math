@@ -236,6 +236,7 @@ const buildJU = () => {
     p.variable('零散', 4);
     p.variable('除數', CARD_A);
     p.variable('第幾個', 0);
+    p.variable('我的預測', 0);
     p.sliderMonitor('包數', {x: 5, y: 5, min: 0, max: 9});
     p.sliderMonitor('零散', {x: 5, y: 60, min: 0, max: 9});
     p.sliderMonitor('除數', {x: 5, y: 115, min: 2, max: 10});
@@ -256,14 +257,35 @@ const buildJU = () => {
         b.gotoXY(num(200), num(-160)), b.costume('說話'),
         b.say(rep(b.join(txt('這個數是 '), rep(total(), 'txt')), 'txt'))], 40, 40);
     s.comment(draw, '用舞台左上角的滑桿改「包數」和「零散」，再按綠旗把數畫出來。', NOTE_X, 30, 260, 80);
-    const split = s.stack([b.whenKey('space'),
-        b.sayFor(rep(b.join(txt('每一包 10 平分成 '), rep(b.join(rep(b.getVar('除數'), 'txt'), rep(b.join(txt(' 份，剩下 '),
-            rep(b.mod(num(10), rep(b.getVar('除數'))), 'txt')), 'txt')), 'txt')), 'txt'), 3),
-        b.sayFor(rep(b.join(txt('零散的平分成 '), rep(b.join(rep(b.getVar('除數'), 'txt'), rep(b.join(txt(' 份，剩下 '),
-            rep(b.mod(rep(b.getVar('零散')), rep(b.getVar('除數'))), 'txt')), 'txt')), 'txt')), 'txt'), 3),
-        b.say(rep(b.join(txt('整個數平分後剩下 '), rep(b.mod(rep(total()), rep(b.getVar('除數'))), 'txt')), 'txt'))], 40, 1150);
-    s.comment(split, '先預測：把包數改大或改小，最後剩下的會不會變？為什麼？\n' +
-        '想好了再按空白鍵看分組結果，然後把理由寫在右邊面板。', NOTE_X, 1150, 280, 110);
+    // 空白鍵：讓學生自己算「每一包剩多少」「零散剩多少」，算對才往下；
+    // 最後先請學生預測整個數剩多少，才揭曉。程式不替學生說出每包的餘數。
+    const divisorText = () => rep(b.getVar('除數'), 'txt');
+    const askUntil = (firstQuestion, retryQuestion, correct) => [
+        b.ask(firstQuestion),
+        b.repeatUntil(b.cmp('equals', rep(b.answer(), 'txt'), rep(correct())), s.stack([b.ask(retryQuestion)]))
+    ];
+    const perBag = askUntil(
+        rep(b.join(txt('每一包 10 個平分成 '), rep(b.join(divisorText(), txt(' 份，會剩下幾個？')), 'txt')), 'txt'),
+        rep(b.join(txt('再算算看：10 ÷ '), rep(b.join(divisorText(), txt(' ＝ ？… ？ 剩下幾個？')), 'txt')), 'txt'),
+        () => b.mod(num(10), rep(b.getVar('除數'))));
+    const loose = askUntil(
+        rep(b.join(txt('零散的 '), rep(b.join(rep(b.getVar('零散'), 'txt'), rep(b.join(txt(' 個平分成 '),
+            rep(b.join(divisorText(), txt(' 份，會剩下幾個？')), 'txt')), 'txt')), 'txt')), 'txt'),
+        rep(b.join(txt('再算算看：零散的數 ÷ '), rep(b.join(divisorText(), txt(' 剩下幾個？')), 'txt')), 'txt'),
+        () => b.mod(rep(b.getVar('零散')), rep(b.getVar('除數'))));
+    const split = s.stack([b.whenKey('space'), b.costume('說話'),
+        ...perBag,
+        b.sayFor(rep(b.join(txt('對！每一包都剩下 '), rep(b.answer(), 'txt')), 'txt'), 2),
+        ...loose,
+        b.sayFor(rep(b.join(txt('對！零散的剩下 '), rep(b.answer(), 'txt')), 'txt'), 2),
+        b.ask(txt('那整個數平分後，你預測會剩下幾個？')),
+        b.setVar('我的預測', rep(b.answer(), 'txt')),
+        b.say(rep(b.join(txt('你預測 '), rep(b.join(rep(b.getVar('我的預測'), 'txt'),
+            rep(b.join(txt('；整個數平分後剩下 '), rep(b.mod(rep(total()), rep(b.getVar('除數'))), 'txt')), 'txt')),
+        'txt')), 'txt'))], 40, 1150);
+    s.comment(split, '按空白鍵：自己算每一包剩多少、零散剩多少，算對才會往下。\n' +
+        '最後先預測整個數剩多少再看答案。改改包數再試一次：剩下的會不會變？為什麼？把理由寫在右邊面板。',
+    NOTE_X, 1150, 300, 130);
     return p;
 };
 
