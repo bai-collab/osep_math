@@ -1,6 +1,11 @@
-// 綁定在教師的試算表；專案屬性設定 SHEET_ID 與至少 32 字的 RECORD_TOKEN。
+// osep_math 臆測五階段紀錄（格式 v3）。綁定在教師「新的」試算表；專案屬性設定 SHEET_ID 與至少 32 字的 RECORD_TOKEN。
+// 分頁名稱與 osep-judge 不同，避免與舊格式混用。
+var SHEET_NAME = '臆測學習事件';
 var HEADERS = ['事件ID', '時間', '學生代號', '題目代碼', '題目', '類型', '結果', '分數', '滿分', '來源',
-  '範例程式', '提問', '引導', '追問', '錯誤代碼', '評分時程式變更', '完整紀錄1', '完整紀錄2', '完整紀錄3', '完整紀錄4'];
+  '範例程式', '提問', '引導', '追問', '錯誤代碼', '評分時程式變更', '單元', '階段', '作品摘要', '說理狀態',
+  '完整紀錄1', '完整紀錄2', '完整紀錄3', '完整紀錄4'];
+var FULL_RECORD_COLUMN = HEADERS.indexOf('完整紀錄1') + 1;
+var STAGE_TYPES = ['artifact', 'gate', 'exposure'];
 function output_(value) {
   return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -8,16 +13,18 @@ function sheet_() {
   var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
   if (!id) throw new Error('NOT_CONFIGURED');
   var book = SpreadsheetApp.openById(id);
-  var sheet = book.getSheetByName('學習事件');
+  var sheet = book.getSheetByName(SHEET_NAME);
   if (!sheet) {
-    sheet = book.insertSheet('學習事件');
+    sheet = book.insertSheet(SHEET_NAME);
     sheet.appendRow(HEADERS);
     sheet.setFrozenRows(1);
     sheet.getRange(1, 1, 1, HEADERS.length).setBackground('#2457a7').setFontColor('#ffffff').setFontWeight('bold');
     sheet.setColumnWidths(1, HEADERS.length, 150);
     sheet.setColumnWidths(12, 3, 300);
+    sheet.setColumnWidths(HEADERS.indexOf('作品摘要') + 1, 1, 320);
   }
-  if (sheet.getRange(1, 1).getValue() !== HEADERS[0]) throw new Error('WRONG_SHEET');
+  if (sheet.getRange(1, 1).getValue() !== HEADERS[0] ||
+      sheet.getRange(1, FULL_RECORD_COLUMN).getValue() !== '完整紀錄1') throw new Error('WRONG_SHEET');
   return sheet;
 }
 function initializeRecords() {
@@ -44,17 +51,29 @@ function clean_(record) {
   if (!record || !/^[a-zA-Z0-9_-]{8,80}$/.test(record.id || '') ||
       !/^[\p{L}\p{N}_-]{1,40}$/u.test(record.studentId || '') || !record.task ||
       typeof record.task.code !== 'string' || !record.task.code || record.task.code.length > 120 ||
-      !['ai', 'grade', 'demo', 'open', 'reflection'].includes(record.type) || !['completed', 'failed'].includes(record.status) ||
+      !['ai', 'grade', 'demo', 'open', 'reflection'].concat(STAGE_TYPES).includes(record.type) ||
+      !['completed', 'failed'].includes(record.status) ||
       !Number.isFinite(Date.parse(record.timestamp))) throw new Error('INVALID_RECORD');
-  // 載入範例（demo）紀錄沒有程式快照；開啟專案（open）與跳過的解題想法可有可無；其他類型一律要有。
-  var optionalProgram = record.type === 'open' || (record.type === 'reflection' && record.skipped === true);
-  var hasProgram = record.type !== 'demo' && !(optionalProgram && record.program == null);
+  // 階段紀錄：本機服務已用 conjecture-artifact.js 清理過，這裡只確認外形並原樣保存，讀回時由本機服務再驗證。
+  var isStage = STAGE_TYPES.includes(record.type);
+  if (isStage) {
+    if (record.status !== 'completed' || !/^[A-Za-z0-9_-]{1,40}$/.test(record.unit || '') ||
+        !['EX', 'CG', 'VA', 'GE', 'JU'].includes(record.stage)) throw new Error('INVALID_RECORD');
+    var payload = record[record.type];
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
+        JSON.stringify(payload).length > 60000) throw new Error('INVALID_RECORD');
+  }
+  // 載入範例（demo）、過關判定（gate）、接觸紀錄（exposure）沒有程式快照；開啟專案、跳過的解題想法與階段作品可有可無；其他類型一律要有。
+  var optionalProgram = record.type === 'open' || record.type === 'artifact' ||
+    (record.type === 'reflection' && record.skipped === true);
+  var hasProgram = ['demo', 'gate', 'exposure'].indexOf(record.type) < 0 && !(optionalProgram && record.program == null);
   if (hasProgram && (!record.program || !Array.isArray(record.program.targets) ||
       JSON.stringify(record.program).length > 120000)) throw new Error('INVALID_RECORD');
   var clean = {};
   ['id', 'studentId', 'task', 'type', 'status', 'timestamp', 'program', 'source', 'question', 'guidance', 'followup',
     'errorCode', 'demoLoaded', 'programChanged', 'totalScore', 'maxScore',
-    'schemaVersion', 'sessionId', 'clientTime', 'selfTestCount', 'skipped'].forEach(function(key) {
+    'schemaVersion', 'sessionId', 'clientTime', 'selfTestCount', 'skipped',
+    'unit', 'stage', 'artifact', 'gate', 'exposure', 'summary'].forEach(function(key) {
       if (Object.prototype.hasOwnProperty.call(record, key)) clean[key] = record[key];
     });
   clean.task = {code: record.task.code, title: String(record.task.title || '').slice(0, 200)};
@@ -98,8 +117,8 @@ function doPost(e) {
     var token = PropertiesService.getScriptProperties().getProperty('RECORD_TOKEN');
     if (!token || token.length < 32 || body.token !== token) return output_({ok: false, code: 'AUTH_REJECTED'});
     if (!['append', 'read', 'info'].includes(body.action)) return output_({ok: false, code: 'INVALID_ACTION'});
-    // 讓本機服務確認此腳本支援紀錄格式 v2（demo 紀錄與 sessionId 等欄位）。
-    if (body.action === 'info') return output_({ok: true, schema: 2});
+    // 讓本機服務確認此腳本支援紀錄格式 v3（v2 欄位＋單元、階段、作品、過關判定與接觸紀錄）。
+    if (body.action === 'info') return output_({ok: true, schema: 3});
     lock = LockService.getScriptLock();
     lock.waitLock(5000);
     var sheet = sheet_();
@@ -108,7 +127,7 @@ function doPost(e) {
       if (!Number.isSafeInteger(offset) || offset < 0) return output_({ok: false, code: 'INVALID_OFFSET'});
       var available = Math.max(0, sheet.getLastRow() - 1);
       var count = Math.min(100, Math.max(0, available - offset));
-      var rows = count ? sheet.getRange(offset + 2, 17, count, 4).getValues() : [];
+      var rows = count ? sheet.getRange(offset + 2, FULL_RECORD_COLUMN, count, 4).getValues() : [];
       var records = rows.map(function(row) { return clean_(JSON.parse(row.map(uncell_).join(''))); });
       return output_({ok: true, records: records, nextOffset: offset + count, more: offset + count < available});
     }
@@ -119,7 +138,8 @@ function doPost(e) {
     var parts = chunks_(JSON.stringify(record));
     var row = [record.id, record.timestamp, record.studentId, record.task.code, record.task.title, record.type,
       record.status, record.totalScore, record.maxScore, record.source, record.demoLoaded === true, record.question,
-      record.guidance, record.followup, record.errorCode, record.programChanged === true].concat(parts).map(cell_);
+      record.guidance, record.followup, record.errorCode, record.programChanged === true,
+      record.unit, record.stage, record.summary, record.gate ? record.gate.reasoningStatus : ''].concat(parts).map(cell_);
     sheet.getRange(lastRow + 1, 1, 1, row.length).setValues([row]);
     SpreadsheetApp.flush();
     return output_({ok: true, id: record.id});

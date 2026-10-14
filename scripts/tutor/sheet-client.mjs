@@ -24,7 +24,8 @@ export function createSheetClient({url, token, fetchImpl = fetch} = {}) {
     return {info: async () => {
         // 舊版 Apps Script 沒有 info 動作，會回 ok:false；視為只支援 v1，不當成同步失敗。
         try {
-            return {schema: (await call({action: 'info'})).schema === 2 ? 2 : 1};
+            const schema = (await call({action: 'info'})).schema;
+            return {schema: schema === 3 || schema === 2 ? schema : 1};
         } catch (error) {
             if (error.message === 'SHEET_REJECTED') return {schema: 1};
             throw error;

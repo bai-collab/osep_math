@@ -20,6 +20,10 @@ const recordLabel = record => {
     if (record.type === 'demo') return '載入範例答案';
     if (record.type === 'open') return record.source === 'restore' ? '載入還原點' : '從電腦開啟專案';
     if (record.type === 'reflection') return record.skipped ? '解題想法：下次再說' : '評分後說明解題想法';
+    // osep_math 階段紀錄（完整呈現於 P5f）；先避免被誤標成評分。
+    if (record.type === 'artifact') return `階段作品 · ${record.stage || ''} · ${record.summary || ''}`;
+    if (record.type === 'gate') return `過關判定 · ${record.stage || ''} · ${record.gate?.activityDone ? '活動完成' : '活動未完成'}`;
+    if (record.type === 'exposure') return `看到 · ${record.stage || ''} · ${record.exposure?.item || ''}`;
     return `評分 ${record.totalScore ?? '無分數'} / ${record.maxScore ?? '—'}`;
 };
 const QUESTION_LABELS = {
@@ -238,7 +242,7 @@ function render () {
         if (record.type === 'ai') pair.ai++;
         else if (record.type === 'demo') pair.demos++;
         else if (record.type === 'open') pair.opens++;
-        else {
+        else if (['artifact', 'gate', 'exposure', 'reflection'].includes(record.type)) { /* 不算評分 */ } else {
             pair.grades++; if (validGrade(record)) pair.latestGrade = record;
         }
         pairs.set(key, pair);

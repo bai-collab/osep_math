@@ -117,7 +117,7 @@ test('載入範例送出 demo 紀錄並公開告知；評分紀錄帶 v2 欄位�
     assert.equal(records[0].type, 'demo');
     assert.equal(records[0].task.code, 'q1');
     assert.equal(records[0].program, undefined);
-    assert.equal(records[0].schemaVersion, 2);
+    assert.equal(records[0].schemaVersion, 3);
     act(() => button('自行測試').props.onClick());
     act(() => button('開始手動測試').props.onClick());
     act(() => button('停止（隱藏舞台）').props.onClick());

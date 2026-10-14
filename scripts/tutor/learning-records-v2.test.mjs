@@ -37,7 +37,8 @@ test('v1 紀錄清理結果不變；v2 欄位保留，格式不符的選填欄�
         ['demoLoaded', 'errorCode', 'id', 'maxScore', 'programChanged', 'program', 'status', 'studentId', 'task', 'totalScore', 'type'].sort());
     const clean = cleanRecord(grade(undefined, v2));
     for (const [key, value] of Object.entries(v2)) assert.equal(clean[key], value);
-    const messy = cleanRecord(grade(undefined, {schemaVersion: 3, sessionId: 'bad id', clientTime: 'not-a-date',
+    // osep_math：schemaVersion 3 是合法版本；用 4 當格式不符的例子。
+    const messy = cleanRecord(grade(undefined, {schemaVersion: 4, sessionId: 'bad id', clientTime: 'not-a-date',
         selfTestCount: -1}));
     for (const key of Object.keys(v2)) assert.equal(Object.hasOwn(messy, key), false);
     for (const selfTestCount of [1.5, '3', 100001, NaN]) {
@@ -163,7 +164,7 @@ test('真正Apps Script：info、demo 無程式、v2 欄位可寫入並讀回；
     const call = body => JSON.parse(sandbox.doPost({postData: {contents: JSON.stringify(body)}}).text);
     const token = properties.RECORD_TOKEN;
     assert.equal(call({action: 'info', token: 'wrong'}).ok, false);
-    assert.deepEqual(call({action: 'info', token}), {ok: true, schema: 2});
+    assert.deepEqual(call({action: 'info', token}), {ok: true, schema: 3});
     const timestamp = '2026-10-12T00:00:00Z';
     assert.equal(call({action: 'append', token, record: {...demo(), timestamp, program, secret: 'X'}}).ok, true);
     assert.equal(call({action: 'append', token, record: {...grade('grade-v2-1234', v2), timestamp}}).ok, true);
@@ -222,7 +223,7 @@ test('自行測試只記次數：各題分開累計，取用後歸零；recordCo
     assert.equal(records.takeSelfTestCount('q1'), 0);
     records.countSelfTest('q1');
     const context = records.recordContext('q1', Date.parse('2026-10-12T00:00:00Z'));
-    assert.equal(context.schemaVersion, 2);
+    assert.equal(context.schemaVersion, 3);
     assert.equal(context.selfTestCount, 1);
     assert.equal(context.clientTime, '2026-10-12T00:00:00.000Z');
     assert.equal(typeof context.sessionId, 'string');

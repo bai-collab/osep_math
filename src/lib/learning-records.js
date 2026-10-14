@@ -85,9 +85,9 @@ const markReflected = (studentIdValue, taskCode) => {
         window.localStorage.setItem(REFLECTED_KEY, JSON.stringify([...readReflected(), key].slice(-500)));
     } catch (e) { /* 仍保留本頁記憶體。 */ }
 };
-// 紀錄格式 v2 的共同欄位；clientTime 只供排序參考，正式時間由伺服器決定。
+// 紀錄格式 v3 的共同欄位（v2 欄位＋osep_math 階段紀錄）；clientTime 只供排序參考，正式時間由伺服器決定。
 const recordContext = (taskCode, now = Date.now()) => ({
-    schemaVersion: 2,
+    schemaVersion: 3,
     sessionId: touchSession(now),
     clientTime: new Date(now).toISOString(),
     selfTestCount: takeSelfTestCount(taskCode)
@@ -154,6 +154,13 @@ const postGradeRecord = record => postRecord(record, '記錄失敗；評分結�
 const postDemoRecord = record => postRecord(record, '載入範例的紀錄沒有保存；範例仍可查看，請回報教師。');
 const postSkipReflection = record => postRecord(record, '「下次再說」沒有記錄成功，請回報教師。');
 const postOpenRecord = record => postRecord(record, '開啟專案的紀錄沒有保存；專案已開啟，請回報教師。');
+// 臆測階段紀錄：作品（artifact）、過關判定（gate）、接觸虛擬資料／挑戰卡／猜想池（exposure）。
+const STAGE_FAILURES = {
+    artifact: '作品沒有保存成功；畫面上的作品仍在，請回報教師。',
+    gate: '過關紀錄沒有保存成功；可以繼續下一階段，請回報教師。',
+    exposure: '接觸紀錄沒有保存成功；不影響操作。'
+};
+const postStageRecord = record => postRecord(record, STAGE_FAILURES[record.type] || '紀錄沒有保存成功，請回報教師。');
 module.exports = {useStudentIdentity,
     setStudentId,
     validStudentId,
@@ -166,6 +173,7 @@ module.exports = {useStudentIdentity,
     postDemoRecord,
     postOpenRecord,
     postSkipReflection,
+    postStageRecord,
     hasReflected,
     markReflected,
     notifyProjectOpened,

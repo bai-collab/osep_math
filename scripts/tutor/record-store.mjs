@@ -1,5 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import conjecture from '../../src/lib/conjecture-artifact.js';
+const {cleanArtifact, cleanGate, cleanExposure, cleanStageFields, summarizeArtifact} = conjecture;
 const str = (value, max) => typeof value === 'string' && value.length <= max ? value : '';
 const plain = value => value && typeof value === 'object' && !Array.isArray(value);
 export function cleanProgram(program) {
@@ -32,7 +34,7 @@ export function cleanProgram(program) {
 // clientTime 只供排序參考，正式時間仍以伺服器的 timestamp 為準。
 function cleanV2Fields(input) {
     const fields = {};
-    if (input.schemaVersion === 2) fields.schemaVersion = 2;
+    if (input.schemaVersion === 2 || input.schemaVersion === 3) fields.schemaVersion = input.schemaVersion;
     if (/^[a-zA-Z0-9_-]{8,80}$/.test(input.sessionId || '')) fields.sessionId = input.sessionId;
     if (typeof input.clientTime === 'string' && input.clientTime.length <= 40 &&
         Number.isFinite(Date.parse(input.clientTime))) fields.clientTime = input.clientTime;
@@ -40,7 +42,14 @@ function cleanV2Fields(input) {
         input.selfTestCount <= 100000) fields.selfTestCount = input.selfTestCount;
     return fields;
 }
-export const RECORD_TYPES = ['ai', 'grade', 'demo', 'open', 'reflection'];
+// 紀錄格式 v3：任何類型都可選填單元與階段（例如在某階段向導師求助）；格式不符時略過，不讓整筆失敗。
+function cleanOptionalStage(input) {
+    if (typeof input.unit === 'undefined' && typeof input.stage === 'undefined') return {};
+    try { return cleanStageFields(input); } catch { return {}; }
+}
+// artifact：階段作品；gate：過關判定（學生端不能寫入教師確認）；exposure：看到虛擬資料／挑戰卡／猜想池／導師提示的時間點。
+export const STAGE_RECORD_TYPES = ['artifact', 'gate', 'exposure'];
+export const RECORD_TYPES = ['ai', 'grade', 'demo', 'open', 'reflection', ...STAGE_RECORD_TYPES];
 // open：學生從電腦開啟專案檔（file）或載入還原點（restore）；這兩條路會讓 demoLoaded 標記消失，所以另外記錄。
 export const OPEN_SOURCES = ['file', 'restore'];
 export function cleanRecord(input) {
@@ -50,6 +59,22 @@ export function cleanRecord(input) {
         !str(input.task?.code, 120)) throw new Error('INVALID_RECORD');
     const record = {id: input.id, studentId: input.studentId, type: input.type, status: input.status,
         task: {code: input.task.code, title: str(input.task.title, 200)}};
+    if (STAGE_RECORD_TYPES.includes(input.type)) {
+        if (input.status !== 'completed') throw new Error('INVALID_RECORD');
+        const stageFields = cleanStageFields(input);
+        Object.assign(record, stageFields);
+        if (input.type === 'artifact') {
+            record.artifact = cleanArtifact(stageFields.stage, input.artifact);
+            record.summary = summarizeArtifact(stageFields.stage, record.artifact);
+            if (input.program != null) record.program = cleanProgram(input.program);
+        } else if (input.type === 'gate') {
+            record.gate = cleanGate(stageFields.stage, input.gate);
+        } else {
+            record.exposure = cleanExposure(input.exposure);
+        }
+        return Object.assign(record, cleanV2Fields(input));
+    }
+    Object.assign(record, cleanOptionalStage(input));
     // 載入範例只記錄「何時載入」；範例程式本身是公開的參考解答，不另存快照。
     if (input.type === 'demo') {
         if (input.status !== 'completed') throw new Error('INVALID_RECORD');
@@ -89,8 +114,12 @@ export function summarize(records) {
     for (const record of [...records].sort((a, b) => a.timestamp.localeCompare(b.timestamp))) {
         const key = JSON.stringify([record.studentId, record.task.code]);
         const row = pairs.get(key) || {studentId: record.studentId, task: record.task, latestGrade: null,
-            latestProgram: null, aiCount: 0, gradeCount: 0, demoCount: 0, openCount: 0, reflectionCount: 0};
+            latestProgram: null, aiCount: 0, gradeCount: 0, demoCount: 0, openCount: 0, reflectionCount: 0,
+            artifactCount: 0, gateCount: 0, exposureCount: 0};
         if (record.type === 'ai') row.aiCount++;
+        else if (record.type === 'artifact') row.artifactCount++;
+        else if (record.type === 'gate') row.gateCount++;
+        else if (record.type === 'exposure') row.exposureCount++;
         else if (record.type === 'demo') row.demoCount++;
         else if (record.type === 'open') row.openCount++;
         else if (record.type === 'reflection') row.reflectionCount++;
@@ -113,6 +142,10 @@ export const RECORD_LIMIT = 50000;
 // 所以這類紀錄只在試算表回報支援 v2 後才上傳；在那之前留在本機待同步。
 const V2_KEYS = ['schemaVersion', 'sessionId', 'clientTime', 'selfTestCount'];
 export const needsV2Sheet = record => ['demo', 'open', 'reflection'].includes(record.type) || V2_KEYS.some(key => Object.hasOwn(record, key));
+// v3（臆測階段）紀錄只上傳到回報 schema 3 的試算表腳本，避免舊腳本丟掉 unit／stage／artifact 而造成讀回衝突。
+export const needsV3Sheet = record => STAGE_RECORD_TYPES.includes(record.type) || record.schemaVersion === 3 ||
+    Object.hasOwn(record, 'unit') || Object.hasOwn(record, 'stage');
+export const requiredSheetSchema = record => (needsV3Sheet(record) ? 3 : needsV2Sheet(record) ? 2 : 1);
 export const isRecordLimitError = error => error?.code === 'RECORD_LIMIT';
 export function createRecordStore(directory, {sheetClient = null, syncScope = '', recordLimit = RECORD_LIMIT} = {}) {
     const limit = Number.isSafeInteger(recordLimit) && recordLimit > 0 ? recordLimit : RECORD_LIMIT;
@@ -180,16 +213,17 @@ export function createRecordStore(directory, {sheetClient = null, syncScope = ''
             lastSyncError = '';
             try {
                 const waiting = [...records.values()].filter(record => !synced.has(record.id));
-                if (sheetSchema < 2 && waiting.some(needsV2Sheet)) {
+                const highest = waiting.reduce((max, record) => Math.max(max, requiredSheetSchema(record)), 1);
+                if (sheetSchema < highest && highest > 1) {
                     sheetSchema = typeof sheetClient.info === 'function' ? (await sheetClient.info()).schema : 1;
                 }
-                const pending = waiting.filter(record => sheetSchema >= 2 || !needsV2Sheet(record)).slice(0, 10);
+                const pending = waiting.filter(record => requiredSheetSchema(record) <= Math.max(sheetSchema, 1)).slice(0, 10);
                 for (const record of pending) {
                     await sheetClient.append(record);
                     await serialize(async () => {await append(syncFile, record.id); synced.add(record.id);});
                     pushed++;
                 }
-                if (sheetSchema < 2 && waiting.some(needsV2Sheet)) lastSyncError = 'SHEET_SCRIPT_OUTDATED';
+                if (waiting.some(record => requiredSheetSchema(record) > Math.max(sheetSchema, 1))) lastSyncError = 'SHEET_SCRIPT_OUTDATED';
                 if (pull) {
                     const page = await sheetClient.read(pullOffset);
                     for (const record of page.records) { await save(record, {imported: true}); imported++; }

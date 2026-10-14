@@ -314,8 +314,9 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
                 catch { return json(res, 503, {error: '同步失敗，本機紀錄仍保留。'}); }
             }
             // 解題想法只有「下次再說」走這裡；有內容的想法必須經 /api/tutor，與導師回覆一起保存。
-            if (!['grade', 'demo', 'open'].includes(body?.type) && !(body?.type === 'reflection' && body.skipped === true)) {
-                return json(res, 400, {error: '此入口只接收評分、載入範例、開啟專案與跳過說明的紀錄。'});
+            if (!['grade', 'demo', 'open', 'artifact', 'gate', 'exposure'].includes(body?.type) &&
+                !(body?.type === 'reflection' && body.skipped === true)) {
+                return json(res, 400, {error: '此入口只接收評分、載入範例、開啟專案、階段作品、過關判定、接觸紀錄與跳過說明的紀錄。'});
             }
             if (includesSecret(body)) return json(res, 400, {error: '請勿把連線密鑰放在程式或學生代號中。'});
             try {

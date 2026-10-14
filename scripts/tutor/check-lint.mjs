@@ -11,7 +11,7 @@ process.chdir(root);
 const eslint = new ESLint({cwd: root, fix: false});
 const added = ['src/lib/learning-records.js', 'src/lib/tutor-context.js', 'src/lib/tutor-editor.js', 'src/lib/tutor-connection.js',
     'src/lib/tutor-window-geometry.js', 'src/lib/tutor-block-highlight.js', 'src/components/judge-panel/floating-tutor.jsx',
-    'src/components/judge-panel/tutor-tab.jsx'];
+    'src/components/judge-panel/tutor-tab.jsx', 'src/lib/conjecture-artifact.js'];
 const newResults = await eslint.lintFiles(added.map(p => path.join(root, p)));
 let failures = newResults.reduce((n, r) => n + r.errorCount, 0);
 const changed = 'src/components/judge-panel/judge-panel.jsx';
