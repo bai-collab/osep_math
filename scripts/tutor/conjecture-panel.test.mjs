@@ -265,3 +265,61 @@ test('面板：未解鎖的階段不載入半成品；VA 進入時記錄看過�
     assert.ok(!JSON.stringify(rootNode.toJSON()).includes('只要個位是 0、2、4、6、8，就是 4 的倍數'),
         '打開前不顯示猜想池內容');
 });
+
+// ---- P6 外審 R3a 三點的回歸測試 ----
+test('R3a-1：效化選「我自己的例子」不算用別組資料檢驗', () => {
+    const own = {conjectureRef: 'own', conjectureText: 'x', number: 4, dataFrom: '我自己的例子', prediction: 'support',
+        computation: '4÷2＝2', verdict: 'supports', source: 'student'};
+    const ids = draft => Object.fromEntries(progressLib.checkStage('VA', draft, unit).checks.map(c => [c.id, c.met]));
+    assert.equal(ids({tests: [own, {...own, conjectureRef: 'pool-1'}]})['tested-with-new-data'], false);
+    assert.equal(ids({tests: [{...own, dataFrom: '小華組'}]})['tested-with-new-data'], true);
+    assert.equal(ids({tests: [{...own, dataFrom: '不存在的組'}]})['tested-with-new-data'], false);
+});
+
+const renderPanel = async (task, studentId, storage, fetched) => {
+    globalThis.window = {localStorage: storage};
+    globalThis.fetch = async (url, options) => {
+        if (url === './api/records') return new Response(JSON.stringify({recording: {status: 'saved_local'}}));
+        fetched.push(`${studentId}:${url}`);
+        return new Response('', {status: 404});
+    };
+    const vm = new VM();
+    let node;
+    await act(async () => {
+        node = create(React.createElement(ConjecturePanel, {vm, task, studentId, onSelectTask: () => {}}));
+    });
+    return {node, vm};
+};
+
+test('R3a-2：本機草稿的檢驗結果損壞時，面板不崩潰並顯示「未知」', async t => {
+    const oldWindow = globalThis.window, oldFetch = globalThis.fetch;
+    t.after(() => {
+        globalThis.window = oldWindow; globalThis.fetch = oldFetch;
+    });
+    const storage = memoryStorage();
+    let progress = progressLib.emptyProgress('C2-1');
+    progress = progressLib.applyCompletion(progress, 'EX', progressLib.completeStage('EX', EX_DRAFT, unit));
+    progress = progressLib.applyCompletion(progress, 'CG', progressLib.completeStage('CG', {text: '只要個位是 0，就是 10 的倍數。',
+        template: 'free'}, unit));
+    progress.drafts.VA = {tests: [{number: 14, dataFrom: '小華組', conjectureText: 'x', computation: '14÷4', verdict: 'broken',
+        source: 'student'}]};
+    progressLib.saveProgress('S07', progress, storage);
+    const {node, vm} = await renderPanel(taskFor('VA'), 'S07', storage, []);
+    assert.ok(JSON.stringify(node.toJSON()).includes('未知'));
+    act(() => node.unmount());
+    vm.quit();
+});
+
+test('R3a-3：同一頁換學生代號後，新學生進入同一階段仍會自動載入半成品；同一學生回來不重複載入', async t => {
+    const oldWindow = globalThis.window, oldFetch = globalThis.fetch;
+    t.after(() => {
+        globalThis.window = oldWindow; globalThis.fetch = oldFetch;
+    });
+    const fetched = [];
+    for (const studentId of ['S05', 'S06', 'S05']) {
+        const {node, vm} = await renderPanel(taskFor('EX'), studentId, memoryStorage(), fetched);
+        act(() => node.unmount());
+        vm.quit();
+    }
+    assert.deepEqual(fetched, ['S05:https://x.invalid/EX.sb3', 'S06:https://x.invalid/EX.sb3']);
+});

@@ -79,8 +79,10 @@ const checkStage = (stage, draft, unit) => {
     } else if (stage === 'VA') {
         const tests = Array.isArray(d.tests) ? d.tests : [];
         const studentTests = tests.filter(t => t.source === 'student');
+        const groupNames = (unit.VIRTUAL_GROUPS || []).map(group => group.name);
         checks = [
-            {id: 'tested-with-new-data', met: studentTests.some(t => t.dataFrom), by: 'program'},
+            // 新資料必須來自單元定義的虛擬組員；選「我自己的例子」不算（P6 外審 R3a 第 1 點）。
+            {id: 'tested-with-new-data', met: studentTests.some(t => groupNames.includes(t.dataFrom)), by: 'program'},
             {id: 'has-computation',
                 met: studentTests.some(t => COMPUTATION.test(String(t.computation || ''))),
                 by: 'program'},

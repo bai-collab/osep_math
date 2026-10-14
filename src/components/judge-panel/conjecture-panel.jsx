@@ -21,8 +21,10 @@ import {describeDraft, setWork, getReasoning} from '../../lib/conjecture-stage-w
  */
 
 const UNITS = {[unitC21.UNIT_CODE]: unitC21};
-// 本頁已自動載入過半成品的階段：回到同一階段不再自動覆蓋學生正在改的畫布。
+// 本頁已自動載入過半成品的「學生＋階段」：同一位學生回到同一階段不再自動覆蓋正在改的畫布；
+// 換學生代號時鍵值不同，會重新載入（P6 外審 R3a 第 3 點）。
 const autoLoaded = new Set();
+const autoLoadKey = (studentId, taskCode) => `${studentId || ''}|${taskCode}`;
 
 const getStorage = () => {
     try {
@@ -264,6 +266,11 @@ ConjectureForm.propTypes = {draft: PropTypes.object, onChange: PropTypes.func};
 
 const PREDICTIONS = [['support', '支持'], ['refute', '推翻'], ['unsure', '不確定']];
 const VERDICTS = [['supports', '支持'], ['refutes', '推翻'], ['unclear', '還不確定']];
+// 本機草稿可能損壞：找不到對應標籤時顯示「未知」，不讓面板崩潰（P6 外審 R3a 第 2 點）。
+const verdictLabel = value => {
+    const found = VERDICTS.find(v => v[0] === value);
+    return found ? found[1] : '未知';
+};
 
 const ValidationForm = ({unit, progress, draft, onChange, onExposure}) => {
     const own = progress.artifacts.CG ? progress.artifacts.CG.conjecture.text : '';
@@ -412,7 +419,7 @@ const ValidationForm = ({unit, progress, draft, onChange, onExposure}) => {
             <ol className={styles.testList}>
                 {tests.map((t, i) => (
                     <li key={i}>{`${t.number}（${t.dataFrom}）→「${t.conjectureText}」：${t.computation || '未寫算式'}，` +
-                        `${VERDICTS.find(v => v[0] === t.verdict)[1]}`}</li>
+                        `${verdictLabel(t.verdict)}`}</li>
                 ))}
             </ol>
             {draft.poolOpened ? (
@@ -592,10 +599,11 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
     }, [task, vm, unit, stage]);
 
     useEffect(() => {
-        if (!unlocked || autoLoaded.has(task.code)) return;
-        autoLoaded.add(task.code);
+        const key = autoLoadKey(studentId, task.code);
+        if (!unlocked || autoLoaded.has(key)) return;
+        autoLoaded.add(key);
         loadStageProject();
-    }, [unlocked, task.code, loadStageProject]);
+    }, [unlocked, studentId, task.code, loadStageProject]);
 
     useEffect(() => {
         if (unlocked && stage === 'VA') recordExposure('virtual-data', `${task.unit}-groups`);
