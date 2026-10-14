@@ -26,7 +26,8 @@
     "test:smoke": "jest --runInBand test[\\\\/]smoke",
     "watch": "webpack --colors --watch",
     "tutor:serve": "node scripts/tutor/server.mjs",
-    "tutor:test": "node --test scripts/tutor/tutor.test.mjs scripts/tutor/tutor-connection.test.mjs scripts/tutor/menu-bar-controls.test.mjs scripts/tutor/floating-tutor.test.mjs scripts/tutor/tutor-highlight.test.mjs scripts/tutor/learning-records.test.mjs scripts/tutor/learning-records-v2.test.mjs scripts/tutor/grading-records.test.mjs scripts/tutor/teacher-settings.test.mjs scripts/tutor/lan-mode.test.mjs scripts/tutor/teacher-analysis.test.mjs scripts/tutor/dependency-analysis.test.mjs scripts/tutor/reflection.test.mjs scripts/tutor/teacher-dashboard.test.mjs scripts/tutor/conjecture-records.test.mjs scripts/tutor/conjecture-panel.test.mjs"
+    "conjecture:sb3": "node scripts/conjecture-dev-tools/build-c2-1-sb3.js",
+    "tutor:test": "node --test scripts/tutor/tutor.test.mjs scripts/tutor/tutor-connection.test.mjs scripts/tutor/menu-bar-controls.test.mjs scripts/tutor/floating-tutor.test.mjs scripts/tutor/tutor-highlight.test.mjs scripts/tutor/learning-records.test.mjs scripts/tutor/learning-records-v2.test.mjs scripts/tutor/grading-records.test.mjs scripts/tutor/teacher-settings.test.mjs scripts/tutor/lan-mode.test.mjs scripts/tutor/teacher-analysis.test.mjs scripts/tutor/dependency-analysis.test.mjs scripts/tutor/reflection.test.mjs scripts/tutor/teacher-dashboard.test.mjs scripts/tutor/conjecture-records.test.mjs scripts/tutor/conjecture-panel.test.mjs scripts/tutor/conjecture-sb3.test.mjs"
   },
   "config": {
     "commitizen": {
