@@ -161,6 +161,20 @@ const STAGE_FAILURES = {
     exposure: '接觸紀錄沒有保存成功；不影響操作。'
 };
 const postStageRecord = record => postRecord(record, STAGE_FAILURES[record.type] || '紀錄沒有保存成功，請回報教師。');
+// 需要知道「伺服器真的保存了」的呼叫端用這個版本（例如先確認作品存在，才記下查老師回饋用的 id）。
+const postStageRecordResult = async record => {
+    const failure = STAGE_FAILURES[record.type] || '紀錄沒有保存成功，請回報教師。';
+    try {
+        const response = await fetch('./api/records', {method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(record)});
+        if (!response.ok) return {saved: false, text: failure};
+        const recording = (await response.json()).recording;
+        return {saved: Boolean(recording && recording.status === 'saved_local'), text: recordingText(recording)};
+    } catch (e) {
+        return {saved: false, text: failure};
+    }
+};
 module.exports = {useStudentIdentity,
     setStudentId,
     validStudentId,
@@ -174,6 +188,7 @@ module.exports = {useStudentIdentity,
     postOpenRecord,
     postSkipReflection,
     postStageRecord,
+    postStageRecordResult,
     hasReflected,
     markReflected,
     notifyProjectOpened,

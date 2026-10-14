@@ -372,3 +372,104 @@ test('證實：完成時記下作品 id；老師「請再說明」的附註會�
     act(() => node.unmount());
     vm.quit();
 });
+
+// ---- P6 外審 R4b 四點的回歸測試 ----
+const juReadyProgress = (storage, studentId, extra = {}) => {
+    let progress = progressLib.emptyProgress('C2-1');
+    progress = progressLib.applyCompletion(progress, 'EX', progressLib.completeStage('EX', EX_DRAFT, unit));
+    for (const stage of ['CG', 'VA', 'GE']) {
+        progress.gates[stage] = {activityDone: true, reasoningStatus: 'not_applicable', checks: []};
+    }
+    progress.drafts.JU = {text: '因為每一包 10 都能平分，所以只看零散的。'};
+    progressLib.saveProgress(studentId, {...progress, ...extra}, storage);
+};
+
+test('R4b-1：作品沒有保存成功時不記下 id、不查回饋；保存成功後才查', async t => {
+    const oldWindow = globalThis.window, oldFetch = globalThis.fetch;
+    t.after(() => {
+        globalThis.window = oldWindow; globalThis.fetch = oldFetch; act(() => setStudentId(''));
+    });
+    const storage = memoryStorage();
+    juReadyProgress(storage, 'S11');
+    const events = [];
+    let artifactOk = false;
+    globalThis.window = {localStorage: storage};
+    globalThis.fetch = async (url, options) => {
+        if (url === './api/records') {
+            const body = JSON.parse(options.body);
+            events.push(`post-${body.type}`);
+            if (body.type === 'artifact' && !artifactOk) return new Response('{}', {status: 500});
+            return new Response(JSON.stringify({recording: {status: 'saved_local'}}));
+        }
+        if (String(url).startsWith('./api/student/reasoning-feedback')) {
+            events.push('query');
+            return new Response(JSON.stringify({review: null}));
+        }
+        return new Response('', {status: 404});
+    };
+    act(() => setStudentId('S11'));
+    const vm = new VM();
+    vm.toJSON = () => JSON.stringify({targets: [{name: '積木', blocks: {}}]});
+    let node;
+    await act(async () => {
+        node = create(React.createElement(ConjecturePanel, {vm, task: taskFor('JU'), studentId: 'S11', onSelectTask: () => {}}));
+    });
+    const complete = () => node.root.findAll(n => n.type === 'button' && n.props.children === '完成本階段')[0];
+    await act(async () => complete().props.onClick());
+    await act(async () => new Promise(r => setTimeout(r, 20)));
+    assert.equal(progressLib.loadProgress('S11', 'C2-1', storage).artifactIds?.JU, undefined);
+    assert.equal(events.includes('query'), false);
+    artifactOk = true;
+    events.length = 0;
+    await act(async () => complete().props.onClick());
+    await act(async () => new Promise(r => setTimeout(r, 20)));
+    assert.ok(progressLib.loadProgress('S11', 'C2-1', storage).artifactIds.JU);
+    assert.ok(events.indexOf('query') > events.indexOf('post-artifact'));
+    act(() => node.unmount());
+    vm.quit();
+});
+
+test('R4b-2／3／4：換學生代號清掉前一位的回饋、不拿舊作品 id 配新代號查詢；查詢失敗清掉舊回饋', async t => {
+    const oldWindow = globalThis.window, oldFetch = globalThis.fetch;
+    t.after(() => {
+        globalThis.window = oldWindow; globalThis.fetch = oldFetch;
+    });
+    const storage = memoryStorage();
+    juReadyProgress(storage, 'S12', {artifactIds: {JU: 'artifact-s12-0001'}});
+    juReadyProgress(storage, 'S13');
+    const queries = [];
+    let failQueries = false;
+    globalThis.window = {localStorage: storage};
+    globalThis.fetch = async url => {
+        if (String(url).startsWith('./api/student/reasoning-feedback')) {
+            queries.push(String(url));
+            if (failQueries) throw new Error('offline');
+            return new Response(JSON.stringify({review: {status: 'needs_work', note: 'S12 的私人附註', reviewedAt: 'x'}}));
+        }
+        return new Response('', {status: 404});
+    };
+    const vm = new VM();
+    let node;
+    const props = studentId => ({vm, task: taskFor('JU'), studentId, onSelectTask: () => {}});
+    await act(async () => {
+        node = create(React.createElement(ConjecturePanel, props('S12')));
+    });
+    await act(async () => new Promise(r => setTimeout(r, 20)));
+    assert.ok(JSON.stringify(node.toJSON()).includes('S12 的私人附註'));
+    // R4b-4：查詢失敗時舊回饋要清掉。
+    failQueries = true;
+    const recheck = node.root.findAll(n => n.type === 'button' && n.props.children === '重新查看老師回饋')[0];
+    await act(async () => recheck.props.onClick());
+    assert.equal(JSON.stringify(node.toJSON()).includes('S12 的私人附註'), false);
+    failQueries = false;
+    await act(async () => recheck.props.onClick());
+    assert.ok(JSON.stringify(node.toJSON()).includes('S12 的私人附註'));
+    // R4b-2／3：同一個面板換成 S13（沒有證實作品）。
+    queries.length = 0;
+    await act(async () => node.update(React.createElement(ConjecturePanel, props('S13'))));
+    await act(async () => new Promise(r => setTimeout(r, 20)));
+    assert.equal(JSON.stringify(node.toJSON()).includes('S12 的私人附註'), false);
+    assert.equal(queries.some(q => q.includes('studentId=S13')), false);
+    act(() => node.unmount());
+    vm.quit();
+});

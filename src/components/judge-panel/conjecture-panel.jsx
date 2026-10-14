@@ -4,7 +4,8 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import PropTypes from 'prop-types';
 import conjectureStageView from '../../lib/conjecture-stage-view.js';
 import styles from './conjecture-panel.css';
-import {validStudentId, newRecordId, safeProgram, recordContext, postStageRecord} from '../../lib/learning-records.js';
+import {validStudentId, newRecordId, safeProgram, recordContext, postStageRecord, postStageRecordResult}
+    from '../../lib/learning-records.js';
 import {STAGES, STAGE_LABELS} from '../../lib/conjecture-artifact.js';
 import {loadProgress, saveProgress, isUnlocked, checkStage, completeStage, applyCompletion,
     looksLikeEnumeration, CHECK_LABELS} from '../../lib/conjecture-progress.js';
@@ -536,7 +537,9 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
     const unit = UNITS[task.unit];
     const stage = task.stage;
     const storage = getStorage();
-    const [progress, setProgress] = useState(() => loadProgress(studentId, task.unit, storage));
+    // progress.owner 標明這份進度屬於哪個學生代號：代號切換時，舊進度不會被拿去搭配新代號查詢（P6 外審 R4b）。
+    const [progress, setProgress] = useState(() =>
+        ({...loadProgress(studentId, task.unit, storage), owner: studentId}));
     const [loadStatus, setLoadStatus] = useState('');
     const [feedback, setFeedback] = useState(null);
     const [feedbackStatus, setFeedbackStatus] = useState('');
@@ -544,8 +547,13 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
     const progressRef = useRef(progress);
     progressRef.current = progress;
 
+    const feedbackSeq = useRef(0);
     useEffect(() => {
-        setProgress(loadProgress(studentId, task.unit, storage));
+        setProgress({...loadProgress(studentId, task.unit, storage), owner: studentId});
+        // 換學生代號：清掉前一位學生的老師回饋，作廢還在路上的查詢。
+        feedbackSeq.current++;
+        setFeedback(null);
+        setFeedbackStatus('');
     }, [studentId, task.unit]);
 
     useEffect(() => {
@@ -560,9 +568,9 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
         setWork(task.code, describeDraft(stage, draft, progress.artifacts));
     }, [task.code, stage, draft, progress.artifacts]);
 
-    const send = useCallback((type, payload, recordId = newRecordId()) => {
+    const send = useCallback((type, payload, recordId = newRecordId(), poster = postStageRecord) => {
         if (!validStudentId(studentId)) return Promise.resolve('未記錄：請先填寫有效的學生代號（作品仍保存在這台電腦）。');
-        return postStageRecord({id: recordId,
+        return poster({id: recordId,
             studentId,
             type,
             status: 'completed',
@@ -630,20 +638,29 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
             setMessage('還有欄位沒填完整，先看看上面的檢核點。');
             return;
         }
-        // 記下這份作品的紀錄 id：學生之後用它查老師回饋（id 只存在自己的瀏覽器）。
         const artifactId = newRecordId();
         const completed = applyCompletion(progressRef.current, stage, result);
-        const updated = validStudentId(studentId) ?
-            {...completed, artifactIds: {...(completed.artifactIds || {}), [stage]: artifactId}} : completed;
-        setProgress(updated);
-        saveProgress(studentId, updated, storage);
-        if (stage === 'JU') setFeedback(null);
+        setProgress(completed);
+        saveProgress(studentId, completed, storage);
+        if (stage === 'JU') {
+            feedbackSeq.current++;
+            setFeedback(null);
+            setFeedbackStatus('');
+        }
         let program;
         try {
             program = safeProgram(vm, apiKey);
         } catch (e) { /* 程式過大或含金鑰時不附程式快照，作品照常保存。 */ }
-        const artifactStatus = await send('artifact', {artifact: result.artifact, ...(program ? {program} : {})},
-            artifactId);
+        const sent = await send('artifact', {artifact: result.artifact, ...(program ? {program} : {})},
+            artifactId, postStageRecordResult);
+        const artifactStatus = typeof sent === 'string' ? sent : sent.text;
+        // 伺服器確認保存後，才記下作品 id 供之後查老師回饋（id 只存在自己的瀏覽器；P6 外審 R4b）。
+        if (typeof sent === 'object' && sent.saved) {
+            const latest = progressRef.current;
+            const withId = {...latest, artifactIds: {...(latest.artifactIds || {}), [stage]: artifactId}};
+            setProgress(withId);
+            saveProgress(studentId, withId, storage);
+        }
         await send('gate', {gate: result.gate});
         const base = result.gate.activityDone ?
             (stage === 'JU' ? '已完成五個階段的活動。你的理由會標成「說理待補」，請和導師、老師一起確認。' :
@@ -653,23 +670,34 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
     };
 
     // 證實階段：查詢老師對最近一份作品的回饋（請再說明／確認）。
-    const juArtifactId = progress.artifactIds && progress.artifactIds.JU;
+    // 只使用屬於目前學生代號的進度裡的作品 id。
+    const juArtifactId = progress.owner === studentId && progress.artifactIds ? progress.artifactIds.JU : null;
     const loadFeedback = useCallback(async () => {
-        if (stage !== 'JU' || !juArtifactId || !validStudentId(studentId)) return;
+        const seq = ++feedbackSeq.current;
+        const current = () => seq === feedbackSeq.current;
+        if (stage !== 'JU' || !juArtifactId || !validStudentId(studentId)) {
+            setFeedback(null);
+            setFeedbackStatus('');
+            return;
+        }
         setFeedbackStatus('查看老師回饋中…');
         try {
             const query = `artifactId=${encodeURIComponent(juArtifactId)}&studentId=${encodeURIComponent(studentId)}`;
             const response = await fetch(`./api/student/reasoning-feedback?${query}`);
+            if (!current()) return;
             if (response.status === 404) {
                 setFeedback(null);
-                setFeedbackStatus('老師還看不到這份理由（可能還沒保存成功），請稍後再查。');
+                setFeedbackStatus('老師還看不到這份理由，請稍後再查。');
                 return;
             }
             if (!response.ok) throw new Error('fail');
             const data = await response.json();
+            if (!current()) return;
             setFeedback(data.review);
             setFeedbackStatus(data.review ? '' : '老師還沒看你的理由。');
         } catch (e) {
+            if (!current()) return;
+            setFeedback(null);
             setFeedbackStatus('現在查不到老師回饋（可能沒有連上本機服務）。');
         }
     }, [stage, juArtifactId, studentId]);
