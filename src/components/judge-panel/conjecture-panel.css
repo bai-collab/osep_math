@@ -1,0 +1,261 @@
+/* osep_math 臆測五階段任務面板 */
+.panel {
+    padding: 0.75rem 1rem 2rem;
+    overflow-y: auto;
+    flex: 1;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.stepper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.step {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #2457a7;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #2457a7;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.step-active {
+    composes: step;
+    background: #2457a7;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.step-locked {
+    composes: step;
+    border-color: #bbbbbb;
+    color: #999999;
+    cursor: not-allowed;
+}
+
+.goal {
+    margin: 0 0 0.25rem;
+    font-weight: bold;
+}
+
+.task-text {
+    margin: 0 0 0.5rem;
+}
+
+.checklist {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.75rem;
+}
+
+.check-met {
+    color: #1a7f37;
+}
+
+.check-pending {
+    color: #666666;
+}
+
+.form {
+    margin-bottom: 0.75rem;
+}
+
+.card {
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    background: #fbfcfe;
+}
+
+.card-title {
+    margin: 0.5rem 0 0.25rem;
+    font-size: 0.95rem;
+}
+
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.3rem 0;
+}
+
+.sentence {
+    composes: row;
+}
+
+.label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin: 0.4rem 0;
+}
+
+.input {
+    padding: 0.3rem 0.4rem;
+    border: 1px solid #aab4c0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    min-width: 6rem;
+}
+
+.textarea {
+    composes: input;
+    min-height: 4rem;
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+.radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin-right: 0.5rem;
+}
+
+.small-button {
+    padding: 0.25rem 0.6rem;
+    border: 1px solid #2457a7;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #2457a7;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.small-button:disabled {
+    border-color: #bbbbbb;
+    color: #999999;
+    cursor: not-allowed;
+}
+
+.complete-button {
+    display: block;
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    border: none;
+    border-radius: 6px;
+    background: #2457a7;
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin: 0.3rem 0;
+}
+
+.chip-student {
+    padding: 0.15rem 0.5rem;
+    border: 1px solid #1a7f37;
+    border-radius: 999px;
+    background: #e6f4ea;
+    color: #1a7f37;
+    cursor: pointer;
+}
+
+.chip-program {
+    composes: chip-student;
+    border-color: #6e7781;
+    background: #f0f2f4;
+    color: #444c56;
+}
+
+.digits {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.25rem;
+}
+
+.digit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.2rem;
+    border: 1px solid #aab4c0;
+    border-radius: 6px;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.digit-appeared {
+    composes: digit;
+    border-color: #1a7f37;
+    background: #e6f4ea;
+}
+
+.digit-not-appeared {
+    composes: digit;
+    border-color: #9a6700;
+    background: #fff8c5;
+}
+
+.digit-number {
+    font-size: 1.1rem;
+    font-weight: bold;
+}
+
+.digit-state {
+    font-size: 0.7rem;
+}
+
+.divisor {
+    display: inline-block;
+    width: 2rem;
+    font-weight: bold;
+}
+
+.data-line {
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+.test-list {
+    margin: 0.3rem 0;
+    padding-left: 1.2rem;
+}
+
+.preview {
+    margin: 0.4rem 0;
+    padding: 0.4rem 0.6rem;
+    border-left: 4px solid #2457a7;
+    background: #f3f6fb;
+}
+
+.hint {
+    margin: 0.3rem 0;
+    color: #57606a;
+    font-size: 0.8rem;
+}
+
+.warning {
+    margin: 0.3rem 0;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    background: #fff8c5;
+    color: #6f4e00;
+}
+
+.message {
+    margin: 0.5rem 0;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    background: #e6f4ea;
+    color: #1a4d2e;
+}
+
+.locked {
+    color: #666666;
+}

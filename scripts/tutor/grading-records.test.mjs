@@ -23,6 +23,8 @@ new Function('require', 'module', 'exports', code)(name => {
     if (name === './task-list.jsx') return {__esModule: true, default: ({onSelectTask}) =>
         React.createElement('button', {onClick: () => onSelectTask('q1')}, '選測試題')};
     if (name === './tutor-tab.jsx') return {__esModule: true, default: props => {tutorProps.current = props; return null;}};
+    // osep_math 階段面板另有 conjecture-panel.test.mjs；一般題目路徑不會渲染它。
+    if (name === './conjecture-panel.jsx') return {__esModule: true, default: () => null};
     if (name === './floating-tutor.jsx') return {__esModule: true, default: props => {
         tutorProps.open = props.open;
         return props.children;

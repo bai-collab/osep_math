@@ -1,8 +1,18 @@
 /**
- * osep_math 單元／階段清單（輕量資料）。
+ * osep_math 單元／階段清單（輕量資料：只有課程與階段標題）。
  *
- * P5a（2026-10-14）已移除 osep-judge 的縣市賽與 M0~M3 題庫；
- * P5c 會在這裡加入「②-1 個位規律」單元與五個階段（EX/CG/VA/GE/JU）。
- * 完整階段內容放在 ./courses/{code}.js，由 index.js 動態載入。
+ * 每個單元的完整階段內容放在 ./courses/{code}.js，由 index.js 動態載入；
+ * 單元正本在 src/lib/conjecture-units/。沒有 unlockCode 的課程視為公開（task-list.jsx）。
  */
-export default [];
+import c21 from '../conjecture-units/c2-1.js';
+
+const light = unit => {
+    const course = unit.toCourse();
+    return {
+        code: course.code,
+        title: course.title,
+        tasks: course.tasks.map(({id, code, title}) => ({id, code, title}))
+    };
+};
+
+export default [light(c21)];

@@ -385,3 +385,39 @@ $fade-out-distance: 15px;
     /* overridden by JS; this will be used if the browser can't understand that color */
     background-color: white;
 }
+
+/*
+ * osep_math：臆測任務的舞台浮動視窗（見src/lib/conjecture-stage-view.js）。
+ * 固定在題目面板左側、積木區右下角；寬度跟著面板寬度的CSS變數（resizable-judge-panel.jsx設定）。
+ * 舞台維持large尺寸與完整版面，不用display:none（canvas 0寬度會crash，見上方hidden-stage說明）。
+ */
+.conjecture-stage {
+    position: fixed;
+    right: calc(var(--osep-judge-panel-width, 400px) + 16px);
+    bottom: 16px;
+    z-index: 500;
+    background: #ffffff;
+    border: 2px solid #2457a7;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.conjecture-stage-toggle {
+    position: fixed;
+    right: calc(var(--osep-judge-panel-width, 400px) + 16px);
+    bottom: 430px;
+    z-index: 501;
+    padding: 4px 10px;
+    border: 1px solid #2457a7;
+    border-radius: 6px;
+    background: #2457a7;
+    color: #ffffff;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.conjecture-stage-toggle-collapsed {
+    composes: conjecture-stage-toggle;
+    bottom: 16px;
+}

@@ -22,6 +22,7 @@ import BackdropLibrary from '../../containers/backdrop-library.jsx';
 import Watermark from '../../containers/watermark.jsx';
 import ResizableJudgePanel from '../judge-panel/resizable-judge-panel.jsx';
 import judgeManualRun from '../../lib/judge-manual-run.js';
+import conjectureStageView from '../../lib/conjecture-stage-view.js';
 
 import Backpack from '../../containers/backpack.jsx';
 import BrowserModal from '../browser-modal/browser-modal.jsx';
@@ -167,6 +168,13 @@ const GUIComponent = props => {
     // MVP-33手動測試模式：見src/lib/judge-manual-run.js的說明。
     const [manualRunStageVisible, setManualRunStageVisible] = React.useState(judgeManualRun.isVisible());
     React.useEffect(() => judgeManualRun.subscribe(setManualRunStageVisible), []);
+    // osep_math：臆測任務需要看得到舞台（百數表、虛擬組員、位值表徵），見conjecture-stage-view.js。
+    const [conjectureStage, setConjectureStage] = React.useState(conjectureStageView.getState());
+    React.useEffect(() => conjectureStageView.subscribe(setConjectureStage), []);
+    const conjectureStageShown = !manualRunStageVisible && conjectureStage.visible && !conjectureStage.collapsed;
+    const handleToggleConjectureStage = React.useCallback(() => {
+        conjectureStageView.setCollapsed(!conjectureStageView.getState().collapsed);
+    }, []);
 
     if (children) {
         return <Box {...componentProps}>{children}</Box>;
@@ -400,7 +408,18 @@ const GUIComponent = props => {
                             2026-08-04：「自行測試」分頁手動測試時，透過judge-manual-run.js暫時把舞台
                             顯示成浮動視窗，讓「詢問並等待」的原生輸入框能真的跳出來、跟真正Scratch
                             操作一樣（見judge-panel.jsx的SelfTestTab）。*/}
-                        <Box className={manualRunStageVisible ? styles.manualRunStage : styles.hiddenStage}>
+                        {conjectureStage.visible && !manualRunStageVisible ? (
+                            <button
+                                className={conjectureStage.collapsed ? styles.conjectureStageToggleCollapsed :
+                                    styles.conjectureStageToggle}
+                                type="button"
+                                onClick={handleToggleConjectureStage}
+                            >{conjectureStage.collapsed ? '展開舞台' : '收合舞台'}</button>
+                        ) : null}
+                        <Box
+                            className={manualRunStageVisible ? styles.manualRunStage :
+                                (conjectureStageShown ? styles.conjectureStage : styles.hiddenStage)}
+                        >
                             <Box className={manualRunStageVisible ? styles.manualRunStageViewport : undefined}>
                                 <StageWrapper
                                     isFullScreen={isFullScreen}

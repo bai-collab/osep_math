@@ -106,6 +106,11 @@ const ResizableJudgePanel = ({vm}) => {
     // 變」（使用者回報過的現象）。
     useEffect(() => {
         window.dispatchEvent(new Event('resize'));
+        // osep_math：臆測任務的浮動舞台貼在面板左側，需要知道面板目前寬度（見gui.css的.conjecture-stage）。
+        if (document.documentElement && document.documentElement.style) {
+            document.documentElement.style.setProperty('--osep-judge-panel-width',
+                `${collapsed ? COLLAPSED_WIDTH : width}px`);
+        }
     }, [width, collapsed]);
 
     const startDragging = event => {

@@ -7,6 +7,7 @@ import judgeManualRun from '../../lib/judge-manual-run.js';
 import TaskList, {CourseTaskList} from './task-list.jsx';
 import TutorTab from './tutor-tab.jsx';
 import FloatingTutor from './floating-tutor.jsx';
+import ConjecturePanel from './conjecture-panel.jsx';
 import {useTutorConnection, isTutorServicePage} from '../../lib/tutor-connection.js';
 import styles from './judge-panel.css';
 import {useStudentIdentity, validStudentId, newRecordId, safeProgram,
@@ -699,6 +700,76 @@ const JudgePanel = ({vm}) => {
         );
     }
 
+    const tutorWindow = (
+        <FloatingTutor
+            key={task.code}
+            minimized={tutorMinimized}
+            mode={tutorMode}
+            open={tutorOpen}
+            onClose={handleTutorClose}
+            onMinimize={handleTutorMinimize}
+            onRestore={handleTutorOpen}
+        >
+            <TutorTab
+                apiKey={tutorApiKey}
+                connection={tutorConnection}
+                grading={grading.taskCode === task.code ? grading : null}
+                key={task.code}
+                mode={tutorMode}
+                reflectionRequest={reflectionRequest}
+                task={task}
+                visible={tutorOpen && !tutorMinimized}
+                onReflectionDone={handleReflectionDone}
+                vm={vm}
+            />
+        </FloatingTutor>
+    );
+    const tutorButton = (
+        <button
+            className={tutorOpen ? styles.tabButtonActive : styles.tabButton}
+            aria-controls="floating-tutor-window"
+            aria-expanded={tutorOpen && !tutorMinimized}
+            aria-haspopup="dialog"
+            ref={tutorOpenerRef}
+            type="button"
+            onClick={handleTutorOpen}
+        >{'解題導師'}</button>
+    );
+
+    const backButton = (
+        <button
+            className={styles.backButton}
+            onClick={handleBackFromTask}
+        >
+            ← 上一頁
+        </button>
+    );
+    // osep_math：臆測五階段任務改用階段面板（作品表單＋檢核點），不顯示一般題目的評分分頁。
+    if (task.kind === 'conjecture') {
+        return (
+            <React.Fragment>
+                <div className={styles.judgePanel}>
+                    <div className={styles.header}>
+                        <div className={styles.headerLeft}>
+                            {backButton}
+                            <span className={styles.taskTitle}>{task.title}</span>
+                        </div>
+                    </div>
+                    <div className={styles.tabBar}>{tutorButton}</div>
+                    <ConjecturePanel
+                        apiKey={tutorApiKey}
+                        key={task.code}
+                        studentId={studentId}
+                        task={task}
+                        vm={vm}
+                        onSelectTask={setSelectedTaskCode}
+                    />
+                </div>
+                {tutorWindow}
+            </React.Fragment>
+        );
+    }
+
     const scoreLabel = grading.totalScore === null ? '尚未評分' : `${grading.totalScore} / ${grading.maxScore}`;
 
     return (
@@ -706,12 +777,7 @@ const JudgePanel = ({vm}) => {
             <div className={styles.judgePanel}>
                 <div className={styles.header}>
                     <div className={styles.headerLeft}>
-                        <button
-                            className={styles.backButton}
-                            onClick={handleBackFromTask}
-                        >
-                            ← 上一頁
-                        </button>
+                        {backButton}
                         <span className={styles.taskTitle}>{task.title}</span>
                         {demoLoaded ? (
                             <span className={styles.headerDemoTag}>載入範例中</span>
@@ -730,15 +796,7 @@ const JudgePanel = ({vm}) => {
                             onSelect={handleTab}
                         />
                     ))}
-                    <button
-                        className={tutorOpen ? styles.tabButtonActive : styles.tabButton}
-                        aria-controls="floating-tutor-window"
-                        aria-expanded={tutorOpen && !tutorMinimized}
-                        aria-haspopup="dialog"
-                        ref={tutorOpenerRef}
-                        type="button"
-                        onClick={handleTutorOpen}
-                    >{'解題導師'}</button>
+                    {tutorButton}
                 </div>
                 {recordStatus && <p
                     className={styles.recordNotice}
@@ -766,28 +824,7 @@ const JudgePanel = ({vm}) => {
                 )}
                 {activeTab === 'history' && <HistoryTab history={history} />}
             </div>
-            <FloatingTutor
-                key={task.code}
-                minimized={tutorMinimized}
-                mode={tutorMode}
-                open={tutorOpen}
-                onClose={handleTutorClose}
-                onMinimize={handleTutorMinimize}
-                onRestore={handleTutorOpen}
-            >
-                <TutorTab
-                    apiKey={tutorApiKey}
-                    connection={tutorConnection}
-                    grading={grading.taskCode === task.code ? grading : null}
-                    key={task.code}
-                    mode={tutorMode}
-                    reflectionRequest={reflectionRequest}
-                    task={task}
-                    visible={tutorOpen && !tutorMinimized}
-                    onReflectionDone={handleReflectionDone}
-                    vm={vm}
-                />
-            </FloatingTutor>
+            {tutorWindow}
         </React.Fragment>
     );
 };
