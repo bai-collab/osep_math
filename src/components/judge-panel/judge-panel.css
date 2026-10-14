@@ -1,0 +1,549 @@
+@import "../../css/units.css";
+@import "../../css/colors.css";
+
+.judge-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    background-color: $ui-white;
+    border: 1px solid $ui-black-transparent;
+    border-radius: $form-radius;
+    overflow: hidden;
+}
+
+/* 2026-09-05：可調整寬度／可收合的外層容器（見resizable-judge-panel.jsx）。取代gui.css
+   原本寫死width:400px的.judge-panel-wrapper。 */
+.judge-panel-resizable-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    flex-shrink: 0;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.judge-panel-collapse-toggle {
+    width: 20px;
+    flex-shrink: 0;
+    border: none;
+    border-left: 1px solid $ui-black-transparent;
+    background: $ui-white;
+    color: $text-primary-transparent;
+    cursor: pointer;
+    font-size: 0.7rem;
+    padding: 0;
+}
+
+.judge-panel-collapse-toggle:hover {
+    background: $looks-secondary;
+    color: $ui-white;
+}
+
+.judge-panel-resize-handle {
+    width: 6px;
+    flex-shrink: 0;
+    cursor: col-resize;
+    background: transparent;
+}
+
+.judge-panel-resize-handle:hover {
+    background: $ui-black-transparent;
+}
+
+.judge-panel-inner {
+    flex-grow: 1;
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    padding-left: $space;
+    padding-right: $space;
+    padding-top: $space;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.header {
+    flex-shrink: 0;
+    padding: $space;
+    background-color: $looks-secondary;
+    color: $ui-white;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: $space;
+    min-width: 0;
+}
+
+.task-title {
+    font-size: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.score-badge {
+    font-size: 0.85rem;
+    font-weight: normal;
+    white-space: nowrap;
+}
+.record-controls {padding: 12px; margin: 8px; border: 2px solid; border-radius: 8px; font-size: 14px; flex-shrink: 0;}
+.record-required {background: #fff4dc; border-color: #b35a00; color: #653300;}
+.record-ready {background: #eef8f1; border-color: #297447; color: #17492c;}
+.record-controls p {margin: 0 0 8px; overflow-wrap: anywhere;}
+.record-controls strong {font-size: 16px;}
+.record-controls span {display: block; margin-top: 4px; font-weight: bold;}
+.record-controls input {display: block; box-sizing: border-box; width: 100%; min-height: 44px; margin: 6px 0; padding: 8px; border: 2px solid #79512b; border-radius: 4px; background: white; color: #222; font-size: 16px;}
+.record-controls input:focus {outline: 3px solid #3578df; outline-offset: 2px;}
+.record-controls button {min-height: 44px; padding: 6px 12px; border: 1px solid #297447; border-radius: 4px; background: white; cursor: pointer; color: #17492c; font-size: 14px;}
+.record-controls button:disabled {cursor: default; opacity: 0.5;}
+.record-compact {display: flex; align-items: center; justify-content: space-between; gap: 8px;}
+.record-compact strong {min-width: 0; overflow-wrap: anywhere;}
+.record-compact button {flex-shrink: 0;}
+.record-notice {font-size: 12px; margin: 4px 8px;}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: $space;
+}
+
+.visit-counter {
+    font-size: 0.7rem;
+    font-weight: normal;
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+.back-button {
+    background: none;
+    border: 1px solid $ui-white-transparent;
+    color: $ui-white;
+    border-radius: $form-radius;
+    padding: calc($space / 4) calc($space / 2);
+    cursor: pointer;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.back-button:hover {
+    background: $ui-white-transparent;
+}
+
+.tab-bar {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 1px solid $ui-black-transparent;
+}
+
+.tab-button {
+    flex: 1;
+    min-width: 70px;
+    min-height: 40px;
+    padding: $space;
+    border: none;
+    background: $ui-tertiary;
+    color: $text-primary-transparent;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.tab-button:hover {
+    background: $ui-primary;
+}
+
+.tab-button-active {
+    composes: tab-button;
+    background: $ui-white;
+    color: $looks-secondary;
+    font-weight: bold;
+}
+
+.tab-content {
+    padding: $space;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.section-heading {
+    font-size: 0.9rem;
+    margin: $space 0;
+}
+
+.description {
+    white-space: pre-wrap;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+/*
+ * 2026-08-21：延伸學習連結，指到獨立部署的教學鷹架文件網站（tnjbox/teaching-scaffolds，
+ * 見../../lib/scaffold-content.js）。不是每個課程代碼都有對應文件，沒有的話
+ * scaffoldUrlForCourse()回傳null，這個連結就不會出現，不用另外判斷。
+ */
+.scaffold-link {
+    display: inline-block;
+    background: #eef2ff;
+    color: #3f51b5;
+    border: 1px solid #c5cae9;
+    border-radius: $form-radius;
+    padding: calc($space / 2) $space;
+    margin-bottom: $space;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.scaffold-link:hover {
+    background: #dde3fb;
+}
+
+.example-box {
+    background: $ui-tertiary;
+    border-radius: $form-radius;
+    padding: $space;
+    margin-bottom: $space;
+    font-size: 0.8rem;
+}
+
+.example-label {
+    font-weight: bold;
+    margin-bottom: calc($space / 2);
+}
+
+/*
+ * 2026-08-04：BlocklyYdws自己的範例呈現用<pre>保留換行（例如M1系列「第一行N，第二行N個
+ * 數字」的格式，或單純多次詢問「一次詢問一行」的格式）。osep-judge這裡原本是普通<div>，
+ * 瀏覽器預設white-space:normal會把資料裡的\n吃掉擠成一行，跟BlocklyYdws看到的不一樣。
+ * 這裡補上white-space: pre-wrap比照辦理，不用動資料本身（gen-judge-content.js已經是
+ * 逐字複製BlocklyYdws的examples欄位，資料格式本來就是對的）。
+ */
+.example-value {
+    white-space: pre-wrap;
+}
+
+.example-explanation {
+    white-space: pre-wrap;
+    color: $text-primary-transparent;
+}
+
+/*
+ * 2026-08-10：範例測資改用表格呈現（輸入/輸出/說明各一列），比原本三個各自獨立的
+ * <div>更清楚，一眼就能對齊看出每個欄位對應的內容。
+ */
+.example-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: calc($space / 2);
+}
+
+.example-table th,
+.example-table td {
+    border: 1px solid $ui-black-transparent;
+    padding: calc($space / 2);
+    text-align: left;
+    vertical-align: top;
+}
+
+.example-table th {
+    width: 3.5em;
+    white-space: nowrap;
+    background: $ui-secondary;
+}
+
+.placeholder {
+    color: $text-primary-transparent;
+    font-size: 0.85rem;
+}
+
+.run-button {
+    background: $looks-secondary;
+    color: $ui-white;
+    border: none;
+    border-radius: $form-radius;
+    padding: $space calc($space * 2);
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.run-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.results-box {
+    margin-top: $space;
+}
+
+.score-line {
+    font-weight: bold;
+    font-size: 1rem;
+    margin-bottom: $space;
+}
+
+.result-row {
+    display: flex;
+    gap: $space;
+    padding: calc($space / 2) 0;
+    font-size: 0.8rem;
+    border-bottom: 1px solid $ui-black-transparent;
+}
+
+.pass {
+    color: #2e7d32;
+    font-weight: bold;
+}
+
+.fail {
+    color: #c62828;
+    font-weight: bold;
+}
+
+.result-input {
+    color: $text-primary-transparent;
+}
+
+.error-box {
+    margin-top: $space;
+    color: #c62828;
+    font-size: 0.85rem;
+}
+
+.demo-button {
+    background: $ui-tertiary;
+    color: $text-primary;
+    border: 1px solid $ui-black-transparent;
+    border-radius: $form-radius;
+    padding: calc($space / 2) $space;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-top: $space;
+    font-weight: normal;
+}
+
+.demo-button:hover {
+    background: $ui-primary;
+}
+
+/*
+ * 2026-08-04：比照BlocklyYdws的規則——載入範例答案後可以評分但不代表是學生自己的作答，
+ * 老師從旁檢查時要能一眼看出目前畫布上的程式是不是「載入範例」載進來的，不能只看
+ * 底下小字狀態訊息（太不顯眼），按鈕本身顏色要明顯不一樣。
+ */
+.demo-button-loaded {
+    composes: demo-button;
+    background: #fff3cd;
+    border-color: #e0a800;
+    color: #7a5c00;
+    font-weight: bold;
+}
+
+.demo-button-loaded:hover {
+    background: #ffe8a1;
+}
+
+.self-test-output {
+    background: $ui-tertiary;
+    border-radius: $form-radius;
+    padding: $space;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    min-height: 2rem;
+    margin-bottom: $space;
+}
+
+/* 2026-08-04：評分分頁/歷史紀錄要能一眼看出這次評分是不是用「載入範例」的程式跑的。 */
+.demo-warning-banner {
+    background: #fff3cd;
+    border: 1px solid #e0a800;
+    color: #7a5c00;
+    border-radius: $form-radius;
+    padding: $space;
+    margin-bottom: $space;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.header-demo-tag {
+    background: #fff3cd;
+    color: #7a5c00;
+    border-radius: $form-radius;
+    padding: calc($space / 4) calc($space / 2);
+    font-size: 0.7rem;
+    font-weight: bold;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.history-demo-tag {
+    background: #fff3cd;
+    color: #7a5c00;
+    border-radius: $form-radius;
+    padding: calc($space / 4) calc($space / 2);
+    font-size: 0.7rem;
+    font-weight: bold;
+    margin-left: calc($space / 2);
+}
+
+.demo-notice {
+    margin-top: calc($space / 2);
+    font-size: 0.75rem;
+    color: $text-primary-transparent;
+}
+
+.demo-status {
+    margin-top: calc($space / 2);
+    font-size: 0.75rem;
+    color: $text-primary-transparent;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    padding: calc($space / 2) 0;
+    font-size: 0.8rem;
+    border-bottom: 1px solid $ui-black-transparent;
+}
+
+.history-time {
+    color: $text-primary-transparent;
+}
+
+.task-list {
+    padding: $space;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.course-group {
+    margin-bottom: calc($space * 1.5);
+}
+
+/* 2026-09-05：從題目詳情頁「返回題組」進到單一題組清單時用的返回按鈕（見task-list.jsx的
+   CourseTaskList）——跟header上白字的.back-button不同，這裡是淺色背景，所以用深色文字。 */
+.back-to-all-courses-button {
+    background: none;
+    border: 1px solid $ui-black-transparent;
+    border-radius: $form-radius;
+    padding: calc($space / 4) calc($space / 2);
+    margin-bottom: $space;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: $text-primary;
+}
+
+.back-to-all-courses-button:hover {
+    color: $looks-secondary;
+    border-color: $looks-secondary;
+}
+
+/* 2026-08-04：課程組代碼解鎖（版權保護，見task-list.jsx）。 */
+.course-title-locked {
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: calc($space / 2);
+    color: $text-primary-transparent;
+}
+
+.unlock-row {
+    display: flex;
+    gap: calc($space / 2);
+}
+
+.unlock-input {
+    flex-grow: 1;
+    box-sizing: border-box;
+    padding: calc($space / 2);
+    font-size: 0.85rem;
+    border: 1px solid $ui-black-transparent;
+    border-radius: $form-radius;
+}
+
+.unlock-button {
+    background: $looks-secondary;
+    color: $ui-white;
+    border: none;
+    border-radius: $form-radius;
+    padding: 0 $space;
+    cursor: pointer;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.unlock-error {
+    color: #c62828;
+    font-size: 0.75rem;
+    margin-top: calc($space / 4);
+}
+
+.course-title-button {
+    display: flex;
+    align-items: center;
+    gap: calc($space / 2);
+    width: 100%;
+    box-sizing: border-box;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: calc($space / 2);
+    font-weight: bold;
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    color: $text-primary;
+}
+
+.course-title-button:hover {
+    color: $looks-secondary;
+}
+
+.course-collapse-icon {
+    display: inline-block;
+    font-size: 0.7rem;
+    transform: rotate(90deg);
+    transition: transform 0.1s ease-out;
+    flex-shrink: 0;
+}
+
+.course-collapse-icon-collapsed {
+    composes: course-collapse-icon;
+    transform: rotate(0deg);
+}
+
+.task-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.task-item-button {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $space;
+    margin-bottom: calc($space / 2);
+    background: $ui-tertiary;
+    border: 1px solid $ui-black-transparent;
+    border-radius: $form-radius;
+    cursor: pointer;
+    font-size: 0.85rem;
+    text-align: left;
+}
+
+.task-item-button:hover {
+    background: $ui-primary;
+}
+
+.task-difficulty {
+    font-size: 0.7rem;
+    color: $text-primary-transparent;
+}
