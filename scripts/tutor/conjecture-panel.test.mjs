@@ -323,3 +323,52 @@ test('R3a-3：同一頁換學生代號後，新學生進入同一階段仍會自
     }
     assert.deepEqual(fetched, ['S05:https://x.invalid/EX.sb3', 'S06:https://x.invalid/EX.sb3']);
 });
+
+test('證實：完成時記下作品 id；老師「請再說明」的附註會顯示在學生面板', async t => {
+    const oldWindow = globalThis.window, oldFetch = globalThis.fetch;
+    t.after(() => {
+        globalThis.window = oldWindow; globalThis.fetch = oldFetch; act(() => setStudentId(''));
+    });
+    const storage = memoryStorage();
+    let progress = progressLib.emptyProgress('C2-1');
+    progress = progressLib.applyCompletion(progress, 'EX', progressLib.completeStage('EX', EX_DRAFT, unit));
+    for (const stage of ['CG', 'VA', 'GE']) {
+        progress.gates[stage] = {activityDone: true, reasoningStatus: 'not_applicable', checks: []};
+    }
+    progress.drafts.JU = {text: '因為每一包 10 都能平分，所以只看零散的。'};
+    progressLib.saveProgress('S08', progress, storage);
+    const records = [], queries = [];
+    globalThis.window = {localStorage: storage};
+    globalThis.fetch = async (url, options) => {
+        if (url === './api/records') {
+            records.push(JSON.parse(options.body));
+            return new Response(JSON.stringify({recording: {status: 'saved_local'}}));
+        }
+        if (String(url).startsWith('./api/student/reasoning-feedback')) {
+            queries.push(String(url));
+            return new Response(JSON.stringify({review: {status: 'needs_work', note: '請用包數說明', reviewedAt: '2026-10-14T00:00:00Z'}}));
+        }
+        return new Response('', {status: 404});
+    };
+    act(() => setStudentId('S08'));
+    const vm = new VM();
+    vm.toJSON = () => JSON.stringify({targets: [{name: '積木', blocks: {}}]});
+    let node;
+    await act(async () => {
+        node = create(React.createElement(ConjecturePanel, {vm, task: taskFor('JU'), studentId: 'S08', onSelectTask: () => {}}));
+    });
+    // 還沒完成證實時沒有作品 id，不查詢。
+    assert.deepEqual(queries, []);
+    const complete = node.root.findAll(n => n.type === 'button' && n.props.children === '完成本階段')[0];
+    await act(async () => complete.props.onClick());
+    const artifact = records.find(r => r.type === 'artifact');
+    assert.equal(progressLib.loadProgress('S08', 'C2-1', storage).artifactIds.JU, artifact.id);
+    await act(async () => {
+        await new Promise(r => setTimeout(r, 20));
+    });
+    assert.equal(queries.length, 1);
+    assert.ok(queries[0].includes(`artifactId=${artifact.id}`) && queries[0].includes('studentId=S08'));
+    assert.ok(JSON.stringify(node.toJSON()).includes('老師請你再說明：請用包數說明'));
+    act(() => node.unmount());
+    vm.quit();
+});

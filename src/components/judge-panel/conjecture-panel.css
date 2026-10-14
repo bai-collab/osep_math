@@ -259,3 +259,17 @@
 .locked {
     color: #666666;
 }
+
+.feedback {
+    margin: 0.5rem 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #1a7f37;
+    border-radius: 8px;
+    background: #e6f4ea;
+}
+
+.feedback-needs-work {
+    composes: feedback;
+    border-color: #9a6700;
+    background: #fff8c5;
+}

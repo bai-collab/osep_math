@@ -536,6 +536,8 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
     const storage = getStorage();
     const [progress, setProgress] = useState(() => loadProgress(studentId, task.unit, storage));
     const [loadStatus, setLoadStatus] = useState('');
+    const [feedback, setFeedback] = useState(null);
+    const [feedbackStatus, setFeedbackStatus] = useState('');
     const [message, setMessage] = useState('');
     const progressRef = useRef(progress);
     progressRef.current = progress;
@@ -556,9 +558,9 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
         setWork(task.code, describeDraft(stage, draft, progress.artifacts));
     }, [task.code, stage, draft, progress.artifacts]);
 
-    const send = useCallback((type, payload) => {
+    const send = useCallback((type, payload, recordId = newRecordId()) => {
         if (!validStudentId(studentId)) return Promise.resolve('未記錄：請先填寫有效的學生代號（作品仍保存在這台電腦）。');
-        return postStageRecord({id: newRecordId(),
+        return postStageRecord({id: recordId,
             studentId,
             type,
             status: 'completed',
@@ -626,14 +628,20 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
             setMessage('還有欄位沒填完整，先看看上面的檢核點。');
             return;
         }
-        const updated = applyCompletion(progressRef.current, stage, result);
+        // 記下這份作品的紀錄 id：學生之後用它查老師回饋（id 只存在自己的瀏覽器）。
+        const artifactId = newRecordId();
+        const completed = applyCompletion(progressRef.current, stage, result);
+        const updated = validStudentId(studentId) ?
+            {...completed, artifactIds: {...(completed.artifactIds || {}), [stage]: artifactId}} : completed;
         setProgress(updated);
         saveProgress(studentId, updated, storage);
+        if (stage === 'JU') setFeedback(null);
         let program;
         try {
             program = safeProgram(vm, apiKey);
         } catch (e) { /* 程式過大或含金鑰時不附程式快照，作品照常保存。 */ }
-        const artifactStatus = await send('artifact', {artifact: result.artifact, ...(program ? {program} : {})});
+        const artifactStatus = await send('artifact', {artifact: result.artifact, ...(program ? {program} : {})},
+            artifactId);
         await send('gate', {gate: result.gate});
         const base = result.gate.activityDone ?
             (stage === 'JU' ? '已完成五個階段的活動。你的理由會標成「說理待補」，請和導師、老師一起確認。' :
@@ -641,6 +649,31 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
             '作品已保存，但還有檢核點沒做到，完成後再按一次。';
         setMessage(`${base}${artifactStatus ? `（${artifactStatus}）` : ''}`);
     };
+
+    // 證實階段：查詢老師對最近一份作品的回饋（請再說明／確認）。
+    const juArtifactId = progress.artifactIds && progress.artifactIds.JU;
+    const loadFeedback = useCallback(async () => {
+        if (stage !== 'JU' || !juArtifactId || !validStudentId(studentId)) return;
+        setFeedbackStatus('查看老師回饋中…');
+        try {
+            const query = `artifactId=${encodeURIComponent(juArtifactId)}&studentId=${encodeURIComponent(studentId)}`;
+            const response = await fetch(`./api/student/reasoning-feedback?${query}`);
+            if (response.status === 404) {
+                setFeedback(null);
+                setFeedbackStatus('老師還看不到這份理由（可能還沒保存成功），請稍後再查。');
+                return;
+            }
+            if (!response.ok) throw new Error('fail');
+            const data = await response.json();
+            setFeedback(data.review);
+            setFeedbackStatus(data.review ? '' : '老師還沒看你的理由。');
+        } catch (e) {
+            setFeedbackStatus('現在查不到老師回饋（可能沒有連上本機服務）。');
+        }
+    }, [stage, juArtifactId, studentId]);
+    useEffect(() => {
+        loadFeedback();
+    }, [loadFeedback]);
 
     if (!unit) return <p className={styles.panel}>{'找不到這個單元的設定。'}</p>;
 
@@ -682,6 +715,28 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
                         aria-live="polite"
                         className={styles.hint}
                     >{loadStatus}</p> : null}
+                    {stage === 'JU' && juArtifactId ? (
+                        <section
+                            aria-live="polite"
+                            className={feedback && feedback.status === 'needs_work' ? styles.feedbackNeedsWork :
+                                styles.feedback}
+                        >
+                            <h4 className={styles.cardTitle}>{'老師回饋'}</h4>
+                            {feedback && feedback.status === 'needs_work' ? (
+                                <p>{`老師請你再說明${feedback.note ? `：${feedback.note}` : '。'}` +
+                                    '修改下面的理由後，再按一次「完成本階段」。'}</p>
+                            ) : null}
+                            {feedback && feedback.status === 'teacher_confirmed' ? (
+                                <p>{`✓ 老師確認了你的理由${feedback.note ? `：${feedback.note}` : '。'}`}</p>
+                            ) : null}
+                            {feedbackStatus ? <p className={styles.hint}>{feedbackStatus}</p> : null}
+                            <button
+                                className={styles.smallButton}
+                                type="button"
+                                onClick={loadFeedback}
+                            >{'重新查看老師回饋'}</button>
+                        </section>
+                    ) : null}
                     <h4 className={styles.cardTitle}>{'檢核點'}</h4>
                     <ChecklistView checks={checks} />
                     <div className={styles.form}>

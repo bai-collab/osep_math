@@ -162,6 +162,7 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
         (pathname === '/api/tutor/status' && method === 'GET') ||
         (pathname === '/api/tutor' && method === 'POST') ||
         (pathname === '/api/records' && method === 'POST') ||
+        (pathname === '/api/student/reasoning-feedback' && method === 'GET') ||
         (['GET', 'HEAD'].includes(method) && !/^\/api(?:\/|$)/i.test(pathname));
 
     const handle = async (kind, req, res) => {
@@ -240,6 +241,31 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
             try {
                 return json(res, 200, {review: await reviewStore.save(await readBody(req))});
             } catch { return json(res, 400, {error: '審查內容格式錯誤。'}); }
+        }
+        // osep_math：學生查詢自己證實作品的老師回饋。以作品紀錄的隨機 id 當憑證（只存在學生自己的瀏覽器），
+        // 並核對學生代號；只回傳狀態、附註與時間，不回傳任何其他紀錄。
+        if (url.pathname === '/api/student/reasoning-feedback') {
+            if (req.method !== 'GET') return json(res, 405, {error: '請用學生頁查詢。'});
+            if (req.headers['sec-fetch-site'] === 'cross-site') return json(res, 403, {error: '只接受本機來源。'});
+            if (!takeEntry(req)) return tooMany(res, '查詢太頻繁，請一分鐘後再試。');
+            if (!reasoningStore || !recordStore) return json(res, 503, {error: '老師回饋服務尚未啟用。'});
+            const artifactId = url.searchParams.get('artifactId') || '';
+            const studentId = url.searchParams.get('studentId') || '';
+            if (!/^[a-zA-Z0-9_-]{8,80}$/.test(artifactId) || !/^[\p{L}\p{N}_-]{1,40}$/u.test(studentId)) {
+                return json(res, 400, {error: '查詢格式錯誤。'});
+            }
+            let artifact;
+            try {
+                artifact = findJustificationArtifact(await recordStore.list(), artifactId);
+            } catch { return json(res, 503, {error: '無法讀取紀錄。'}); }
+            // 作品不存在或不屬於這位學生時，一律回同一個訊息，不透露作品是否存在。
+            if (!artifact || artifact.studentId !== studentId) return json(res, 404, {error: '找不到這份作品的回饋。'});
+            let review;
+            try {
+                review = (await reasoningStore.list())[artifactId];
+            } catch { return json(res, 503, {error: '無法讀取老師回饋。'}); }
+            return json(res, 200, {review: review ?
+                {status: review.status, note: review.note, reviewedAt: review.reviewedAt} : null});
         }
         // osep_math：教師確認「證實」階段的說理。只接受登入教師、同來源，且必須對應到既有的證實作品。
         if (url.pathname === '/api/teacher/reasoning-review') {

@@ -136,3 +136,48 @@ test('教師頁有臆測進度分頁，新模組在教師檔案白名單內', as
     const server = await fs.readFile(path.join(here, 'server.mjs'), 'utf8');
     assert.ok(server.includes("'conjecture-view.js'"));
 });
+
+test('學生查老師回饋：以作品 id 當憑證並核對學生代號；不需教師登入；不透露作品是否存在', async t => {
+    const dir = await directory(t);
+    const store = createRecordStore(dir);
+    const reasoningStore = createReasoningReviewStore(dir);
+    const server = createTutorServer({recordStore: store, reasoningStore, teacherPassword: 'fake-teacher-password'});
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise(resolve => {
+        server.closeAllConnections();
+        server.close(resolve);
+    }));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const get = (artifactId, studentId) => fetch(`${base}/api/student/reasoning-feedback?artifactId=${
+        encodeURIComponent(artifactId)}&studentId=${encodeURIComponent(studentId)}`);
+    const ju = cleanRecord(rec('artifact', 'JU', {artifact: ARTIFACT.JU}));
+    const cg = cleanRecord(rec('artifact', 'CG', {artifact: ARTIFACT.CG}));
+    await store.save(ju);
+    await store.save(cg);
+    let res = await get(ju.id, 'S01');
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).review, null);
+    await reasoningStore.save({artifactId: ju.id, status: 'needs_work', note: '請用包數說明為什麼不影響'});
+    res = await get(ju.id, 'S01');
+    const data = await res.json();
+    assert.deepEqual(Object.keys(data.review).sort(), ['note', 'reviewedAt', 'status']);
+    assert.equal(data.review.status, 'needs_work');
+    assert.equal(data.review.note, '請用包數說明為什麼不影響');
+    // 別的學生代號、非證實作品、不存在的 id 都回同樣的 404。
+    for (const [id, student] of [[ju.id, 'S02'], [cg.id, 'S01'], ['missing-123456', 'S01']]) {
+        res = await get(id, student);
+        assert.equal(res.status, 404);
+        assert.equal((await res.json()).error, '找不到這份作品的回饋。');
+    }
+    assert.equal((await get('bad id', 'S01')).status, 400);
+    assert.equal((await fetch(`${base}/api/student/reasoning-feedback`, {method: 'POST'})).status, 405);
+    assert.equal((await fetch(`${base}/api/student/reasoning-feedback?artifactId=${ju.id}&studentId=S01`,
+        {headers: {'Sec-Fetch-Site': 'cross-site'}})).status, 403);
+});
+
+test('區網學生頁可以查老師回饋（路由在學生白名單內），但仍不能送老師確認', async () => {
+    const source = await fs.readFile(path.join(here, 'server.mjs'), 'utf8');
+    const whitelist = source.slice(source.indexOf('const lanStudentRoute'), source.indexOf('const handle = async'));
+    assert.ok(whitelist.includes("'/api/student/reasoning-feedback' && method === 'GET'"));
+    assert.equal(whitelist.includes('reasoning-review'), false);
+});
