@@ -88,6 +88,16 @@ test('提示只含本階段的學生可見內容，不含結論、理由或名�
     assert.equal(stageRuleFor('114EKeelung-1'), null);
 });
 
+test('證實階段的提示寫明表徵事實：改包數時零散不變，追問要問整個數的剩餘（2026-10-14 真模型測試發現的誤導追問）', () => {
+    const prompt = stageInstructions(stageRuleFor('C2-1-JU'));
+    assert.ok(prompt.includes('改包數時零散不會變'));
+    assert.ok(prompt.includes('整個數平分後剩下的會不會變'));
+    assert.ok(prompt.includes('不要問「改包數後零散怎麼變」'));
+    // 新增的事實說明本身不能夾帶結論或理由。
+    assert.equal(guardOutput({...stageRuleFor('C2-1-JU'), stage: 'EX'}, {guidance: prompt, question: ''}).ok, true);
+    assert.equal(stageInstructions(stageRuleFor('C2-1-GE')).includes('改包數時零散不會變'), false);
+});
+
 test('防護：結論、理由、判準與名稱的各種說法都會攔下；正常引導不誤擋', () => {
     const rule = stageRuleFor('C2-1-VA');
     for (const leak of LEAKS) assert.equal(guardOutput(rule, {guidance: leak, question: '你覺得呢？'}).ok, false, leak);
