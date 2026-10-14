@@ -13,6 +13,7 @@ import {randomBytes, timingSafeEqual} from 'node:crypto';
 import {createTeacherSettings, sheetScope} from './teacher-settings.mjs';
 import {selectAnalysisRecords, analysisContext, mockAnalysis, requestAnalysis} from './teacher-analysis.mjs';
 import {analyzeDependency, createReviewStore} from './dependency-analysis.mjs';
+import {createReasoningReviewStore, findJustificationArtifact} from './reasoning-review.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const MAX_BODY = 800000;
@@ -93,7 +94,7 @@ const positiveInt = value => Number.isSafeInteger(value) && value > 0;
  */
 export function createTutorServer({buildDir = path.join(root, 'build'), fetchImpl = fetch, timeoutMs = 90000,
     analysisTimeoutMs = 240000,
-    recordStore = null, reviewStore = null, teacherPassword = '', teacherSettings = null, lan = null, rateLimits = null,
+    recordStore = null, reviewStore = null, reasoningStore = null, teacherPassword = '', teacherSettings = null, lan = null, rateLimits = null,
     serverOptions = {}} = {}) {
     if (lan) {
         if (typeof lan.address !== 'string' || !lan.address) throw new Error('LAN_ADDRESS_REQUIRED');
@@ -155,7 +156,7 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
             return recording;
         } catch (error) { return {status: isRecordLimitError(error) ? 'limit' : 'failed'}; }
     };
-    const teacherFiles = new Set(['teacher.html', 'teacher.js', 'teacher.css', 'dashboard.js']);
+    const teacherFiles = new Set(['teacher.html', 'teacher.js', 'teacher.css', 'dashboard.js', 'conjecture-view.js']);
     // 區網監聽器的學生路由白名單；其餘一律 403。
     const lanStudentRoute = (method, pathname) =>
         (pathname === '/api/tutor/status' && method === 'GET') ||
@@ -240,6 +241,24 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
                 return json(res, 200, {review: await reviewStore.save(await readBody(req))});
             } catch { return json(res, 400, {error: '審查內容格式錯誤。'}); }
         }
+        // osep_math：教師確認「證實」階段的說理。只接受登入教師、同來源，且必須對應到既有的證實作品。
+        if (url.pathname === '/api/teacher/reasoning-review') {
+            if (req.method !== 'POST') return json(res, 405, {error: '請用教師頁送出。'});
+            if (req.headers.origin !== `http://${host}` ||
+                !/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) {
+                return json(res, 403, {error: '只接受本機教師頁。'});
+            }
+            if (!authorizedTeacher(req)) return json(res, 401, {error: '請先登入教師頁。'});
+            if (!reasoningStore || !recordStore) return json(res, 503, {error: '說理確認服務尚未啟用。'});
+            let body;
+            try { body = await readBody(req); } catch { return json(res, 400, {error: '確認內容格式錯誤。'}); }
+            if (!findJustificationArtifact(await recordStore.list(), body?.artifactId)) {
+                return json(res, 404, {error: '找不到這份證實作品。'});
+            }
+            try {
+                return json(res, 200, {review: await reasoningStore.save(body)});
+            } catch { return json(res, 400, {error: '確認內容格式錯誤。'}); }
+        }
         if (url.pathname === '/api/teacher/analyze') {
             if (req.method !== 'POST') return json(res, 405, {error: '請用教師分析頁送出。'});
             if (req.headers.origin !== `http://${host}` ||
@@ -305,7 +324,11 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
                     try {
                         dependency = analyzeDependency(records, reviewStore ? await reviewStore.list() : new Map());
                     } catch { /* 留空，教師頁顯示無法分析。 */ }
-                    return json(res, 200, {records, sync: await recordStore.status(), dependency});
+                    let reasoningReviews = {};
+                    try {
+                        reasoningReviews = reasoningStore ? await reasoningStore.list() : {};
+                    } catch { /* 讀不到確認紀錄時仍回傳學生紀錄。 */ }
+                    return json(res, 200, {records, sync: await recordStore.status(), dependency, reasoningReviews});
                 } catch { return json(res, 503, {error: '無法讀取本機記錄，請確認資料目錄。'}); }
             }
             if (req.method !== 'POST') return json(res, 405, {error: '不支援此記錄操作。'});
@@ -927,7 +950,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         const sheetClient = createSheetClient({url: secret.sheetUrl, token: secret.sheetToken});
         const recordStore = createRecordStore(path.join(root, 'local-data'), {sheetClient, syncScope: sheetScope(secret.sheetUrl)});
         const reviewStore = createReviewStore(path.join(root, 'local-data'));
-        const result = await startTutor({teacherSettings, recordStore, reviewStore});
+        const reasoningStore = createReasoningReviewStore(path.join(root, 'local-data'));
+        const result = await startTutor({teacherSettings, recordStore, reviewStore, reasoningStore});
         if (result.aborted) {
             console.log('已取消，未啟動服務。');
             process.exit(130);

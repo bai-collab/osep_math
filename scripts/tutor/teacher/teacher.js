@@ -2,10 +2,15 @@
 /* eslint func-style: ["error", "declaration", {"allowArrowFunctions": true}] */
 /* eslint no-use-before-define: ["error", {"functions": false}] */
 import {buildDashboard} from './dashboard.js';
+import {buildConjectureView, describeArtifact, STAGES, STAGE_LABELS, REASONING_LABELS, EXPOSURE_LABELS}
+    from './conjecture-view.js';
 const $ = id => document.getElementById(id);
 let records = []; let limit = 100; let connection = {initialized: true}; let unlocked = false;
 let view = 'dashboard'; let refreshRunning = null; let authEpoch = 0; let analysisController = null;
 let conversation = []; let pinnedIds = null; let pinnedMode = null; let dependency = null;
+let reasoningReviews = {}; let conjectureFocus = null;
+const CHECK_JUDGES = {program: '程式', ai: '導師建議', student: '學生'};
+const STATUS_LABELS = {done: '活動完成', working: '進行中', none: '還沒開始'};
 const text = (tag, value, className = '') => {
     const node = document.createElement(tag); node.textContent = value;
     if (className) node.className = className;
@@ -21,9 +26,15 @@ const recordLabel = record => {
     if (record.type === 'open') return record.source === 'restore' ? '載入還原點' : '從電腦開啟專案';
     if (record.type === 'reflection') return record.skipped ? '解題想法：下次再說' : '評分後說明解題想法';
     // osep_math 階段紀錄（完整呈現於 P5f）；先避免被誤標成評分。
-    if (record.type === 'artifact') return `階段作品 · ${record.stage || ''} · ${record.summary || ''}`;
-    if (record.type === 'gate') return `過關判定 · ${record.stage || ''} · ${record.gate?.activityDone ? '活動完成' : '活動未完成'}`;
-    if (record.type === 'exposure') return `看到 · ${record.stage || ''} · ${record.exposure?.item || ''}`;
+    if (record.type === 'artifact') return `${STAGE_LABELS[record.stage] || ''}作品 · ${record.summary || ''}`;
+    if (record.type === 'gate') {
+        return `${STAGE_LABELS[record.stage] || ''}過關判定 · ${record.gate?.activityDone ? '活動完成' : '活動未完成'}` +
+            `${record.stage === 'JU' ? ` · ${REASONING_LABELS[record.gate?.reasoningStatus] || ''}` : ''}`;
+    }
+    if (record.type === 'exposure') {
+        const item = record.exposure?.item || '';
+        return `${STAGE_LABELS[record.stage] || ''} · ${EXPOSURE_LABELS[item] || item}`;
+    }
     return `評分 ${record.totalScore ?? '無分數'} / ${record.maxScore ?? '—'}`;
 };
 const QUESTION_LABELS = {
@@ -65,7 +76,13 @@ function closeMobileSidebar () {
  */
 function showView (next) {
     view = next; closeMobileSidebar();
-    const titles = {dashboard: '儀表板', records: '作答紀錄', analysis: 'AI 分析', settings: '連線設定'};
+    const titles = {
+        dashboard: '儀表板',
+        conjecture: '臆測進度',
+        records: '作答紀錄',
+        analysis: 'AI 分析',
+        settings: '連線設定'
+    };
     $('view-title').textContent = titles[next];
     for (const name of Object.keys(titles)) {
         $(`${name}-view`).hidden =
@@ -92,7 +109,7 @@ function resetAnalysis () {
  * @param {boolean} resetSettings Whether to discard settings drafts.
  */
 function hideTeacherData (resetSettings = true) {
-    authEpoch++; unlocked = false; records = []; dependency = null;
+    authEpoch++; unlocked = false; records = []; dependency = null; reasoningReviews = {}; conjectureFocus = null;
     options('student', [], '全部學生'); options('task', [], '全部題目');
     resetAnalysis(); $('analysis-question').value = '';
     if (resetSettings) $('settings-form').reset();
@@ -222,7 +239,7 @@ function renderDashboard () {
 }
 /** Render the filtered score summary and original chronological evidence. */
 function render () {
-    renderStudents(); renderDashboard();
+    renderStudents(); renderDashboard(); renderConjecture();
     const expanded = new Set([...$('records').querySelectorAll('details[open]')].map(n => n.dataset.recordId));
     const shown = filtered();
     $('selected-title').textContent = $('student').value || '全部學生'; $('record-count').textContent = `${shown.length} 筆`;
@@ -288,7 +305,20 @@ function render () {
                 text('p', `導師回饋：${record.guidance || '沒有可用回覆'}`), text('p', `導師追問：${record.followup || '—'}`));
         }
         if (record.type === 'reflection' && record.skipped) content.append(text('p', '學生按了「下次再說」，沒有說明解題想法。'));
-        if (record.errorCode) content.append(text('p', `錯誤代碼：${record.errorCode}`));
+        if (record.type === 'artifact') {
+            content.append(text('h3', `${STAGE_LABELS[record.stage] || ''}的作品`));
+            for (const line of describeArtifact(record.stage, record.artifact)) content.append(text('p', line));
+        }
+        if (record.type === 'gate') {
+            for (const check of record.gate?.checks || []) {
+                const judge = CHECK_JUDGES[check.by] || check.by;
+                content.append(text('p', `${check.met ? '✓' : '○'} ${check.id}（${judge}判定）`));
+            }
+        }
+        if (record.errorCode === 'LEAK_FILTERED') {
+            summary.append(text('span', '導師回覆被攔下', 'badge'));
+            content.append(text('p', '導師原本的回覆可能透露結論，學生看到的是上面的安全提問（原回覆不保存）。'));
+        } else if (record.errorCode) content.append(text('p', `錯誤代碼：${record.errorCode}`));
         if (Number.isInteger(record.selfTestCount)) {
             content.append(text('p', `距上一筆紀錄自行測試 ${record.selfTestCount} 次（只記次數）`));
         }
@@ -442,6 +472,7 @@ async function refreshOnce (sync) {
         if (epoch !== authEpoch) return;
         const previous = `${$('student').value}|${$('task').value}`;
         records = result.records; dependency = result.dependency || null; unlocked = true;
+        reasoningReviews = result.reasoningReviews || {};
         $('login').hidden = true;
         $('setup-panel').hidden = !connection.managed; $('logout').hidden = !connection.managed;
         options('student', [...new Set(records.map(r => r.studentId))].sort().map(v => [v, v]), '全部學生');
@@ -456,6 +487,105 @@ async function refreshOnce (sync) {
     } finally {
         $('refresh').disabled = $('sync').disabled = false;
     }
+}
+/** Build a click handler that shows one stage artifact in the detail panel.
+ * @param {Array<object>} units Conjecture view rows.
+ * @param {object} focus Unit, student and stage to show.
+ * @returns {Function} Click handler.
+ */
+function focusConjecture (units, focus) {
+    return () => {
+        conjectureFocus = focus; renderConjectureDetail(units);
+    };
+}
+/** Render the conjecturing progress table (student x five stages) for each unit. */
+function renderConjecture () {
+    const units = buildConjectureView(records, reasoningReviews);
+    $('conjecture-empty').hidden = units.length > 0;
+    $('conjecture-units').replaceChildren();
+    for (const {unit, students} of units) {
+        const table = document.createElement('table'); table.className = 'dashboard-table conjecture-table';
+        table.setAttribute('aria-label', `${unit} 五階段進度`);
+        const head = document.createElement('tr');
+        head.append(text('th', '學生代號'));
+        for (const stage of STAGES) head.append(text('th', STAGE_LABELS[stage]));
+        head.append(text('th', '說理'));
+        const thead = document.createElement('thead'); thead.append(head); table.append(thead);
+        const body = document.createElement('tbody');
+        for (const row of students) {
+            const tr = document.createElement('tr');
+            const name = text('button', row.studentId, 'dashboard-student-link');
+            name.onclick = () => openStudentTimeline(row.studentId);
+            const th = document.createElement('th'); th.scope = 'row'; th.append(name); tr.append(th);
+            for (const stage of STAGES) {
+                const cell = row.stages[stage];
+                const mark = {done: '✓', working: '…', none: '—'}[cell.status];
+                const button = text('button', mark, `dashboard-cell conjecture-cell status-${cell.status}`);
+                const extra = [cell.aiHelp ? `求助 ${cell.aiHelp}` : '', cell.leaks ? `攔 ${cell.leaks}` : '']
+                    .filter(Boolean);
+                if (extra.length) button.append(text('small', ` ${extra.join(' · ')}`));
+                const label = `${row.studentId}，${STAGE_LABELS[stage]}：${STATUS_LABELS[cell.status]}；` +
+                    `導師求助 ${cell.aiHelp} 次；被攔下 ${cell.leaks} 次`;
+                button.title = label; button.setAttribute('aria-label', label);
+                button.disabled = !cell.artifact;
+                button.onclick = focusConjecture(units, {unit, studentId: row.studentId, stage});
+                const td = document.createElement('td'); td.append(button); tr.append(td);
+            }
+            const reasoning = row.stages.JU.reasoning;
+            tr.append(text('td', reasoning ? REASONING_LABELS[reasoning] : '—',
+                `conjecture-reasoning reasoning-${reasoning || 'none'}`));
+            body.append(tr);
+        }
+        table.append(body);
+        const wrap = text('div', '', 'dashboard-grid-scroll'); wrap.append(table);
+        $('conjecture-units').append(text('h3', `單元 ${unit}`), wrap);
+    }
+    renderConjectureDetail(units);
+}
+/** Show one student's artifact for a stage, plus the teacher reasoning confirmation for JU.
+ * @param {Array<object>} units Conjecture view rows.
+ */
+function renderConjectureDetail (units) {
+    const panel = $('conjecture-detail'); panel.replaceChildren();
+    const focus = conjectureFocus;
+    const row = focus && units.find(u => u.unit === focus.unit)?.students.find(s => s.studentId === focus.studentId);
+    const cell = row?.stages[focus.stage];
+    panel.hidden = !cell?.artifact;
+    if (panel.hidden) return;
+    panel.append(text('h3', `${row.studentId} · ${STAGE_LABELS[focus.stage]}的作品`),
+        text('p', `完成時間 ${time(cell.artifact.timestamp)}`, 'muted'));
+    for (const line of describeArtifact(focus.stage, cell.artifact.artifact)) panel.append(text('p', line));
+    if (row.exposures.length) {
+        const seen = row.exposures.map(e =>
+            `${time(e.timestamp)} ${STAGE_LABELS[e.stage]}・${EXPOSURE_LABELS[e.exposure?.item] || ''}`);
+        panel.append(text('p', `接觸紀錄：${seen.join('；')}`, 'muted'));
+    }
+    if (focus.stage !== 'JU') return;
+    panel.append(text('p', `目前說理狀態：${REASONING_LABELS[cell.reasoning] || '—'}` +
+        `${cell.review ? `（${time(cell.review.reviewedAt)}${cell.review.note ? `：${cell.review.note}` : ''}）` : ''}`));
+    const note = document.createElement('textarea'); note.maxLength = 500; note.rows = 2;
+    note.placeholder = '給學生的回饋或確認依據（選填，500 字內）'; note.setAttribute('aria-label', '確認說明');
+    const status = text('p', '', 'muted'); status.setAttribute('role', 'status');
+    const send = async decision => {
+        status.textContent = '送出中…';
+        try {
+            const response = await fetch('/api/teacher/reasoning-review', {method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({artifactId: cell.artifact.id, status: decision, note: note.value})});
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || '沒有送出成功。');
+            reasoningReviews = {...reasoningReviews, [cell.artifact.id]: data.review};
+            status.textContent = '已保存老師的判斷。'; renderConjecture();
+        } catch (error) {
+            status.textContent = error.message;
+        }
+    };
+    const confirm = text('button', '確認：理由能說明為什麼一定成立', 'primary');
+    confirm.onclick = () => send('teacher_confirmed');
+    const again = text('button', '請學生再說明');
+    again.onclick = () => send('needs_work');
+    const actions = text('div', '', 'conjecture-actions'); actions.append(confirm, again);
+    panel.append(note, actions, status);
 }
 /** Coalesce refreshes; disabled controls prevent duplicate sync submissions.
  * @param {boolean} sync Whether this is a synchronization request.

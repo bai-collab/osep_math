@@ -7,6 +7,7 @@
 <a class="brand" href="./teacher.html" aria-label="教師工作台首頁">O</a>
 <button id="toggle-sidebar" title="學生清單" aria-label="切換學生清單" aria-expanded="true">☷</button>
 <button class="nav-button active" data-view="dashboard" title="儀表板" aria-label="儀表板" aria-pressed="true">▦</button>
+<button class="nav-button" data-view="conjecture" title="臆測進度" aria-label="臆測進度" aria-pressed="false">◇</button>
 <button class="nav-button" data-view="records" title="作答紀錄" aria-label="作答紀錄" aria-pressed="false">▤</button>
 <button class="nav-button" data-view="analysis" title="AI 分析" aria-label="AI 分析" aria-pressed="false">✧</button>
 <button class="nav-button" data-view="settings" title="連線設定" aria-label="連線設定" aria-pressed="false">⚙</button>
@@ -33,7 +34,7 @@
 <div class="selection-title"><strong id="selected-title">全部學生</strong><button id="clear-filters">清除篩選</button></div>
 <div class="filters"><label>學生代號<select id="student"><option value="">全部學生</option></select></label>
 <label>題目<select id="task"><option value="">全部題目</option></select></label>
-<label>紀錄類型<select id="record-type"><option value="">全部類型</option><option value="grade">評分紀錄</option><option value="ai">導師求助</option><option value="demo">載入範例</option><option value="open">開啟專案</option><option value="reflection">解題想法</option></select></label>
+<label>紀錄類型<select id="record-type"><option value="">全部類型</option><option value="grade">評分紀錄</option><option value="ai">導師求助</option><option value="demo">載入範例</option><option value="open">開啟專案</option><option value="reflection">解題想法</option><option value="artifact">階段作品</option><option value="gate">過關判定</option><option value="exposure">接觸紀錄</option></select></label>
 <label>開始日期<input id="date-from" type="date"></label><label>結束日期<input id="date-to" type="date"></label></div>
 </section>
 <section id="dashboard-view" class="pane dashboard-pane" aria-label="儀表板" hidden>
@@ -58,6 +59,13 @@
 <div id="dashboard-hard-tasks" class="cards"></div>
 </section>
 </div>
+</section>
+<section id="conjecture-view" class="pane" aria-label="臆測進度" hidden>
+<div class="section-heading"><div><h2>臆測五階段進度</h2><p>依學生最後一次「完成本階段」的判定整理；程式只檢查看得見的條件，說理是否成立由老師確認。</p></div></div>
+<p id="conjecture-empty" class="empty" hidden>還沒有臆測任務的紀錄：學生填代號並在任務面板按「完成本階段」後，這裡會出現進度。</p>
+<div id="conjecture-units"></div>
+<ul class="dashboard-legend" aria-label="臆測進度圖例"><li><span class="legend-marker">✓</span>活動完成</li><li><span class="legend-marker">…</span>進行中</li><li><span class="legend-marker">—</span>還沒開始</li><li><span class="legend-marker">求助 2</span>導師求助次數</li><li><span class="legend-marker">攔 1</span>導師回覆被防洩漏攔下</li></ul>
+<section id="conjecture-detail" class="conjecture-detail" aria-live="polite" hidden></section>
 </section>
 <section id="records-view" class="pane" aria-label="作答紀錄">
 <div id="metrics" class="metrics"></div><section id="dependency" class="dependency" aria-label="依賴 AI 提醒" hidden><div class="section-heading"><div><h2>需要關心：全程依賴 AI</h2><p>導師每次只給一小步並追問一個問題。這些學生在同一題一路只回「然後呢」「不會」或要答案，從沒回應追問、也沒說自己的想法。這是關心提醒，不是作弊判定；請先讀原始對話。</p></div></div><div id="dependency-list" class="cards"></div></section><div class="section-heading"><div><h2>目前各題成績</h2><p>採最後一次有效評分；範例、失敗或評分時程式變更不納入，不改原分數。</p></div><button id="analyze-selection">分析這些紀錄 ↗</button></div>

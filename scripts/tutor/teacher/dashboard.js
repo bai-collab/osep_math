@@ -41,6 +41,8 @@ export function buildDashboard (records = [], dependency = null) {
     for (const [index, record] of input.entries()) {
         if (!record || typeof record.studentId !== 'string' || !record.studentId ||
             typeof record.task?.code !== 'string' || !record.task.code) continue;
+        // osep_math 臆測階段的紀錄另在「臆測進度」呈現；這張以評分為主的表不列入，避免顯示成「未做」。
+        if (typeof record.unit === 'string' && record.unit) continue;
 
         const {studentId} = record;
         const {code} = record.task;
