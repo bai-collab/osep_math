@@ -41,3 +41,4 @@ TRADEMARK text eol=lf
 # Use CRLF for Windows-specific file types
 *.cmd text eol=crlf
 *.bat text eol=crlf
+*.mjs text eol=lf
