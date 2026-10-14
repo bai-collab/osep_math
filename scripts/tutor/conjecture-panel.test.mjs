@@ -368,7 +368,7 @@ test('證實：完成時記下作品 id；老師「請再說明」的附註會�
     });
     assert.equal(queries.length, 1);
     assert.ok(queries[0].includes(`artifactId=${artifact.id}`) && queries[0].includes('studentId=S08'));
-    assert.ok(JSON.stringify(node.toJSON()).includes('老師請你再說明：請用包數說明'));
+    assert.ok(JSON.stringify(node.toJSON()).includes('老師請你再說明：請用包數說明。修改下面的理由後'));
     act(() => node.unmount());
     vm.quit();
 });

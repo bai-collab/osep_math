@@ -265,6 +265,8 @@ const ConjectureForm = ({draft, onChange}) => {
 ConjectureForm.propTypes = {draft: PropTypes.object, onChange: PropTypes.func};
 
 const PREDICTIONS = [['support', '支持'], ['refute', '推翻'], ['unsure', '不確定']];
+// 老師附註沒有結尾標點時補句號，避免和後面的提示黏在一起。
+const withPeriod = text => (/[。！？.!?]$/.test(text) ? text : `${text}。`);
 const VERDICTS = [['supports', '支持'], ['refutes', '推翻'], ['unclear', '還不確定']];
 // 本機草稿可能損壞：找不到對應標籤時顯示「未知」，不讓面板崩潰（P6 外審 R3a 第 2 點）。
 const verdictLabel = value => {
@@ -723,11 +725,11 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
                         >
                             <h4 className={styles.cardTitle}>{'老師回饋'}</h4>
                             {feedback && feedback.status === 'needs_work' ? (
-                                <p>{`老師請你再說明${feedback.note ? `：${feedback.note}` : '。'}` +
+                                <p>{`老師請你再說明${feedback.note ? `：${withPeriod(feedback.note)}` : '。'}` +
                                     '修改下面的理由後，再按一次「完成本階段」。'}</p>
                             ) : null}
                             {feedback && feedback.status === 'teacher_confirmed' ? (
-                                <p>{`✓ 老師確認了你的理由${feedback.note ? `：${feedback.note}` : '。'}`}</p>
+                                <p>{`✓ 老師確認了你的理由${feedback.note ? `：${withPeriod(feedback.note)}` : '。'}`}</p>
                             ) : null}
                             {feedbackStatus ? <p className={styles.hint}>{feedbackStatus}</p> : null}
                             <button
