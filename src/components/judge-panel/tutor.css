@@ -47,8 +47,20 @@
 .note, .source {font-size: 12px; color: #4e617b;}
 .submit {width: 100%; margin-top: 10px;}
 .error {background: #fff0ed; padding: 10px; border-left: 3px solid #b83f35;}
-.turn {margin-top: 12px; padding: 10px; background: #f4f7fc; border-radius: 8px;}
-.turn p {white-space: pre-wrap; margin: 6px 0;}
+.turn {display: flex; flex-direction: column; gap: 6px; margin-top: 14px;}
+.turn p {white-space: pre-wrap; margin: 4px 0;}
+/* 學生的話靠右、淺藍底；導師回覆靠左、白底加左側色條，兩者一眼分得開。 */
+.student-bubble {align-self: flex-end; max-width: 88%; padding: 6px 10px; background: #dceaff;
+    border-radius: 12px 12px 2px 12px;}
+.tutor-bubble {align-self: stretch; padding: 6px 10px 8px; background: #fff; border: 1px solid #c9d4e5;
+    border-left: 4px solid #386cc7; border-radius: 2px 12px 12px 12px;}
+.speaker {font-size: 12px; font-weight: bold; color: #2a4f8f;}
+.speaker .source {margin-left: 8px; font-weight: normal;}
+.student-bubble .speaker {text-align: right;}
+.step {margin-top: 6px;}
+.step-label {font-weight: bold;}
+.step .step-label {margin-bottom: 0;}
+.followup {padding: 4px 8px; background: #fff8e6; border-radius: 6px;}
 .window-header {display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px;
     padding: 8px; flex-shrink: 0; background: #edf3ff; border-bottom: 1px solid #a8b4c6;}
 .observation {padding: 8px; flex-shrink: 0; font-size: 12px; background: #f7f9fc;}

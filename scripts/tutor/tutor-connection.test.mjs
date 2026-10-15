@@ -76,6 +76,13 @@ test('教師管理的學生介面不顯示key欄，真模型求助不把key送�
     await act(async () => f.root.root.findByType('form').props.onSubmit({preventDefault() {}}));
     assert.equal(calls, 1);
     assert.equal(f.root.root.findByProps({role: 'log'}).findAllByType('article').length, 1);
+    // 學生提問與導師回覆分在兩個對話框，提問文字不出現在導師框內。
+    const text = node => JSON.stringify(node.children.map(child => (typeof child === 'string' ? child : text(child))));
+    const student = f.root.root.findByProps({['aria-label']: '你的提問'});
+    const tutor = f.root.root.findByProps({['aria-label']: '導師回覆'});
+    assert.ok(text(student).includes('如何开始？'));
+    assert.ok(!text(tutor).includes('如何开始？'));
+    assert.ok(text(tutor).includes('先觀察') && text(tutor).includes('發現什麼？'));
 });
 
 afterEach(() => {

@@ -255,10 +255,30 @@ export const TutorTab = ({task, vm, grading, apiKey, mode, toolboxXML, visible =
                         className={styles.turn}
                         key={index}
                     >
-                        <p className={styles.source}>{turn.source === 'mock' ? '模擬提示，沒有呼叫模型' : 'NMKING 導師引導'}</p>
-                        <p><strong>{turn.purpose === 'reflection' ? '你的解題想法：' : '你的提問：'}</strong>{turn.question}</p>
-                        <p><strong>{turn.purpose === 'reflection' ? '導師回饋：' : '這一輪先做：'}</strong>{turn.guidance}</p>
-                        <p><strong>接著想一想：</strong>{turn.followup}</p>
+                        {/* 學生的話與導師回覆分成兩個對話框，避免讀起來混在一起。 */}
+                        <section
+                            className={styles.studentBubble}
+                            aria-label={turn.purpose === 'reflection' ? '你的解題想法' : '你的提問'}
+                        >
+                            <p className={styles.speaker}>{turn.purpose === 'reflection' ? '你的解題想法：' : '你的提問：'}</p>
+                            <p>{turn.question}</p>
+                        </section>
+                        <section
+                            className={styles.tutorBubble}
+                            aria-label="導師回覆"
+                        >
+                            <p className={styles.speaker}>
+                                {'導師'}
+                                <span className={styles.source}>{turn.source === 'mock' ? '模擬提示，沒有呼叫模型' : 'NMKING 導師引導'}</span>
+                            </p>
+                            <div className={styles.step}>
+                                <p className={styles.stepLabel}>{turn.purpose === 'reflection' ? '導師回饋：' : '這一輪先做：'}</p>
+                                <p>{turn.guidance}</p>
+                            </div>
+                            <div className={`${styles.step} ${styles.followup}`}>
+                                <p className={styles.stepLabel}>接著想一想：</p>
+                                <p>{turn.followup}</p>
+                            </div>
                         {turn.relatedBlocks.length > 0 && <div className={styles.related}>
                             <p><strong>相關積木：</strong>{turn.relatedBlocks.map(block =>
                                 `${block.kind === 'workspace' ? '畫布' : `選單／${block.category}`}：` +
@@ -285,6 +305,7 @@ export const TutorTab = ({task, vm, grading, apiKey, mode, toolboxXML, visible =
                                     '若被浮窗遮住，可拖動浮窗查看。'}
                             </p>}
                         </div>}
+                        </section>
                     </article>
                 ))}
             </div>
