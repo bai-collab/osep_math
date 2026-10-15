@@ -269,7 +269,9 @@ export const TutorTab = ({task, vm, grading, apiKey, mode, toolboxXML, visible =
                         >
                             <p className={styles.speaker}>
                                 {'導師'}
-                                <span className={styles.source}>{turn.source === 'mock' ? '模擬提示，沒有呼叫模型' : 'NMKING 導師引導'}</span>
+                                <span className={styles.source}>
+                                    {turn.source === 'mock' ? '模擬提示，沒有呼叫模型' : 'NMKING 導師引導'}
+                                </span>
                             </p>
                             <div className={styles.step}>
                                 <p className={styles.stepLabel}>{turn.purpose === 'reflection' ? '導師回饋：' : '這一輪先做：'}</p>
@@ -279,32 +281,32 @@ export const TutorTab = ({task, vm, grading, apiKey, mode, toolboxXML, visible =
                                 <p className={styles.stepLabel}>接著想一想：</p>
                                 <p>{turn.followup}</p>
                             </div>
-                        {turn.relatedBlocks.length > 0 && <div className={styles.related}>
-                            <p><strong>相關積木：</strong>{turn.relatedBlocks.map(block =>
-                                `${block.kind === 'workspace' ? '畫布' : `選單／${block.category}`}：` +
+                            {turn.relatedBlocks.length > 0 && <div className={styles.related}>
+                                <p><strong>相關積木：</strong>{turn.relatedBlocks.map(block =>
+                                    `${block.kind === 'workspace' ? '畫布' : `選單／${block.category}`}：` +
                                 `${block.label || block.opcode}`)
-                                .join('；')}</p>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setHighlightTargets([...turn.relatedBlocks]);
-                                    setHighlightTurn(turn.id);
-                                }}
-                            >顯示相關積木</button>
-                            <button
-                                type="button"
-                                disabled={highlightTurn !== turn.id || !highlightTargets.length}
-                                onClick={() => {
-                                    setHighlightTargets([]);
-                                    setHighlightTurn(null);
-                                }}
-                            >取消高亮</button>
-                            {highlightTurn === turn.id && highlightStatus && <p aria-live="polite">
-                                玫紅粗邊：畫布 {highlightStatus.canvas} 個、選單 {highlightStatus.toolbox} 個。
-                                {highlightStatus.missing > 0 ? '部分積木已不在目前畫面，未替換成其他積木。' :
-                                    '若被浮窗遮住，可拖動浮窗查看。'}
-                            </p>}
-                        </div>}
+                                    .join('；')}</p>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setHighlightTargets([...turn.relatedBlocks]);
+                                        setHighlightTurn(turn.id);
+                                    }}
+                                >顯示相關積木</button>
+                                <button
+                                    type="button"
+                                    disabled={highlightTurn !== turn.id || !highlightTargets.length}
+                                    onClick={() => {
+                                        setHighlightTargets([]);
+                                        setHighlightTurn(null);
+                                    }}
+                                >取消高亮</button>
+                                {highlightTurn === turn.id && highlightStatus && <p aria-live="polite">
+                                    玫紅粗邊：畫布 {highlightStatus.canvas} 個、選單 {highlightStatus.toolbox} 個。
+                                    {highlightStatus.missing > 0 ? '部分積木已不在目前畫面，未替換成其他積木。' :
+                                        '若被浮窗遮住，可拖動浮窗查看。'}
+                                </p>}
+                            </div>}
                         </section>
                     </article>
                 ))}
