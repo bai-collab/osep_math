@@ -12,6 +12,8 @@ let connection = {
 };
 const listeners = new Set();
 let statusRequest = null;
+// 學生尚未手動選擇模式時，依教師是否已設定 AI 自動選擇；手動選過就不再覆蓋。
+let modeChosen = false;
 const update = change => {
     const next = {...connection, ...change};
     if (Object.keys(next).every(key => next[key] === connection[key])) return;
@@ -22,8 +24,11 @@ const setApiKey = apiKey => {
     if (typeof apiKey === 'string') update({apiKey});
 };
 const setMode = mode => {
-    if (mode === 'mock' || mode === 'live') update({mode});
+    if (mode !== 'mock' && mode !== 'live') return;
+    modeChosen = true;
+    update({mode});
 };
+const autoMode = aiConfigured => (modeChosen ? {} : {mode: aiConfigured ? 'live' : 'mock'});
 
 // 由導師服務本身提供的 http: 頁面（本機 127.0.0.1 或教師機區網位址）才呼叫 API；
 // 一律使用相對路徑 ./api/...，請求只會回到提供此頁的同一來源。GitHub Pages（https:）與 file: 不呼叫。
@@ -47,6 +52,7 @@ const refreshStatus = () => {
                 managed: status.managed,
                 aiConfigured: status.aiConfigured === true,
                 statusReady: true,
+                ...autoMode(status.aiConfigured === true),
                 ...(status.managed ? {
                     apiKey: ''
                 } : {})

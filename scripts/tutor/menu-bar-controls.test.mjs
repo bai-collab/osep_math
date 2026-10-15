@@ -125,10 +125,11 @@ test('連線設定面板保留導師模式與教師狀態，不顯示金鑰，�
     const f = fixture();
     const open = () => f.root.root.findByProps({['aria-controls']: 'tutor-connection-panel'});
     act(() => open().props.onClick());
-    assert.equal(f.root.root.findByProps({id: 'tutor-mode'}).props.value, 'mock');
+    // 教師已設定 AI 且學生未手動選擇：自動選真實模型。
+    assert.equal(f.root.root.findByProps({id: 'tutor-mode'}).props.value, 'live');
     assert.equal(f.root.root.findAllByProps({id: 'tutor-api-key'}).length, 0);
-    act(() => f.root.root.findByProps({id: 'tutor-mode'}).props.onChange({target: {value: 'live'}}));
-    assert.equal(f.connection.mode, 'live');
+    act(() => f.root.root.findByProps({id: 'tutor-mode'}).props.onChange({target: {value: 'mock'}}));
+    assert.equal(f.connection.mode, 'mock');
     act(() => open().props.onClick());
     assert.equal(f.root.root.findAllByProps({id: 'tutor-connection-panel'}).length, 0);
     act(() => open().props.onClick());
