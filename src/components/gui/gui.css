@@ -10,6 +10,8 @@
 
 .body-wrapper {
     flex-grow: 1;
+    /* osep_math：不讓右側評分／臆測面板的內容把整頁撐高；面板改在自己內部捲動，程式區留在視窗內。 */
+    min-height: 0;
     background-color: $ui-primary;
 }
 
