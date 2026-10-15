@@ -198,8 +198,17 @@ const blocks = (p, s) => {
     b.hide = () => s.block('looks_hide');
     b.penClear = () => s.block('pen_clear');
     b.stamp = () => s.block('pen_stamp');
-    // 自訂積木（一個數字參數）。回傳 {define, call(input)}；定義的本體由呼叫端用 stack 接在 define 後面。
+    // 自訂積木（一個數字參數；argName 省略時為沒有參數的積木）。回傳 {define, call(input)}；
+    // 定義的本體由呼叫端用 stack 接在 define 後面。
     b.procedure = (proccode, argName) => {
+        if (!argName) {
+            const mutation = {tagName: 'mutation', children: [], proccode, argumentids: '[]', warp: 'true'};
+            const proto = s.block('procedures_prototype', {shadow: true,
+                mutation: {...mutation, argumentnames: '[]', argumentdefaults: '[]'}});
+            const define = s.block('procedures_definition', {inputs: {custom_block: [1, proto]}});
+            const call = () => s.block('procedures_call', {mutation: {...mutation}});
+            return {define, call};
+        }
         const argId = `${proccode}_arg`;
         const reporter = s.block('argument_reporter_string_number', {fields: {VALUE: [argName, null]}, shadow: true});
         const proto = s.block('procedures_prototype', {inputs: {[argId]: [1, reporter]},

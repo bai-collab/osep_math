@@ -273,3 +273,99 @@
     border-color: #9a6700;
     background: #fff8c5;
 }
+
+/* 步驟卡：目前這一步亮起，做完的打勾變淡，之後的步驟灰色。 */
+.steps {
+    margin: 0.5rem 0 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: #f7f9fc;
+    border: 1px solid #c9d4e5;
+    border-radius: 0.5rem;
+}
+
+.step-list {
+    margin: 0.25rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.step-list li {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    margin: 0.25rem 0;
+    padding: 0.3rem 0.4rem;
+    border-radius: 0.375rem;
+}
+
+.step-mark {
+    flex: 0 0 1.4rem;
+    height: 1.4rem;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 1.4rem;
+    font-size: 0.8rem;
+    font-weight: bold;
+    background: #e3e8f0;
+    color: #4e617b;
+}
+
+.step-where {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: #2457a7;
+}
+
+.step-current {
+    background: #fff4d6;
+    border: 2px solid #e0a526;
+    font-weight: bold;
+}
+
+.step-current .step-mark {
+    background: #e0a526;
+    color: #fff;
+}
+
+.step-done {
+    color: #6b7a90;
+}
+
+.step-done .step-mark {
+    background: #2f9e5b;
+    color: #fff;
+}
+
+.step-later {
+    color: #8a96a8;
+}
+
+.step-later .step-where {
+    color: #8a96a8;
+}
+
+/* 目前步驟提示條：固定在面板頂端，捲到下面的表單時也看得到。 */
+.step-now {
+    position: sticky;
+    top: -0.75rem;
+    z-index: 2;
+    margin: 0 0 0.5rem;
+    padding: 0.4rem 0.6rem;
+    background: #fff4d6;
+    border: 2px solid #e0a526;
+    border-radius: 0.375rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+    font-size: 0.85rem;
+}
+
+.steps-summary {
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #2457a7;
+}
+
+.steps[open] .steps-summary {
+    margin-bottom: 0.25rem;
+}

@@ -48,6 +48,8 @@ const SPEAKER = '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4" vi
 // 版面：腳本在左欄、註解在右欄（工作區座標），避免互相蓋住。
 const NOTE_X = 820;
 const MARK_Y = 1500;
+// 造例階段的工具區起點（主要程式在上方，工具區往下拉才看得到）。
+const EX_TOOL_Y = 1000;
 const PLACE_VALUE_BACKDROP = '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360">' +
     '<rect width="480" height="360" fill="#f7f9fc"/>' +
     '<text x="300" y="70" text-anchor="middle" font-family="Sans Serif" font-size="18" fill="#2457a7">' +
@@ -75,7 +77,7 @@ const markerSprite = p => {
     return s;
 };
 // 自訂積木「標記 (數)」：在百數表上把這個數圈起來（1～100 以外不畫）。
-const defineMark = (p, s, b) => {
+const defineMark = (p, s, b, y = MARK_Y) => {
     const proc = b.procedure('標記', '數');
     const cellX = b.add(num(-216), rep(b.mul(rep(b.mod(rep(b.subtract(rep(proc.arg()), num(1))), num(10))), num(48))));
     const cellY = b.subtract(num(162), rep(b.mul(rep(b.floor(rep(b.divide(rep(b.subtract(rep(proc.arg()), num(1))),
@@ -84,8 +86,8 @@ const defineMark = (p, s, b) => {
         OPERAND1: bool(b.cmp('gt', rep(proc.arg()), num(0))),
         OPERAND2: bool(b.cmp('lt', rep(proc.arg()), num(101)))}});
     const body = s.stack([b.gotoXY(rep(cellX), rep(cellY)), b.stamp()]);
-    s.stack([proc.define, b.if(inRange, body)], 40, MARK_Y);
-    s.comment(proc.define, '「標記」會把一個數在百數表上圈起來。這段不用改。', 40, MARK_Y - 110, 260, 80);
+    s.stack([proc.define, b.if(inRange, body)], 40, y);
+    s.comment(proc.define, '「標記」會把一個數在百數表上圈起來。這段不用改。', 40, y - 110, 260, 80);
     return proc;
 };
 // 依序標記某張卡的清單內容（前階段帶進來的例子）。
@@ -121,7 +123,19 @@ const buildEX = () => {
     ['卡片', '第幾個', '數'].forEach(name => p.variable(name, 0));
     const s = markerSprite(p);
     const b = blocks(p, s);
-    const proc = defineMark(p, s, b);
+    // 工具區（學生不用改）：放在主要程式下方，主要程式只留學生要看、要改的積木。
+    s.comment(null, '工具區：下面的積木已經做好，不用改。\n上面的程式會用到「準備卡片」和「標記」。',
+        40, EX_TOOL_Y, 360, 70);
+    const prepA = b.procedure(`準備卡片 ${CARD_A}`);
+    s.stack([prepA.define, b.penClear(), b.clearList(L.multiples(CARD_A)), b.clearList(L.ones(CARD_A)),
+        b.setVar('卡片', num(CARD_A)), b.setVar('第幾個', num(0)), b.costume(`${CARD_A}卡`)], 40, EX_TOOL_Y + 110);
+    s.comment(prepA.define, `清空百數表和卡片 ${CARD_A} 的兩個清單，從第 0 個開始。`, 420, EX_TOOL_Y + 110, 240, 70);
+    const prepB = b.procedure(`準備卡片 ${CARD_B}`);
+    s.stack([prepB.define, b.clearList(L.multiples(CARD_B)), b.clearList(L.ones(CARD_B)),
+        b.setVar('卡片', num(CARD_B)), b.setVar('第幾個', num(0)), b.costume(`${CARD_B}卡`)], 40, EX_TOOL_Y + 460);
+    s.comment(prepB.define, `清空卡片 ${CARD_B} 的兩個清單，從第 0 個開始（百數表上 ${CARD_A} 的記號會留著）。`,
+        420, EX_TOOL_Y + 460, 240, 80);
+    const proc = defineMark(p, s, b, EX_TOOL_Y + 900);
     // 卡片 2：完整示範（迴圈次數留給學生改）。
     const loopA = b.repeat(num(3), s.stack([
         b.changeVar('第幾個', num(1)),
@@ -130,11 +144,11 @@ const buildEX = () => {
         b.addTo(L.ones(CARD_A), rep(b.mod(rep(b.getVar('數')), num(10)), 'txt')),
         proc.call(rep(b.getVar('數')))
     ]));
-    const hatA = s.stack([b.whenFlag(), b.penClear(), b.clearList(L.multiples(CARD_A)), b.clearList(L.ones(CARD_A)),
-        b.setVar('卡片', num(CARD_A)), b.setVar('第幾個', num(0)), b.costume(`${CARD_A}卡`), loopA], 40, 40);
-    s.comment(hatA, `卡片 ${CARD_A}：按綠旗執行。\n先在右邊面板「自己寫」至少 3 個 ${CARD_A} 的倍數，再回來改程式。`, NOTE_X, 30, 260, 90);
-    s.comment(loopA, '① 在這裡改：重複 3 次只會找到 3 個倍數。改成更多次，看看百數表上出現了哪些數。\n' +
-        '「加入 … 到 清單」會在清單最後多寫一列，就像在表格多記一筆。', NOTE_X, 330, 280, 130);
+    const hatA = s.stack([b.whenFlag(), prepA.call(), loopA], 40, 40);
+    s.comment(hatA, `卡片 ${CARD_A}：按綠旗執行。\n步驟 1 先在右邊面板「自己寫」3 個 ${CARD_A} 的倍數，再回來做步驟 2。`,
+        NOTE_X, 30, 280, 90);
+    s.comment(loopA, '步驟 2 在這裡改：重複 3 次只會找到 3 個倍數。改成更多次，再按綠旗，看看百數表上出現了哪些數。\n' +
+        '「加入 … 到 清單」會在清單最後多寫一列，就像在表格多記一筆。', NOTE_X, 150, 280, 150);
     // 卡片 10：少一塊（個位沒有記進清單），迴圈次數也要改。
     const loopB = b.repeat(num(1), s.stack([
         b.changeVar('第幾個', num(1)),
@@ -142,11 +156,11 @@ const buildEX = () => {
         b.addTo(L.multiples(CARD_B), rep(b.getVar('數'), 'txt')),
         proc.call(rep(b.getVar('數')))
     ]));
-    const hatB = s.stack([b.whenKey('space'), b.clearList(L.multiples(CARD_B)), b.clearList(L.ones(CARD_B)),
-        b.setVar('卡片', num(CARD_B)), b.setVar('第幾個', num(0)), b.costume(`${CARD_B}卡`), loopB], 40, 820);
-    s.comment(hatB, `卡片 ${CARD_B}：按空白鍵執行。`, NOTE_X, 810, 220, 60);
-    s.comment(loopB, `② 在這裡改：這段少了一塊！${CARD_A} 那段有把「個位」加進清單，這段沒有。\n` +
-        `從「變數」分類拖一塊「加入 … 到 ${L.ones(CARD_B)}」放進迴圈。迴圈次數也記得改。`, NOTE_X, 1100, 300, 130);
+    const hatB = s.stack([b.whenKey('space'), prepB.call(), loopB], 40, 520);
+    s.comment(hatB, `卡片 ${CARD_B}：按空白鍵執行（步驟 6）。`, NOTE_X, 510, 260, 60);
+    s.comment(loopB, `步驟 6 在這裡改：這段少了一塊！${CARD_A} 那段有把「個位」加進清單，這段沒有。\n` +
+        `從「變數」分類拖一塊「加入 … 到 ${L.ones(CARD_B)}」放進迴圈。迴圈次數也記得改，再按空白鍵。`,
+    NOTE_X, 600, 300, 150);
     return p;
 };
 

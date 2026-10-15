@@ -12,6 +12,7 @@ import {loadProgress, saveProgress, isUnlocked, checkStage, completeStage, apply
 import {applyInjection, readNumberList} from '../../lib/conjecture-vm.js';
 import unitC21 from '../../lib/conjecture-units/c2-1.js';
 import {describeDraft, setWork, getReasoning} from '../../lib/conjecture-stage-work.js';
+import {evaluateSteps, programListNames, newlySeen} from '../../lib/conjecture-steps.js';
 
 /**
  * osep_math 臆測五階段任務面板（取代一般題目的說明／自行測試／評分分頁）。
@@ -53,6 +54,81 @@ const ChecklistView = ({checks}) => (
     </ul>
 );
 ChecklistView.propTypes = {checks: PropTypes.arrayOf(PropTypes.object).isRequired};
+
+// 步驟卡：一次亮一步。專案清單在執行停止、重新載入時重讀，讓「按綠旗」這類步驟能自動打勾。
+const StepGuide = ({steps, draft, vm, stageDone, onSeen}) => {
+    const [tick, setTick] = useState(0);
+    useEffect(() => {
+        const runtime = vm && vm.runtime;
+        if (!runtime || typeof runtime.on !== 'function') return () => {};
+        const refresh = () => setTick(n => n + 1);
+        runtime.on('PROJECT_RUN_STOP', refresh);
+        runtime.on('PROJECT_LOADED', refresh);
+        return () => {
+            runtime.off('PROJECT_RUN_STOP', refresh);
+            runtime.off('PROJECT_LOADED', refresh);
+        };
+    }, [vm]);
+    const programLists = {};
+    for (const name of programListNames(steps)) programLists[name] = readNumberList(vm, name) || [];
+    const evaluated = evaluateSteps(steps, {draft, programLists, stageDone});
+    // 從專案清單看到達成的步驟記進草稿，重新載入半成品後不會被打回去。
+    const seenNow = newlySeen(steps, {draft, programLists}).join('|');
+    useEffect(() => {
+        if (seenNow && onSeen) onSeen(seenNow.split('|'));
+    }, [seenNow, onSeen]);
+    const index = evaluated.findIndex(step => step.current);
+    const now = evaluated[index];
+    return (
+        <React.Fragment>
+            {/* 往下捲到表單時，目前這一步仍固定在面板頂端。 */}
+            {now ? (
+                <p
+                    aria-live="polite"
+                    className={styles.stepNow}
+                >
+                    <strong>{`步驟 ${index + 1}／${evaluated.length}・${now.where}：`}</strong>
+                    {now.text}
+                </p>
+            ) : null}
+            {/* 完整步驟清單預設收合（目前步驟已在上方提示條）；學生想看全部時再點開。 */}
+            <details
+                aria-label="步驟"
+                className={styles.steps}
+                data-tick={tick}
+            >
+                <summary className={styles.stepsSummary}>
+                    {index >= 0 ? `看全部步驟（照著做：步驟 ${index + 1}／${evaluated.length}）` : '步驟都完成了'}
+                </summary>
+                <ol className={styles.stepList}>
+                    {evaluated.map((step, i) => (
+                        <li
+                            aria-current={step.current ? 'step' : null}
+                            className={step.current ? styles.stepCurrent :
+                                (step.done ? styles.stepDone : styles.stepLater)}
+                            key={step.id}
+                        >
+                            <span className={styles.stepMark}>
+                                {step.done ? '✓' : (step.current ? '▶' : `${i + 1}`)}
+                            </span>
+                            <span>
+                                <span className={styles.stepWhere}>{step.where}</span>
+                                {step.text}
+                            </span>
+                        </li>
+                    ))}
+                </ol>
+            </details>
+        </React.Fragment>
+    );
+};
+StepGuide.propTypes = {
+    steps: PropTypes.arrayOf(PropTypes.object).isRequired,
+    draft: PropTypes.object,
+    vm: PropTypes.object,
+    stageDone: PropTypes.bool,
+    onSeen: PropTypes.func
+};
 
 const DIGIT_STATES = ['', 'appeared', 'notAppeared'];
 const DIGIT_LABELS = {'': '？', 'appeared': '出現', 'notAppeared': '沒出現'};
@@ -627,6 +703,13 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
         saveProgress(studentId, updated, storage);
     }, [stage, studentId, storage]);
 
+    const markStepsSeen = useCallback(ids => {
+        const current = progressRef.current.drafts[stage] || {};
+        const seen = Array.isArray(current.stepsSeen) ? current.stepsSeen : [];
+        const added = ids.filter(id => !seen.includes(id));
+        if (added.length) updateDraft({...current, stepsSeen: [...seen, ...added]});
+    }, [stage, updateDraft]);
+
     const {checks} = useMemo(() => checkStage(stage, draft, unit), [stage, draft, unit]);
     const stageIndex = STAGES.indexOf(stage);
     const nextTask = STAGES[stageIndex + 1] ? `${task.unit}-${STAGES[stageIndex + 1]}` : null;
@@ -733,7 +816,16 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
             {unlocked ? (
                 <React.Fragment>
                     <p className={styles.goal}>{task.goal}</p>
-                    <p className={styles.taskText}>{task.taskText}</p>
+                    {/* 有步驟卡的階段改用步驟卡取代整段任務說明；其他階段維持原樣。 */}
+                    {task.steps && task.steps.length ? (
+                        <StepGuide
+                            draft={draft}
+                            stageDone={Boolean(gate && gate.activityDone)}
+                            onSeen={markStepsSeen}
+                            steps={task.steps}
+                            vm={vm}
+                        />
+                    ) : <p className={styles.taskText}>{task.taskText}</p>}
                     <div className={styles.row}>
                         <button
                             className={styles.smallButton}
@@ -811,6 +903,7 @@ ConjecturePanel.propTypes = {
         stage: PropTypes.oneOf(STAGES).isRequired,
         goal: PropTypes.string,
         taskText: PropTypes.string,
+        steps: PropTypes.arrayOf(PropTypes.object),
         answerProjectUrl: PropTypes.string
     }).isRequired,
     vm: PropTypes.object.isRequired

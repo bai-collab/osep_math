@@ -473,3 +473,80 @@ test('R4b-2／3／4：換學生代號清掉前一位的回饋、不拿舊作品 
     act(() => node.unmount());
     vm.quit();
 });
+
+test('面板：EX 顯示步驟卡取代任務段落；寫完 3 個數換下一步，程式執行停止後依清單自動打勾', async t => {
+    const oldWindow = globalThis.window, oldFetch = globalThis.fetch;
+    globalThis.window = {localStorage: memoryStorage()};
+    globalThis.fetch = async () => new Response('', {status: 404});
+    const vm = new VM();
+    await vm.loadProject(await fs.readFile(path.join(root, 'static/judge-content', unit.STAGES[0].sb3Path)));
+    let rootNode;
+    t.after(() => {
+        act(() => rootNode.unmount());
+        vm.quit();
+        act(() => setStudentId(''));
+        globalThis.window = oldWindow;
+        globalThis.fetch = oldFetch;
+    });
+    act(() => setStudentId('S09'));
+    await act(async () => {
+        rootNode = create(React.createElement(ConjecturePanel, {vm, task: taskFor('EX'), studentId: 'S09',
+            onSelectTask: () => {}}));
+    });
+    const text = () => JSON.stringify(rootNode.toJSON());
+    const currentStep = () => rootNode.root.find(node => node.type === 'li' && node.props['aria-current'] === 'step');
+    const stepText = node => node.children.map(child => (typeof child === 'string' ? child : stepText(child))).join('');
+    assert.ok(text().includes('照著做：步驟 1／9'));
+    assert.ok(!text().includes(unit.STAGES[0].task), '有步驟卡時不再顯示整段任務說明');
+    // 完整步驟清單預設收合；目前步驟由頂端提示條顯示。
+    const stepsBox = rootNode.root.find(node => node.type === 'details' && node.props['aria-label'] === '步驟');
+    assert.ok(!stepsBox.props.open);
+    assert.ok(text().includes('步驟 1／9・右邊面板：'));
+    for (const value of ['4', '6', '8']) {
+        act(() => rootNode.root.find(n => n.props['aria-label'] === '輸入一個 2 的倍數').props.onChange({target: {value}}));
+        act(() => rootNode.root.findAll(n => n.type === 'button' && n.props.children === '加入')[0].props.onClick());
+    }
+    assert.ok(text().includes('照著做：步驟 2／9'));
+    assert.ok(stepText(currentStep()).includes('程式區「步驟 2」'));
+    // 模擬學生改次數後按綠旗：清單變長，執行停止時步驟卡重讀清單。
+    const list = Object.values(vm.runtime.getTargetForStage().variables).find(v => v.name === '2的倍數');
+    list.value = ['2', '4', '6', '8', '10'];
+    act(() => vm.runtime.emit('PROJECT_RUN_STOP'));
+    assert.ok(text().includes('照著做：步驟 3／9'));
+    assert.ok(stepText(currentStep()).includes('讀取程式清單'));
+});
+
+test('面板：按綠旗達成的步驟記進草稿；重新載入半成品清單清空後不會被打回步驟 2', async t => {
+    const oldWindow = globalThis.window, oldFetch = globalThis.fetch;
+    const storage = memoryStorage();
+    globalThis.window = {localStorage: storage};
+    globalThis.fetch = async () => new Response('', {status: 404});
+    const vm = new VM();
+    await vm.loadProject(await fs.readFile(path.join(root, 'static/judge-content', unit.STAGES[0].sb3Path)));
+    let rootNode;
+    t.after(() => {
+        act(() => rootNode.unmount());
+        vm.quit();
+        act(() => setStudentId(''));
+        globalThis.window = oldWindow;
+        globalThis.fetch = oldFetch;
+    });
+    act(() => setStudentId('S10'));
+    await act(async () => {
+        rootNode = create(React.createElement(ConjecturePanel, {vm, task: taskFor('EX'), studentId: 'S10',
+            onSelectTask: () => {}}));
+    });
+    const text = () => JSON.stringify(rootNode.toJSON());
+    for (const value of ['4', '6', '8']) {
+        act(() => rootNode.root.find(n => n.props['aria-label'] === '輸入一個 2 的倍數').props.onChange({target: {value}}));
+        act(() => rootNode.root.findAll(n => n.type === 'button' && n.props.children === '加入')[0].props.onClick());
+    }
+    const list = Object.values(vm.runtime.getTargetForStage().variables).find(v => v.name === '2的倍數');
+    list.value = ['2', '4', '6', '8'];
+    act(() => vm.runtime.emit('PROJECT_RUN_STOP'));
+    assert.ok(text().includes('步驟 3／9'));
+    assert.deepEqual(progressLib.loadProgress('S10', 'C2-1', storage).drafts.EX.stepsSeen, ['run-2']);
+    list.value = [];
+    act(() => vm.runtime.emit('PROJECT_LOADED'));
+    assert.ok(text().includes('步驟 3／9'), '清單清空後仍停在步驟 3');
+});

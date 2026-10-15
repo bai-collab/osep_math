@@ -54,7 +54,47 @@ const STAGES = [
         task: '你拿到兩張卡：2 和 10。先自己寫出至少 3 個 2 的倍數，再改程式讓小貓在百數表上幫你找出更多。' +
             '接著把「個位」整理成「出現的」和「沒出現的」。10 也做一次。',
         checklist: ['至少 3 個不同的例子（先自己寫）', '有把例子的個位分類：出現的／沒出現的'],
-        prompt: '再多圈幾個，把個位整理成「出現的／沒出現的」看看？'
+        prompt: '再多圈幾個，把個位整理成「出現的／沒出現的」看看？',
+        // 步驟卡：一次亮一步，只做引導、不擋完成；done 條件由 conjecture-steps.js 判斷。
+        // where 對齊 sb3 裡的註解編號（程式區「步驟 2」「步驟 6」）。
+        steps: [
+            {id: 'write-2',
+                where: '右邊面板',
+                text: '在「卡片：2」自己寫 3 個 2 的倍數，每寫一個按「加入」。',
+                done: {type: 'studentExamples', card: 2, min: 3}},
+            {id: 'run-2',
+                where: '程式區「步驟 2」',
+                text: '把「重複 3 次」的 3 改大一點，再按綠旗，看小貓在百數表上圈出哪些數。',
+                done: {type: 'programList', list: LISTS.multiples(2), min: 4}},
+            {id: 'read-2',
+                where: '右邊面板',
+                text: '按「讀取程式清單『2的倍數』」，把程式找到的數拿進來。',
+                done: {type: 'programExamples', card: 2, min: 1}},
+            {id: 'sort-2',
+                where: '右邊面板',
+                text: '看這些數的個位，把 0～9 每個數字點成「出現」或「沒出現」。',
+                done: {type: 'classified', card: 2}},
+            {id: 'write-10',
+                where: '右邊面板',
+                text: '換卡片 10：在「卡片：10」自己寫 1 個以上 10 的倍數。',
+                done: {type: 'studentExamples', card: 10, min: 1}},
+            {id: 'run-10',
+                where: '程式區「步驟 6」',
+                text: '卡片 10 那段少一塊：把「加入 … 到 10的倍數的個位」放進迴圈，次數改大，再按空白鍵。',
+                done: {type: 'programList', list: LISTS.ones(10), min: 1}},
+            {id: 'read-10',
+                where: '右邊面板',
+                text: '按「讀取程式清單『10的倍數』」。',
+                done: {type: 'programExamples', card: 10, min: 1}},
+            {id: 'sort-10',
+                where: '右邊面板',
+                text: '把卡片 10 的 0～9 也點成「出現」或「沒出現」。',
+                done: {type: 'classified', card: 10}},
+            {id: 'finish',
+                where: '右邊面板最下面',
+                text: '檢核點都打勾後，按「完成本階段」。',
+                done: {type: 'stageDone'}}
+        ]
     },
     {
         stage: 'CG',
@@ -136,6 +176,7 @@ const toCourse = () => ({
         goal: s.goal,
         taskText: s.task,
         checklist: s.checklist,
+        steps: s.steps || [],
         prompt: s.prompt,
         examples: [],
         testCases: []

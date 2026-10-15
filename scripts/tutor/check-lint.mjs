@@ -16,7 +16,7 @@ const added = ['src/lib/learning-records.js', 'src/lib/tutor-context.js', 'src/l
     'src/lib/conjecture-units/c2-1.js', 'src/lib/judge-content/manifest.js', 'src/lib/judge-content/courses/C2-1.js',
     'src/components/judge-panel/conjecture-panel.jsx',
     'scripts/conjecture-dev-tools/sb3-kit.js', 'scripts/conjecture-dev-tools/build-c2-1-sb3.js',
-    'src/lib/conjecture-stage-work.js', 'scripts/tutor/stage-rules.mjs',
+    'src/lib/conjecture-stage-work.js', 'src/lib/conjecture-steps.js', 'scripts/tutor/stage-rules.mjs',
     'scripts/tutor/teacher/conjecture-view.js', 'scripts/tutor/reasoning-review.mjs'];
 const newResults = await eslint.lintFiles(added.map(p => path.join(root, p)));
 let failures = newResults.reduce((n, r) => n + r.errorCount, 0);

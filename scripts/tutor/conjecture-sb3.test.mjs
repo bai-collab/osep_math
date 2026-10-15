@@ -99,6 +99,28 @@ test('EX：卡片 10 的半成品刻意少了「個位」那一塊，空白鍵�
     vm.quit();
 });
 
+test('EX：準備動作收成「準備卡片」自訂積木；主要程式只留迴圈，迴圈裡的數學與缺口仍看得見', () => {
+    const project = BUILDERS.EX().toJSON('test');
+    const sprite = project.targets.find(t => t.name === '記號筆');
+    const blocks = sprite.blocks;
+    const proccodes = opcode => Object.values(blocks).filter(b => b.opcode === opcode).map(b => b.mutation.proccode);
+    assert.deepEqual(proccodes('procedures_prototype').sort(), ['標記 %s', '準備卡片 10', '準備卡片 2'].sort());
+    assert.deepEqual(proccodes('procedures_call').filter(c => c.startsWith('準備卡片')).sort(), ['準備卡片 10', '準備卡片 2']);
+    // 從綠旗／空白鍵往下走主要程式：沒有清空清單、設定變數等準備積木，只剩呼叫與迴圈。
+    for (const hatOpcode of ['event_whenflagclicked', 'event_whenkeypressed']) {
+        const hat = Object.entries(blocks).find(([, b]) => b.opcode === hatOpcode);
+        const chain = [];
+        for (let id = hat[1].next; id; id = blocks[id].next) chain.push(blocks[id].opcode);
+        assert.deepEqual(chain, ['procedures_call', 'control_repeat'], hatOpcode);
+    }
+    // 迴圈裡「數 ＝ 卡片 × 第幾個」仍在主要程式（不收進函數）。
+    const repeats = Object.values(blocks).filter(b => b.opcode === 'control_repeat');
+    assert.equal(repeats.length, 2);
+    assert.ok(Object.values(blocks).some(b => b.opcode === 'operator_multiply'));
+    const notes = Object.values(sprite.comments).map(c => c.text).join('\n');
+    assert.ok(notes.includes('步驟 2 在這裡改') && notes.includes('步驟 6 在這裡改') && notes.includes('工具區'));
+});
+
 test('CG：注入的例子保留；選做條件區預設空白，不替學生判斷', async () => {
     const vm = await load('CG');
     applyInjection(vm, unit.injections('CG', progressThrough()));
