@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第四單元 公倍數與公因數：公倍數和最小公倍數的關係｜臆測五階段</title>
+<style>
+  :root{
+    --bg:#fdf8ef; --ink:#2b2d42; --muted:#6b6f80; --card:#ffffff;
+    --shade:#f4a261; --shade2:#e76f51; --line:#2b2d42; --ok:#2a9d8f; --bad:#d62828; --warn:#e9c46a;
+    --s1:#4cc9f0; --s2:#f72585; --s3:#7209b7; --s4:#3a86ff; --s5:#2a9d8f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:12px 20px 4px;text-align:center}
+  header h1{margin:0;font-size:1.5rem}
+  /* 五站地圖 */
+  .map{display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap;padding:8px 12px}
+  .station{border:3px solid #ccc;background:#fff;border-radius:999px;padding:6px 14px;font-weight:700;color:#999;cursor:pointer;transition:all .35s;font-size:1rem}
+  .station.done{color:var(--ink);border-color:#aaa}
+  .station.active{color:#fff;transform:scale(1.12);box-shadow:0 4px 10px rgba(0,0,0,.18)}
+  .station[data-s="1"].active{background:var(--s1);border-color:var(--s1)}
+  .station[data-s="2"].active{background:var(--s2);border-color:var(--s2)}
+  .station[data-s="3"].active{background:var(--s3);border-color:var(--s3)}
+  .station[data-s="4"].active{background:var(--s4);border-color:var(--s4)}
+  .station[data-s="5"].active{background:var(--s5);border-color:var(--s5)}
+  .arrow{color:#bbb;font-weight:700}
+  /* 舞台 */
+  main{max-width:980px;margin:0 auto;padding:0 14px}
+  .stage{background:var(--card);border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.08);min-height:430px;padding:20px 22px;position:relative;overflow:hidden}
+  .stage-title{font-size:1.35rem;font-weight:800;margin:0 0 4px}
+  .stage-sub{color:var(--muted);margin:0 0 14px}
+  .caption{margin-top:14px;background:#fff7e0;border-left:6px solid var(--warn);border-radius:10px;padding:12px 16px;font-size:1.15rem;line-height:1.7;min-height:64px}
+  .caption b{color:var(--shade2)}
+  .controls{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:14px 0 6px}
+  button{font:inherit;font-size:1.05rem;border:none;border-radius:12px;padding:10px 18px;cursor:pointer;background:var(--ink);color:#fff}
+  button.ghost{background:#e9e6df;color:var(--ink)}
+  button:disabled{opacity:.35;cursor:default}
+  button:focus-visible,.station:focus-visible{outline:3px solid var(--s4);outline-offset:2px}
+  .progress{color:var(--muted);font-size:.95rem;min-width:110px;text-align:center}
+  .bar{height:6px;background:#eee;border-radius:3px;overflow:hidden;max-width:980px;margin:6px auto 0}
+  .bar>i{display:block;height:100%;background:var(--shade);width:0;transition:width .4s}
+  footer{text-align:center;color:var(--muted);font-size:.85rem;padding:14px}
+
+  /* 動畫元件 */
+  .pop{animation:pop .55s both}
+  .fade{animation:fade .6s both}
+  .slide{animation:slide .6s both}
+  @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes slide{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  .d1{animation-delay:.5s}.d2{animation-delay:1s}.d3{animation-delay:1.5s}.d4{animation-delay:2s}.d5{animation-delay:2.5s}.d6{animation-delay:3s}
+  .grow line{stroke-dasharray:60;stroke-dashoffset:60;animation:draw .8s forwards;animation-delay:inherit}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  .vanish{animation:vanish 1s forwards;animation-delay:.6s}
+  @keyframes vanish{to{opacity:0}}
+  .shake{animation:shake .5s 3}
+  @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01s!important;animation-delay:0s!important;transition:none!important}
+  }
+
+  .row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .col{flex:1;min-width:260px}
+  .strip-box{margin:6px 0 10px;display:flex;align-items:center;gap:10px}
+  .strip-label{font-size:1.25rem;font-weight:800;min-width:56px;text-align:right}
+  .tag{display:inline-block;border-radius:8px;padding:2px 8px;font-size:.9rem;font-weight:700;color:#fff;margin-right:6px}
+  .card{border:2px dashed #d8cfc0;border-radius:14px;padding:10px 12px;background:#fffdf8}
+  .card h4{margin:0 0 6px}
+  .bucket{border:3px solid #ddd;border-radius:14px;padding:8px 10px;min-height:120px}
+  .bucket h4{margin:0 0 6px;text-align:center}
+  .chip{display:inline-block;background:#fff;border:2px solid #ccc;border-radius:10px;padding:4px 10px;margin:4px;font-weight:800;font-size:1.1rem}
+  .wall{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+  .note{background:#fff59d;border-radius:4px;padding:12px 12px 14px;box-shadow:2px 4px 8px rgba(0,0,0,.15);font-size:1.08rem;line-height:1.5;position:relative;transform:rotate(-1.5deg)}
+  .note:nth-child(2n){transform:rotate(1.5deg);background:#ffd6e7}
+  .note:nth-child(3n){background:#c8f7dc}
+  .note small{display:block;color:var(--muted);margin-bottom:4px}
+  .stamp{position:absolute;right:8px;top:-12px;font-size:1.05rem;font-weight:900;padding:2px 10px;border-radius:8px;color:#fff}
+  .stamp.bad{background:var(--bad)} .stamp.warn{background:#c98a00} .stamp.ok{background:var(--ok)}
+  .note.crossed{text-decoration:line-through;opacity:.6}
+  .big{font-size:1.4rem;font-weight:800}
+  .hl{background:linear-gradient(transparent 55%,#ffe08a 55%);padding:0 2px}
+  .name-badge{display:inline-block;background:var(--s4);color:#fff;border-radius:12px;padding:4px 14px;font-weight:900;font-size:1.3rem;margin-left:8px}
+  .statement{border:3px solid var(--s4);border-radius:14px;padding:12px 16px;margin:10px 0;font-size:1.15rem;line-height:1.8;background:#f2f7ff}
+  .ins{color:var(--s4);font-weight:900;border-bottom:3px solid var(--s4)}
+  /* 分數＋箭頭（不寫連等式，倍數標在分子上方、分母下方） */
+  .eq{display:inline-grid;grid-template-columns:auto auto auto;grid-template-rows:auto auto auto auto auto;align-items:center;justify-items:center;margin:8px 18px;font-size:1.5rem;font-weight:800}
+  .eq .arc{grid-column:1/4;font-size:1rem;color:var(--shade2);white-space:nowrap}
+  .eq .num,.eq .den{padding:0 6px}
+  .eq .fbar{width:100%;height:3px;background:var(--ink)}
+  .eq .eqs{grid-row:2/5;grid-column:2;padding:0 14px}
+  .map-intro{display:flex;flex-direction:column;gap:8px;max-width:620px;margin:0 auto}
+  .map-intro div{border-radius:12px;padding:10px 14px;color:#fff;font-weight:700;font-size:1.1rem}
+  .map-intro span{font-weight:400;opacity:.95}
+  table.cmp{border-collapse:collapse;margin:6px auto}
+  table.cmp td{padding:4px 10px;font-size:1.1rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔍 第四單元 公倍數與公因數：公倍數和最小公倍數的關係</h1>
+</header>
+<nav class="map" id="map" aria-label="五個階段"></nav>
+<div class="bar"><i id="bar"></i></div>
+<main>
+  <section class="stage" id="stage" aria-live="polite"></section>
+  <div class="controls">
+    <button class="ghost" id="prev" aria-label="上一步">◀ 上一步</button>
+    <span class="progress" id="progress"></span>
+    <button id="next" aria-label="下一步">下一步 ▶</button>
+    <button class="ghost" id="auto" aria-pressed="false">▶ 自動播放</button>
+    <button class="ghost" id="replay" aria-label="重播這一步">↻ 重播</button>
+  </div>
+</main>
+<footer><a href="index.html" style="color:inherit;font-weight:700">🏠 回總目錄</a>｜鍵盤：← → 換步驟、空白鍵開關自動播放｜例子取自五上第四單元「公倍數與公因數」臆測教學設計（任務一）</footer>
+
+<script>
+/* ---------- 共用小工具 ---------- */
+const head = (t, sub) => `<h2 class="stage-title">${t}</h2><p class="stage-sub">${sub}</p>`;
+const STAGES = ['', '造例', '提出猜想', '效化', '一般化', '證實'];
+const STAGE_TIPS = ['', '自己動手做很多例子', '從例子裡找規律，大膽說出來', '全班一起找反例，考驗猜想', '補上條件，讓它對「所有」情況都成立', '用學過的知識說明「為什麼一定對」'];
+function introMap(tips = STAGE_TIPS) {
+  return `<div class="map-intro">${[1,2,3,4,5].map(i =>
+    `<div class="slide d${i - 1}" style="background:var(--s${i})">${'①②③④⑤'[i - 1]} ${STAGES[i]}　<span>${tips[i]}</span></div>`).join('')}</div>`;
+}
+// 猜想牆：notes = [組別, 猜想, 'ok'|'warn'|'bad', 蓋章文字]
+function wall(notes, judged = false) {
+  return `<div class="wall">${notes.map((n, i) => `<div class="note ${judged ? '' : 'pop d' + (i + 1)} ${judged && n[2] === 'bad' ? 'crossed' : ''}">
+    ${judged ? `<span class="stamp ${n[2]} pop d${i + 1}">${n[3]}</span>` : ''}<small>${n[0]}</small>${n[1]}</div>`).join('')}</div>`;
+}
+const groupCard = (k, title, body, i) => `<div class="card col pop d${i}"><h4><span class="tag" style="background:var(--s${i + 1})">${k}</span>${title}</h4>${body}</div>`;
+const fourCards = cards => `<div class="row">${cards.slice(0, 2).map((c, i) => groupCard(...c, i)).join('')}</div>
+  <div class="row" style="margin-top:10px">${cards.slice(2).map((c, i) => groupCard(...c, i + 2)).join('')}</div>`;
+const say = s => s;
+
+/* ---------- 第四單元：公倍數與最小公倍數的關係 ---------- */
+// 數線：a 的倍數畫在線上方、b 的倍數畫在線下方，兩邊都有的（公倍數）用綠色直條標出
+function numline(a, b, max, opts = {}) {
+  const Wd = 860, x0 = 20, step = (Wd - 40) / max, y = 70;
+  let s = `<line x1="${x0}" y1="${y}" x2="${x0 + max * step}" y2="${y}" stroke="var(--ink)" stroke-width="2"/>`;
+  const lcm = (() => { for (let k = 1; ; k++) if (k % a === 0 && k % b === 0) return k; })();
+  for (let k = 0; k <= max; k++) {
+    const x = x0 + k * step;
+    s += `<line x1="${x}" y1="${y - 4}" x2="${x}" y2="${y + 4}" stroke="#bbb"/>`;
+    const A = k > 0 && k % a === 0, B = k > 0 && k % b === 0;
+    if (A && B && opts.common !== false) s += `<rect x="${x - 9}" y="${y - 44}" width="18" height="88" rx="9" fill="var(--ok)" opacity=".25"/>
+      <text x="${x}" y="${y + 60}" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ok)">${k}</text>`;
+    if (A) s += `<circle cx="${x}" cy="${y - 22}" r="7" fill="var(--s4)"/>${!(A && B) ? `<text x="${x}" y="${y - 34}" text-anchor="middle" font-size="11" fill="var(--s4)">${k}</text>` : ''}`;
+    if (B) s += `<circle cx="${x}" cy="${y + 22}" r="7" fill="var(--s2)"/>${!(A && B) ? `<text x="${x}" y="${y + 42}" text-anchor="middle" font-size="11" fill="var(--s2)">${k}</text>` : ''}`;
+    if (A && B && k === lcm && opts.star) s += `<text x="${x}" y="${y - 50}" text-anchor="middle" font-size="18">⭐</text>`;
+  }
+  return `<div class="${opts.cls || ''}" style="margin:4px 0"><div style="font-weight:800"><span style="color:var(--s4)">● ${a} 的倍數</span>　<span style="color:var(--s2)">● ${b} 的倍數</span>　<span style="color:var(--ok)">▮ 公倍數</span></div>
+    <svg viewBox="0 0 ${Wd} 140" width="100%" role="img" aria-label="${a} 和 ${b} 的倍數數線">${s}</svg></div>`;
+}
+
+const NOTES = [
+  ['第 1 組（4、5）', '最小公倍數就是兩個數相乘', 'warn', '🔺 要加條件'],
+  ['第 2 組（3、6）', '最小公倍數就是兩個數中較大的那個', 'warn', '🔺 要加條件'],
+  ['第 3 組（4、6）', '公倍數都是最小公倍數的倍數', 'ok', '⭕ 四組都支持'],
+  ['第 4 組（6、9）', '有最大公因數，就也有最大公倍數', 'bad', '❌ 被推翻'],
+];
+
+const SCENES = [
+  { s:0, html: () => head('公倍數與公因數：公倍數和最小公倍數有什麼關係？', '用臆測五階段，自己找出規律') + introMap(),
+    say: '規律不是老師直接告訴你的，而是<b>你自己找出來的</b>。這次的問題是：<b>公倍數和最小公倍數有什麼關係？怎樣最快找到最小公倍數？</b>' },
+
+  /* ① 造例 */
+  { s:1, html: () => head('① 造例：每組拿到不同的數對卡', '找出兩個數的倍數，圈出共同的倍數') + fourCards([
+      ['第 1 組', '數對卡', '<p class="big">4 和 5</p>'],
+      ['第 2 組', '數對卡', '<p class="big">3 和 6</p>'],
+      ['第 3 組', '數對卡', '<p class="big">4 和 6</p>'],
+      ['第 4 組', '數對卡', '<p class="big">6 和 9</p>'],
+    ]),
+    say: '每一組的數對<b>不一樣</b>。卡片不同，大家的發現才會互相碰撞。' },
+
+  { s:1, html: () => head('① 造例：第 3 組在數線上找 4 和 6 的倍數', '兩種點同時出現的地方，就是公倍數') +
+    numline(4, 6, 48, {cls: 'fade', star: true}),
+    say: '4 的點每 4 格一個、6 的點每 6 格一個。兩種點<b>同時出現</b>在 12、24、36、48，最小的是 <b>12</b> ⭐' },
+
+  { s:1, html: () => head('① 造例：其他組也找到了', '第 1 組 4 和 5、第 2 組 3 和 6') +
+    numline(4, 5, 60, {cls: 'fade', star: true}) + numline(3, 6, 30, {cls: 'fade d2', star: true}),
+    say: '4 和 5 的公倍數是 20、40、60；3 和 6 的公倍數是 6、12、18、24、30。' },
+
+  { s:1, html: () => head('① 造例：小組整理', '每組的公倍數和最小的那一個') + `
+    <table class="cmp">
+      <tr class="slide"><td><span class="tag" style="background:var(--s1)">1</span>4 和 5</td><td class="big">20、40、60、80、100</td><td>最小 <b>20</b></td></tr>
+      <tr class="slide d1"><td><span class="tag" style="background:var(--s2)">2</span>3 和 6</td><td class="big">6、12、18、24、30</td><td>最小 <b>6</b></td></tr>
+      <tr class="slide d2"><td><span class="tag" style="background:var(--s3)">3</span>4 和 6</td><td class="big">12、24、36、48</td><td>最小 <b>12</b></td></tr>
+      <tr class="slide d3"><td><span class="tag" style="background:var(--s4)">4</span>6 和 9</td><td class="big">18、36、54、72</td><td>最小 <b>18</b></td></tr>
+    </table>`,
+    say: '組員互相核對：每個公倍數都要<b>兩個數都除得盡</b>。資料正確，後面的討論才站得住。' },
+
+  /* ② 提出猜想 */
+  { s:2, html: () => head('② 提出猜想：盯著自己組的資料找規律', '公倍數和最小的那個有什麼關係？最小的那個怎麼最快找到？') + `
+    <p class="big fade" style="text-align:center">4 和 5 → 最小 20　　3 和 6 → 最小 6</p>
+    <p class="big fade d1" style="text-align:center">20 和 4×5 有什麼關係？6 和 3、6 有什麼關係？🤔</p>
+    <div class="statement pop d2" style="border-color:var(--s2);background:#fff0f6">句型：「我們發現＿＿＿，因為＿＿＿。」</div>`,
+    say: '規則是：<b>有憑有據、大膽猜測</b>，一張只寫一個想法。猜錯也沒關係！' },
+
+  { s:2, html: () => head('② 提出猜想：每組交出 1 條，貼上猜想牆', '老師這時候不說對錯') + wall(NOTES),
+    say: '第 1、2 組的猜想，在<b>自己的資料裡完全成立</b>：20 真的是 4×5，6 真的是較大的數。全部都貼上去！' },
+
+  /* ③ 效化 */
+  { s:3, html: () => head('③ 效化：拿別組的資料來考驗', '自己組的資料都成立，換別組的數對還成立嗎？') + wall(NOTES) +
+    `<p class="big pop d1" style="text-align:center">反例＝<span class="hl">一個讓猜想不成立的例子</span></p>`,
+    say: '第 1、2 組用自己的資料，永遠找不到反例——要靠<b>別組的資料</b>。' },
+
+  { s:3, html: () => head('③ 效化：考驗第 1 組「兩個數相乘」', '用第 3 組的 4 和 6、第 2 組的 3 和 6 試試') + `
+    <table class="cmp">
+      <tr class="slide"><td>4 和 6：</td><td class="big">4×6＝24</td><td>可是 12 就是公倍數（12÷4＝3、12÷6＝2），比 24 小 ✘</td></tr>
+      <tr class="slide d1"><td>3 和 6：</td><td class="big">3×6＝18</td><td>可是 6 就是公倍數，比 18 小 ✘</td></tr>
+      <tr class="slide d2"><td>4 和 5：</td><td class="big">4×5＝20</td><td>這組真的成立 ✔</td></tr>
+    </table>
+    <p class="big pop d3" style="text-align:center">不是全錯，是<span class="hl">只在某些數對成立</span> 🔺</p>`,
+    say: '「兩個數相乘」在 4 和 5 對，在 4 和 6、3 和 6 不對。它<b>少了條件</b> 🔺' },
+
+  { s:3, html: () => head('③ 效化：考驗第 2 組「較大的那個數」', '用第 1 組的 4 和 5、第 3 組的 4 和 6 試試') + `
+    <table class="cmp">
+      <tr class="slide"><td>4 和 5：</td><td class="big">較大是 5</td><td>5÷4＝1…1，5 不是 4 的倍數 → 不是公倍數 ✘</td></tr>
+      <tr class="slide d1"><td>4 和 6：</td><td class="big">較大是 6</td><td>6÷4＝1…2，6 不是 4 的倍數 → 不是公倍數 ✘</td></tr>
+      <tr class="slide d2"><td>3 和 6：</td><td class="big">較大是 6</td><td>這組真的成立 ✔</td></tr>
+    </table>
+    <p class="big pop d3" style="text-align:center">也是<span class="hl">只在某些數對成立</span> 🔺</p>`,
+    say: '「取較大的數」也<b>少了條件</b> 🔺。下一步要找出它們各自在什麼數對上才成立。' },
+
+  { s:3, html: () => head('③ 效化：考驗第 4 組「有最大公倍數」', '把公倍數一直往下寫') +
+    numline(4, 6, 60, {cls: 'fade'}) + `
+    <p class="big slide d1" style="text-align:center">12 → 再加 12 → 24 → 再加 12 → 36 → 48 → 60 → ……</p>
+    <p class="big pop d3" style="text-align:center">永遠找得到更大的 → <span class="hl">沒有最大公倍數</span> ❌</p>`,
+    say: '公倍數每次再加一個 12 就有下一個，<b>永遠不會停</b>。公因數有最大的，公倍數卻沒有 ❌' },
+
+  { s:3, html: () => head('③ 效化：考驗第 3 組「公倍數都是最小公倍數的倍數」', '四組資料通通拿來檢查') + `
+    <table class="cmp">
+      <tr class="slide"><td>4 和 5：</td><td class="big">20、40、60</td><td>＝ 20 的 1、2、3 倍 ✔</td></tr>
+      <tr class="slide d1"><td>3 和 6：</td><td class="big">6、12、18、24</td><td>＝ 6 的 1、2、3、4 倍 ✔</td></tr>
+      <tr class="slide d2"><td>4 和 6：</td><td class="big">12、24、36、48</td><td>＝ 12 的 1、2、3、4 倍 ✔</td></tr>
+      <tr class="slide d3"><td>6 和 9：</td><td class="big">18、36、54、72</td><td>＝ 18 的 1、2、3、4 倍 ✔</td></tr>
+    </table>
+    <p class="big pop d4" style="text-align:center">四組都支持，找不到反例 ⭕</p>`,
+    say: '這是唯一一條<b>四組資料通通支持</b>的猜想。' },
+
+  { s:3, html: () => head('③ 效化：結果出爐', '⭕ 留下　🔺 要加條件　❌ 被推翻') + wall(NOTES, true),
+    say: '被推翻的不是失敗，而是<b>讓我們更接近真相</b>。留下的和要加條件的，帶到下一步。' },
+
+  /* ④ 一般化 */
+  { s:4, html: () => head('④ 一般化：讓它對「任何」兩個數都成立', '我們只試了四組數對') + `
+    <div class="statement fade"><span class="ins">任何</span>兩個數，它們<span class="ins">所有</span>的公倍數，<span class="ins">都</span>是最小公倍數的倍數。</div>
+    <div class="statement fade d2"><span class="ins">任何</span>兩個數的公倍數<span class="ins">都</span>有無限多個，沒有最大的公倍數。</div>`,
+    say: '加上「<b>任何</b>」「<b>所有</b>」，表示不只這四組，<b>每一對數</b>都成立。' },
+
+  { s:4, html: () => head('④ 一般化：幫兩條捷徑補上條件', '成立的那些數對，有什麼共同點？') + `
+    <div class="statement fade">當兩個數<span class="ins">互質</span>（公因數只有 1）時，最小公倍數就是兩數相乘。<br><small>4 和 5 ✔　3 和 6 ✘　4 和 6 ✘　6 和 9 ✘</small></div>
+    <div class="statement fade d2">當<span class="ins">一個數是另一個數的倍數</span>時，最小公倍數就是較大的那個數。<br><small>3 和 6 ✔　4 和 5 ✘　4 和 6 ✘</small></div>`,
+    say: '補上條件以後，「<b>不一定對</b>」的猜想就變成「<b>一定對</b>」的規律了！' },
+
+  { s:4, html: () => head('④ 一般化：和課本比一比', '課本怎麼說？') + `
+    <div class="statement fade" style="border-color:#aaa;background:#f6f6f6">課本：「想一想，6 和 9 的公倍數是它們最小公倍數的倍數嗎？是」</div>
+    <div class="statement fade d2">我們：<span class="ins">任何</span>兩個數都成立，還多找到兩條快速求最小公倍數的條件！</div>`,
+    say: '課本只問了 6 和 9 一組；你們的版本說的是<b>任何兩個數</b>，比課本更完整。' },
+
+  /* ⑤ 證實 */
+  { s:5, html: () => head('⑤ 證實：為什麼公倍數一定是 12 的倍數？', '回到數線，看兩種點怎麼對齊') + numline(4, 6, 36, {cls: 'fade', star: true}) + `
+    <table class="cmp slide d2">
+      <tr><td>第一次對齊：</td><td class="big">12</td><td>4 走 3 步、6 走 2 步</td></tr>
+      <tr><td>下一次對齊：</td><td class="big">12＋12＝24</td><td>兩邊各再走一樣多步，中間沒有別的共同點</td></tr>
+    </table>`,
+    say: '對齊這件事<b>每隔 12 才發生一次</b>，中間絕不發生，所以公倍數只會落在 12、24、36……' },
+
+  { s:5, html: () => head('⑤ 證實：公倍數再加 12，還是公倍數', '用「幾個 4」「幾個 6」來說') + `
+    <table class="cmp">
+      <tr class="slide"><td class="big">12</td><td>＝ 3 個 4</td><td>＝ 2 個 6</td></tr>
+      <tr class="slide d1"><td class="big">再加 12</td><td>＝ 再 3 個 4</td><td>＝ 再 2 個 6</td></tr>
+      <tr class="slide d2"><td class="big">24</td><td>＝ 6 個 4 ✔</td><td>＝ 4 個 6 ✔</td></tr>
+    </table>
+    <p class="big pop d3" style="text-align:center">不管第幾個公倍數，都是一直加 12 得到的 → 都是 12 的倍數 ✅</p>`,
+    say: '這樣不必一個一個試，也知道<b>一定對</b>。這也說明了為什麼公倍數<b>沒有最大</b>。' },
+
+  /* 收尾 */
+  { s:6, html: () => head('🎉 你走完了臆測五階段', '我們自己找出公倍數和最小公倍數的關係') + introMap(['', '不同的數對，在數線上找公倍數', '每組交 1 條，對錯都上牆', '用別組的資料推翻捷徑、補條件', '加上「任何」，補上互質和倍數關係', '數線對齊＋一直加 12，說明為什麼']),
+    say: '<b>猜錯不可怕</b>，被推翻的猜想也幫了大忙。這就是數學家發現規律的方式！' },
+];
+/* ---------- 播放控制 ---------- */
+let idx = 0, timer = null;
+const $ = id => document.getElementById(id);
+const AUTO_MS = 9000;
+
+function buildMap() {
+  $('map').innerHTML = STAGES.slice(1).map((n, i) =>
+    (i ? '<span class="arrow" aria-hidden="true">➜</span>' : '') +
+    `<span class="station" tabindex="0" role="button" data-s="${i + 1}">${i + 1} ${n}</span>`).join('');
+  $('map').querySelectorAll('.station').forEach(el => {
+    const go = () => { idx = SCENES.findIndex(sc => sc.s === +el.dataset.s); render(); };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
+function render() {
+  const sc = SCENES[idx];
+  $('stage').innerHTML = sc.html() + `<div class="caption fade">${sc.say}</div>`;
+  document.querySelectorAll('.station').forEach(el => {
+    const s = +el.dataset.s;
+    el.classList.toggle('active', s === sc.s);
+    el.classList.toggle('done', s < sc.s || sc.s === 6);
+  });
+  $('progress').textContent = `${idx + 1} / ${SCENES.length}`;
+  $('bar').style.width = ((idx + 1) / SCENES.length * 100) + '%';
+  $('prev').disabled = idx === 0;
+  $('next').disabled = idx === SCENES.length - 1;
+  if (timer) schedule();
+}
+function go(d) { const n = idx + d; if (n >= 0 && n < SCENES.length) { idx = n; render(); } }
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(() => { if (idx < SCENES.length - 1) go(1); else setAuto(false); }, AUTO_MS);
+}
+function setAuto(on) {
+  clearTimeout(timer); timer = on ? 1 : null;
+  $('auto').textContent = on ? '⏸ 暫停' : '▶ 自動播放';
+  $('auto').setAttribute('aria-pressed', on);
+  if (on) { if (idx === SCENES.length - 1) { idx = 0; render(); } else schedule(); }
+}
+$('prev').onclick = () => go(-1);
+$('next').onclick = () => go(1);
+$('replay').onclick = () => render();
+$('auto').onclick = () => setAuto(!timer);
+document.addEventListener('keydown', e => {
+  if (e.target.classList && e.target.classList.contains('station')) return;
+  if (e.key === 'ArrowRight') go(1);
+  else if (e.key === 'ArrowLeft') go(-1);
+  else if (e.key === ' ' && e.target.tagName !== 'BUTTON') { e.preventDefault(); setAuto(!timer); }
+});
+// 可用 ?step=N 直接開到第 N 步（方便老師分享連結）
+const q = parseInt(new URLSearchParams(location.search).get('step'), 10);
+if (q >= 1 && q <= SCENES.length) idx = q - 1;
+buildMap(); render();
+</script>
+</body>
+</html>

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第二單元 倍數與因數：看個位就能判斷倍數嗎？｜臆測五階段</title>
+<style>
+  :root{
+    --bg:#fdf8ef; --ink:#2b2d42; --muted:#6b6f80; --card:#ffffff;
+    --shade:#f4a261; --shade2:#e76f51; --line:#2b2d42; --ok:#2a9d8f; --bad:#d62828; --warn:#e9c46a;
+    --s1:#4cc9f0; --s2:#f72585; --s3:#7209b7; --s4:#3a86ff; --s5:#2a9d8f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:12px 20px 4px;text-align:center}
+  header h1{margin:0;font-size:1.5rem}
+  /* 五站地圖 */
+  .map{display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap;padding:8px 12px}
+  .station{border:3px solid #ccc;background:#fff;border-radius:999px;padding:6px 14px;font-weight:700;color:#999;cursor:pointer;transition:all .35s;font-size:1rem}
+  .station.done{color:var(--ink);border-color:#aaa}
+  .station.active{color:#fff;transform:scale(1.12);box-shadow:0 4px 10px rgba(0,0,0,.18)}
+  .station[data-s="1"].active{background:var(--s1);border-color:var(--s1)}
+  .station[data-s="2"].active{background:var(--s2);border-color:var(--s2)}
+  .station[data-s="3"].active{background:var(--s3);border-color:var(--s3)}
+  .station[data-s="4"].active{background:var(--s4);border-color:var(--s4)}
+  .station[data-s="5"].active{background:var(--s5);border-color:var(--s5)}
+  .arrow{color:#bbb;font-weight:700}
+  /* 舞台 */
+  main{max-width:980px;margin:0 auto;padding:0 14px}
+  .stage{background:var(--card);border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.08);min-height:430px;padding:20px 22px;position:relative;overflow:hidden}
+  .stage-title{font-size:1.35rem;font-weight:800;margin:0 0 4px}
+  .stage-sub{color:var(--muted);margin:0 0 14px}
+  .caption{margin-top:14px;background:#fff7e0;border-left:6px solid var(--warn);border-radius:10px;padding:12px 16px;font-size:1.15rem;line-height:1.7;min-height:64px}
+  .caption b{color:var(--shade2)}
+  .controls{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:14px 0 6px}
+  button{font:inherit;font-size:1.05rem;border:none;border-radius:12px;padding:10px 18px;cursor:pointer;background:var(--ink);color:#fff}
+  button.ghost{background:#e9e6df;color:var(--ink)}
+  button:disabled{opacity:.35;cursor:default}
+  button:focus-visible,.station:focus-visible{outline:3px solid var(--s4);outline-offset:2px}
+  .progress{color:var(--muted);font-size:.95rem;min-width:110px;text-align:center}
+  .bar{height:6px;background:#eee;border-radius:3px;overflow:hidden;max-width:980px;margin:6px auto 0}
+  .bar>i{display:block;height:100%;background:var(--shade);width:0;transition:width .4s}
+  footer{text-align:center;color:var(--muted);font-size:.85rem;padding:14px}
+
+  /* 動畫元件 */
+  .pop{animation:pop .55s both}
+  .fade{animation:fade .6s both}
+  .slide{animation:slide .6s both}
+  @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes slide{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  .d1{animation-delay:.5s}.d2{animation-delay:1s}.d3{animation-delay:1.5s}.d4{animation-delay:2s}.d5{animation-delay:2.5s}.d6{animation-delay:3s}
+  .grow line{stroke-dasharray:60;stroke-dashoffset:60;animation:draw .8s forwards;animation-delay:inherit}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  .vanish{animation:vanish 1s forwards;animation-delay:.6s}
+  @keyframes vanish{to{opacity:0}}
+  .shake{animation:shake .5s 3}
+  @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01s!important;animation-delay:0s!important;transition:none!important}
+  }
+
+  .row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .col{flex:1;min-width:260px}
+  .strip-box{margin:6px 0 10px;display:flex;align-items:center;gap:10px}
+  .strip-label{font-size:1.25rem;font-weight:800;min-width:56px;text-align:right}
+  .tag{display:inline-block;border-radius:8px;padding:2px 8px;font-size:.9rem;font-weight:700;color:#fff;margin-right:6px}
+  .card{border:2px dashed #d8cfc0;border-radius:14px;padding:10px 12px;background:#fffdf8}
+  .card h4{margin:0 0 6px}
+  .bucket{border:3px solid #ddd;border-radius:14px;padding:8px 10px;min-height:120px}
+  .bucket h4{margin:0 0 6px;text-align:center}
+  .chip{display:inline-block;background:#fff;border:2px solid #ccc;border-radius:10px;padding:4px 10px;margin:4px;font-weight:800;font-size:1.1rem}
+  .wall{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+  .note{background:#fff59d;border-radius:4px;padding:12px 12px 14px;box-shadow:2px 4px 8px rgba(0,0,0,.15);font-size:1.08rem;line-height:1.5;position:relative;transform:rotate(-1.5deg)}
+  .note:nth-child(2n){transform:rotate(1.5deg);background:#ffd6e7}
+  .note:nth-child(3n){background:#c8f7dc}
+  .note small{display:block;color:var(--muted);margin-bottom:4px}
+  .stamp{position:absolute;right:8px;top:-12px;font-size:1.05rem;font-weight:900;padding:2px 10px;border-radius:8px;color:#fff}
+  .stamp.bad{background:var(--bad)} .stamp.warn{background:#c98a00} .stamp.ok{background:var(--ok)}
+  .note.crossed{text-decoration:line-through;opacity:.6}
+  .big{font-size:1.4rem;font-weight:800}
+  .hl{background:linear-gradient(transparent 55%,#ffe08a 55%);padding:0 2px}
+  .name-badge{display:inline-block;background:var(--s4);color:#fff;border-radius:12px;padding:4px 14px;font-weight:900;font-size:1.3rem;margin-left:8px}
+  .statement{border:3px solid var(--s4);border-radius:14px;padding:12px 16px;margin:10px 0;font-size:1.15rem;line-height:1.8;background:#f2f7ff}
+  .ins{color:var(--s4);font-weight:900;border-bottom:3px solid var(--s4)}
+  /* 分數＋箭頭（不寫連等式，倍數標在分子上方、分母下方） */
+  .eq{display:inline-grid;grid-template-columns:auto auto auto;grid-template-rows:auto auto auto auto auto;align-items:center;justify-items:center;margin:8px 18px;font-size:1.5rem;font-weight:800}
+  .eq .arc{grid-column:1/4;font-size:1rem;color:var(--shade2);white-space:nowrap}
+  .eq .num,.eq .den{padding:0 6px}
+  .eq .fbar{width:100%;height:3px;background:var(--ink)}
+  .eq .eqs{grid-row:2/5;grid-column:2;padding:0 14px}
+  .map-intro{display:flex;flex-direction:column;gap:8px;max-width:620px;margin:0 auto}
+  .map-intro div{border-radius:12px;padding:10px 14px;color:#fff;font-weight:700;font-size:1.1rem}
+  .map-intro span{font-weight:400;opacity:.95}
+  table.cmp{border-collapse:collapse;margin:6px auto}
+  table.cmp td{padding:4px 10px;font-size:1.1rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔍 第二單元 倍數與因數：看個位就能判斷倍數嗎？</h1>
+</header>
+<nav class="map" id="map" aria-label="五個階段"></nav>
+<div class="bar"><i id="bar"></i></div>
+<main>
+  <section class="stage" id="stage" aria-live="polite"></section>
+  <div class="controls">
+    <button class="ghost" id="prev" aria-label="上一步">◀ 上一步</button>
+    <span class="progress" id="progress"></span>
+    <button id="next" aria-label="下一步">下一步 ▶</button>
+    <button class="ghost" id="auto" aria-pressed="false">▶ 自動播放</button>
+    <button class="ghost" id="replay" aria-label="重播這一步">↻ 重播</button>
+  </div>
+</main>
+<footer><a href="index.html" style="color:inherit;font-weight:700">🏠 回總目錄</a>｜鍵盤：← → 換步驟、空白鍵開關自動播放｜例子取自五上第二單元「倍數與因數」臆測教學設計（任務一）</footer>
+
+<script>
+/* ---------- 共用小工具 ---------- */
+const head = (t, sub) => `<h2 class="stage-title">${t}</h2><p class="stage-sub">${sub}</p>`;
+const STAGES = ['', '造例', '提出猜想', '效化', '一般化', '證實'];
+const STAGE_TIPS = ['', '自己動手做很多例子', '從例子裡找規律，大膽說出來', '全班一起找反例，考驗猜想', '補上條件，讓它對「所有」情況都成立', '用學過的知識說明「為什麼一定對」'];
+function introMap(tips = STAGE_TIPS) {
+  return `<div class="map-intro">${[1,2,3,4,5].map(i =>
+    `<div class="slide d${i - 1}" style="background:var(--s${i})">${'①②③④⑤'[i - 1]} ${STAGES[i]}　<span>${tips[i]}</span></div>`).join('')}</div>`;
+}
+// 猜想牆：notes = [組別, 猜想, 'ok'|'warn'|'bad', 蓋章文字]
+function wall(notes, judged = false) {
+  return `<div class="wall">${notes.map((n, i) => `<div class="note ${judged ? '' : 'pop d' + (i + 1)} ${judged && n[2] === 'bad' ? 'crossed' : ''}">
+    ${judged ? `<span class="stamp ${n[2]} pop d${i + 1}">${n[3]}</span>` : ''}<small>${n[0]}</small>${n[1]}</div>`).join('')}</div>`;
+}
+const groupCard = (k, title, body, i) => `<div class="card col pop d${i}"><h4><span class="tag" style="background:var(--s${i + 1})">${k}</span>${title}</h4>${body}</div>`;
+const fourCards = cards => `<div class="row">${cards.slice(0, 2).map((c, i) => groupCard(...c, i)).join('')}</div>
+  <div class="row" style="margin-top:10px">${cards.slice(2).map((c, i) => groupCard(...c, i + 2)).join('')}</div>`;
+const say = s => s;
+
+/* ---------- 第二單元：百數表上倍數的個位規律 ---------- */
+// 百數表：圈出 n 的倍數；mark：用紅框標出的格子
+function hundred(n, opts = {}) {
+  const mark = opts.mark || [];
+  let s = '';
+  for (let k = 1; k <= 100; k++) {
+    const on = n && k % n === 0;
+    const m = mark.includes(k);
+    s += `<div style="width:24px;height:22px;font-size:11px;display:flex;align-items:center;justify-content:center;border:1px solid #ddd;${on ? `background:${opts.color || 'var(--shade)'};color:#fff;font-weight:700;border-radius:50%;` : ''}${m ? 'outline:3px solid var(--bad);outline-offset:-2px;' : ''}">${k}</div>`;
+  }
+  return `<div style="display:inline-block;text-align:center;margin:4px 8px"><div style="display:grid;grid-template-columns:repeat(10,24px)">${s}</div>
+    <div style="font-weight:800;margin-top:4px">${opts.label || ''}</div></div>`;
+}
+const digits = n => [...new Set(Array.from({length: Math.floor(100 / n)}, (_, i) => ((i + 1) * n) % 10))].sort((a, b) => a - b);
+
+const NOTES = [
+  ['第 1 組（2、10）', '看個位數字，就可以知道是不是某個數的倍數', 'warn', '🔺 要加條件'],
+  ['第 2 組（3、10）', '一個數的倍數，個位數字會照一個順序一直重複', 'ok', '⭕ 對，但幫不上判斷'],
+  ['第 3 組（4、5）', '個位是 0、2、4、6、8 的數，一定是 4 的倍數', 'bad', '❌ 被推翻'],
+  ['第 4 組（6、5）', '個位是 0、2、4、6、8 的數，一定是 6 的倍數', 'bad', '❌ 被推翻'],
+];
+
+const SCENES = [
+  { s:0, html: () => head('倍數與因數：看個位就能判斷倍數嗎？', '用臆測五階段，自己找出判斷倍數的方法') + introMap(),
+    say: '規律不是老師直接告訴你的，而是<b>你自己找出來的</b>。這次的問題是：<b>只看個位數字，能不能知道它是不是某個數的倍數？</b>' },
+
+  /* ① 造例 */
+  { s:1, html: () => head('① 造例：每組拿到不同的目標數卡', '在百數表上圈出目標數的倍數，記下個位數字') + fourCards([
+      ['第 1 組', '招牌數 2＋暖身 10', '<p class="big">2　10</p>'],
+      ['第 2 組', '招牌數 3＋暖身 10', '<p class="big">3　10</p>'],
+      ['第 3 組', '招牌數 4＋暖身 5', '<p class="big">4　5</p>'],
+      ['第 4 組', '招牌數 6＋暖身 5', '<p class="big">6　5</p>'],
+    ]),
+    say: '每一組圈的數<b>不一樣</b>。這樣大家的發現才會互相碰撞，等一下才有東西可以比較。' },
+
+  { s:1, html: () => head('① 造例：第 1 組圈 2 和 10', '圈完後，數數看個位數字有哪幾種') + `<div class="row">
+    <div class="fade">${hundred(2, {label: `2 的倍數 → 個位 {${digits(2).join('、')}}`})}</div>
+    <div class="fade d2">${hundred(10, {label: `10 的倍數 → 個位 {${digits(10).join('、')}}`, color: 'var(--s4)'})}</div></div>`,
+    say: '2 的倍數剛好排成<b>直直的五行</b>，個位只有 0、2、4、6、8；10 的倍數個位只有 0。' },
+
+  { s:1, html: () => head('① 造例：第 3、4 組圈 4 和 6', '個位數字有哪幾種？') + `<div class="row">
+    <div class="fade">${hundred(4, {label: `4 的倍數 → 個位 {${digits(4).join('、')}}`, color: 'var(--s3)'})}</div>
+    <div class="fade d2">${hundred(6, {label: `6 的倍數 → 個位 {${digits(6).join('、')}}`, color: 'var(--s2)'})}</div></div>`,
+    say: '咦？4 和 6 的倍數，個位也是 <b>0、2、4、6、8</b>，跟 2 一模一樣！先記下來。' },
+
+  { s:1, html: () => head('① 造例：第 2 組圈 3', '3 的倍數斜斜地跳著走') + `<div class="row">
+    <div class="fade">${hundred(3, {label: `3 的倍數 → 個位 {${digits(3).join('、')}}`, color: 'var(--s5)'})}</div></div>`,
+    say: '3 的倍數個位數字 <b>0 到 9 十種全部都出現</b>。這個發現等一下很重要。' },
+
+  { s:1, html: () => head('① 造例：小組整理', '每個目標數的倍數，個位數字有哪幾種？') + `
+    <table class="cmp">${[[10,'s4'],[5,'s1'],[2,'shade'],[4,'s3'],[6,'s2'],[3,'s5']].map(([n, c], i) =>
+      `<tr class="slide d${i}"><td class="big" style="color:var(--${c})">${n} 的倍數</td><td class="big">{ ${digits(n).join('、')} }</td><td>${digits(n).length} 種</td></tr>`).join('')}</table>`,
+    say: '組員輪流念出自己圈的數，其他人用百數表核對。<b>資料要正確</b>，後面的討論才站得住。' },
+
+  /* ② 提出猜想 */
+  { s:2, html: () => head('② 提出猜想：一個數的倍數，個位有什麼規律？', '寫成一句話，還要說出你是看哪幾個例子發現的') + `
+    <p class="big fade" style="text-align:center">2 → {0,2,4,6,8}　5 → {0,5}　10 → {0}<br>4 → {0,2,4,6,8}　6 → {0,2,4,6,8}　3 → 十種都有</p>
+    <div class="statement pop d2" style="border-color:var(--s2);background:#fff0f6">句型：「我們發現＿＿＿，因為＿＿＿。」</div>`,
+    say: '規則是：<b>有憑有據、大膽猜測</b>，一張只寫一個想法。猜錯也沒關係！' },
+
+  { s:2, html: () => head('② 提出猜想：每組交出 1 條，貼上猜想牆', '老師這時候不說對錯') + wall(NOTES),
+    say: '第 3、4 組的猜想，在<b>自己的資料裡完全成立</b>，所以他們很真心地這樣猜。全部都貼上去！' },
+
+  /* ③ 效化 */
+  { s:3, html: () => head('③ 效化：全班一起當挑戰者', '三組的個位數字一模一樣，目標數卻不一樣，可以同時成立嗎？') + wall(NOTES) +
+    `<p class="big pop d1" style="text-align:center">反例＝<span class="hl">一個讓猜想不成立的例子</span></p>`,
+    say: '只要找到<b>一個</b>不對的例子，就能推翻「一定」的猜想。' },
+
+  { s:3, html: () => head('③ 效化：考驗第 3 組「一定是 4 的倍數」', '找一個個位符合、卻不是 4 的倍數的數') + `<div class="row" style="align-items:center">
+    <div class="fade">${hundred(4, {mark: [14, 22, 26], color: 'var(--s3)', label: '紅框：個位符合，卻沒被圈到'})}</div>
+    <div class="col"><p class="big slide d1">14÷4＝3…2</p><p class="big slide d2">22÷4＝5…2</p><p class="big slide d3">26÷4＝6…2</p>
+    <p class="big pop d4">餘數不是 0 → 不是 4 的倍數 ❌</p></div></div>`,
+    say: '14 的個位是 4，可是<b>不是 4 的倍數</b>。第 3 組的猜想被推翻 ❌' },
+
+  { s:3, html: () => head('③ 效化：考驗第 4 組「一定是 6 的倍數」', '再找一個反例') + `<div class="row" style="align-items:center">
+    <div class="fade">${hundred(6, {mark: [8, 14], color: 'var(--s2)', label: '紅框：個位符合，卻沒被圈到'})}</div>
+    <div class="col"><p class="big slide d1">8÷6＝1…2</p><p class="big slide d2">14÷6＝2…2</p>
+    <p class="big pop d3">不是 6 的倍數 ❌</p></div></div>`,
+    say: '8 的個位是 8，卻<b>不是 6 的倍數</b>。第 4 組的猜想也被推翻 ❌' },
+
+  { s:3, html: () => head('③ 效化：第 2 組的資料怎麼說？', '3 的倍數，個位十種都有') + `<div class="row" style="align-items:center">
+    <div class="fade">${hundred(3, {color: 'var(--s5)'})}</div>
+    <div class="col"><p class="big slide d1">任何一個數的個位，一定是 0～9 其中一種</p>
+    <p class="big slide d2">3 的倍數十種都有 → 只看個位，<span class="hl">篩不掉任何數</span></p>
+    <p class="big pop d3">「看個位就能判斷」不是每個數都行 🔺</p></div></div>`,
+    say: '第 1 組的猜想<b>不是全錯</b>：2、5、10 可以看個位，但 3、4、6 不行。它<b>少了條件</b> 🔺' },
+
+  { s:3, html: () => head('③ 效化：第 2 組的猜想對不對？', '3 的倍數的個位，真的會照順序重複嗎？') + `
+    <table class="cmp">
+      <tr class="slide"><td>3～30：</td><td class="big">3, 6, 9, 2, 5, 8, 1, 4, 7, 0</td></tr>
+      <tr class="slide d1"><td>33～60：</td><td class="big">3, 6, 9, 2, 5, 8, 1, 4, 7, 0</td></tr>
+      <tr class="slide d2"><td>63～90：</td><td class="big">3, 6, 9, 2, 5, 8, 1, 4, 7, 0</td></tr>
+    </table>
+    <p class="big pop d3" style="text-align:center">真的一直重複 → 這條猜想是<span class="hl">對的</span> ⭕</p>`,
+    say: '第 2 組說得對！但是十種都出現，就<b>沒辦法拿來判斷</b>。「猜想正確」和「猜想有用」是兩回事。' },
+
+  { s:3, html: () => head('③ 效化：結果出爐', '⭕ 留下　🔺 要加條件　❌ 被推翻') + wall(NOTES, true),
+    say: '被推翻的不是失敗，而是<b>讓我們更接近真相</b>。留下的和要加條件的，帶到下一步。' },
+
+  /* ④ 一般化 */
+  { s:4, html: () => head('④ 一般化：讓它對「所有」整數都成立', '百數表只到 100，101、1000 也會對嗎？') + `
+    <div class="statement fade"><span class="ins">所有</span>個位數字是 0 的整數，<span class="ins">都</span>是 10 的倍數。</div>
+    <div class="statement fade d1"><span class="ins">所有</span>個位數字是 0 或 5 的整數，<span class="ins">都</span>是 5 的倍數。</div>
+    <div class="statement fade d2"><span class="ins">所有</span>個位數字是 0、2、4、6、8 的整數，<span class="ins">都</span>是 2 的倍數。</div>
+    <div class="statement fade d3" style="border-color:#aaa;background:#f6f6f6"><span class="ins">所有</span>整數的倍數，個位數字<span class="ins">都</span>是每 10 個一輪、照同樣的順序重複。（對，但不是判斷方法）</div>`,
+    say: '加上「<b>所有</b>」「<b>都</b>」，表示不只百數表裡的數，是<b>每一個整數</b>都成立。' },
+
+  { s:4, html: () => head('④ 一般化：補上條件，再取名字', '可以只看個位的那些數，有什麼共同點？') + `
+    <div class="statement fade">「看個位就能判斷」→ 只有 <span class="ins">2、5、10</span> 這三個數可以。</div>
+    <div class="statement fade d2">前三條判斷方法，課本叫做 <span class="name-badge pop d3">2、5、10 的倍數的判別方法</span></div>
+    <p class="slide d4" style="color:var(--muted)">提醒：這個單元討論的整數不包含 0 本身。</p>`,
+    say: '名字是你們<b>發現之後才給的標籤</b>。而且你們的版本還多說了「<b>只有這三個數可以</b>」，比課本更完整！' },
+
+  /* ⑤ 證實 */
+  { s:5, html: () => head('⑤ 證實：為什麼 2 可以只看個位？', '把數拆成「幾十」＋「個位」') + `
+    <p class="big fade" style="text-align:center">36 → 30 ＋ 6</p>
+    <table class="cmp">
+      <tr class="slide d1"><td class="big">30</td><td>30÷2＝15，是 <b>15 個 2</b></td></tr>
+      <tr class="slide d2"><td class="big">6</td><td>6÷2＝3，是 <b>3 個 2</b></td></tr>
+      <tr class="slide d3"><td class="big">36</td><td>合起來是 <b>18 個 2</b> → 是 2 的倍數</td></tr>
+    </table>
+    <p class="big pop d4" style="text-align:center">幾十的部分一定是 2 的倍數，所以<span class="hl">只要看個位</span>！</p>`,
+    say: '整十數 10、20、30……都是 2 的倍數，所以<b>只剩個位</b>要檢查。換成任何數都一樣。' },
+
+  { s:5, html: () => head('⑤ 證實：5 也一樣，那 4 為什麼不行？', '關鍵在「幾十」的部分') + `
+    <div class="row">
+      <div class="col card slide"><h4>5 可以</h4><p class="big">35 → 30 ＋ 5</p><p>30÷5＝6，幾十的部分一定是 5 的倍數 ✔</p></div>
+      <div class="col card slide d2"><h4>4 不行</h4><p class="big">14 → 10 ＋ 4</p><p>10÷4＝2…2，10 不是 4 的倍數 ✘</p>
+        <p class="big">24 → 20 ＋ 4</p><p>20÷4＝5，20 是 4 的倍數 ✔</p></div>
+    </div>
+    <p class="big pop d4" style="text-align:center">同樣個位 4，十位不同，結果就不同 → 4 <span class="hl">不能只看個位</span></p>`,
+    say: '整十數裡有的是 4 的倍數、有的不是，<b>幾十的部分不能不看</b>。這也解釋了剛剛的反例 14！' },
+
+  /* 收尾 */
+  { s:6, html: () => head('🎉 你走完了臆測五階段', '我們自己找出了 2、5、10 的倍數判別方法') + introMap(['', '不同的目標數，圈出很多倍數', '每組交 1 條，對錯都上牆', '14、8 推翻錯誤猜想；3 讓我們補條件', '加上「所有」，只有 2、5、10 可以', '拆成幾十＋個位，說明為什麼']),
+    say: '<b>猜錯不可怕</b>，被推翻的猜想也幫了大忙。這就是數學家發現規律的方式！' },
+];
+/* ---------- 播放控制 ---------- */
+let idx = 0, timer = null;
+const $ = id => document.getElementById(id);
+const AUTO_MS = 9000;
+
+function buildMap() {
+  $('map').innerHTML = STAGES.slice(1).map((n, i) =>
+    (i ? '<span class="arrow" aria-hidden="true">➜</span>' : '') +
+    `<span class="station" tabindex="0" role="button" data-s="${i + 1}">${i + 1} ${n}</span>`).join('');
+  $('map').querySelectorAll('.station').forEach(el => {
+    const go = () => { idx = SCENES.findIndex(sc => sc.s === +el.dataset.s); render(); };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
+function render() {
+  const sc = SCENES[idx];
+  $('stage').innerHTML = sc.html() + `<div class="caption fade">${sc.say}</div>`;
+  document.querySelectorAll('.station').forEach(el => {
+    const s = +el.dataset.s;
+    el.classList.toggle('active', s === sc.s);
+    el.classList.toggle('done', s < sc.s || sc.s === 6);
+  });
+  $('progress').textContent = `${idx + 1} / ${SCENES.length}`;
+  $('bar').style.width = ((idx + 1) / SCENES.length * 100) + '%';
+  $('prev').disabled = idx === 0;
+  $('next').disabled = idx === SCENES.length - 1;
+  if (timer) schedule();
+}
+function go(d) { const n = idx + d; if (n >= 0 && n < SCENES.length) { idx = n; render(); } }
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(() => { if (idx < SCENES.length - 1) go(1); else setAuto(false); }, AUTO_MS);
+}
+function setAuto(on) {
+  clearTimeout(timer); timer = on ? 1 : null;
+  $('auto').textContent = on ? '⏸ 暫停' : '▶ 自動播放';
+  $('auto').setAttribute('aria-pressed', on);
+  if (on) { if (idx === SCENES.length - 1) { idx = 0; render(); } else schedule(); }
+}
+$('prev').onclick = () => go(-1);
+$('next').onclick = () => go(1);
+$('replay').onclick = () => render();
+$('auto').onclick = () => setAuto(!timer);
+document.addEventListener('keydown', e => {
+  if (e.target.classList && e.target.classList.contains('station')) return;
+  if (e.key === 'ArrowRight') go(1);
+  else if (e.key === 'ArrowLeft') go(-1);
+  else if (e.key === ' ' && e.target.tagName !== 'BUTTON') { e.preventDefault(); setAuto(!timer); }
+});
+// 可用 ?step=N 直接開到第 N 步（方便老師分享連結）
+const q = parseInt(new URLSearchParams(location.search).get('step'), 10);
+if (q >= 1 && q <= SCENES.length) idx = q - 1;
+buildMap(); render();
+</script>
+</body>
+</html>

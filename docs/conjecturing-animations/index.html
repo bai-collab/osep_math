@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>臆測五階段動畫｜總目錄</title>
+<style>
+  :root{--bg:#fdf8ef;--ink:#2b2d42;--muted:#6b6f80;--s1:#4cc9f0;--s2:#f72585;--s3:#7209b7;--s4:#3a86ff;--s5:#2a9d8f;--pre:#f4a261;--post:#2a9d8f}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink)}
+  header{text-align:center;padding:22px 16px 6px}
+  h1{margin:0 0 6px;font-size:1.7rem}
+  .sub{color:var(--muted);margin:0}
+  .path{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;align-items:center;margin:14px auto 4px;max-width:900px;padding:0 12px}
+  .path span.st{color:#fff;font-weight:700;border-radius:999px;padding:5px 12px}
+  .path span.ar{color:#bbb;font-weight:700}
+  main{max-width:980px;margin:0 auto;padding:10px 14px 24px}
+  .how{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 18px}
+  .how div{flex:1;min-width:240px;border-radius:14px;padding:12px 14px;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.06);line-height:1.6}
+  .how b.pre{color:#c96a1b}.how b.post{color:var(--post)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .unit{background:#fff;border-radius:18px;box-shadow:0 6px 18px rgba(0,0,0,.08);padding:16px 18px;display:flex;flex-direction:column;gap:10px;border-top:8px solid var(--c)}
+  .unit h2{margin:0;font-size:1.25rem}
+  .unit .q{margin:0;color:var(--muted)}
+  .link{display:block;text-decoration:none;color:var(--ink);border-radius:12px;padding:10px 12px;border:2px solid #eee;transition:transform .15s,box-shadow .15s}
+  .link:hover,.link:focus-visible{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.1);outline:none}
+  .link:focus-visible{border-color:var(--s4)}
+  .link .tag{display:inline-block;color:#fff;font-weight:800;border-radius:8px;padding:2px 8px;font-size:.85rem;margin-right:6px}
+  .link.pre{background:#fff6ec;border-color:#ffd9b3}.link.pre .tag{background:var(--pre)}
+  .link.post{background:#eefaf7;border-color:#bfe9df}.link.post .tag{background:var(--post)}
+  .link strong{font-size:1.05rem}
+  .link small{display:block;color:var(--muted);margin-top:3px;line-height:1.5}
+  footer{text-align:center;color:var(--muted);font-size:.85rem;padding:10px 14px 22px}
+  @media (max-width:700px){.grid{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion: reduce){.link{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔍 臆測五階段動畫｜總目錄</h1>
+  <p class="sub">國小五年級數學｜我們怎麼自己發現數學規律？</p>
+  <div class="path" aria-label="五個階段">
+    <span class="st" style="background:var(--s1)">① 造例</span><span class="ar">➜</span>
+    <span class="st" style="background:var(--s2)">② 提出猜想</span><span class="ar">➜</span>
+    <span class="st" style="background:var(--s3)">③ 效化</span><span class="ar">➜</span>
+    <span class="st" style="background:var(--s4)">④ 一般化</span><span class="ar">➜</span>
+    <span class="st" style="background:var(--s5)">⑤ 證實</span>
+  </div>
+</header>
+<main>
+  <section class="how" aria-label="怎麼選">
+    <div><b class="pre">🟠 課前暖身</b>：單元開始<b>之前</b>播放。用一個暖身題練習五個步驟，最後只發下本單元的任務，<b>不揭示答案</b>。</div>
+    <div><b class="post">🟢 單元後講解</b>：單元上完<b>之後</b>播放，回顧全班怎麼一步步找到規律。<b>會揭示本單元的規律</b>，請勿在課前播放。</div>
+  </section>
+
+  <section class="grid" aria-label="各單元動畫">
+    <article class="unit" style="--c:var(--s1)">
+      <h2>第二單元｜倍數與因數</h2>
+      <p class="q">看個位就能判斷倍數嗎？</p>
+      <a class="link pre" href="unit-02-pre-lesson.html"><span class="tag">課前暖身</span><strong>從 1 開始連續奇數相加</strong><small>16 步｜點點排成正方形，一圈圈補上</small></a>
+      <a class="link post" href="unit-02-multiples-factors.html"><span class="tag">單元後講解</span><strong>全班找規律的過程回顧</strong><small>19 步｜百數表圈倍數、反例 14 與 8</small></a>
+    </article>
+
+    <article class="unit" style="--c:var(--s2)">
+      <h2>第四單元｜公倍數與公因數</h2>
+      <p class="q">公倍數和最小的那個有什麼關係？</p>
+      <a class="link pre" href="unit-04-pre-lesson.html"><span class="tag">課前暖身</span><strong>長和寬都變 2 倍</strong><small>16 步｜方格紙上的周長與面積</small></a>
+      <a class="link post" href="unit-04-common-multiples.html"><span class="tag">單元後講解</span><strong>全班找規律的過程回顧</strong><small>19 步｜數線上兩種點對齊</small></a>
+    </article>
+
+    <article class="unit" style="--c:var(--s3)">
+      <h2>第六單元｜整數四則運算</h2>
+      <p class="q">兩堆乘法可以合起來算嗎？</p>
+      <a class="link pre" href="unit-06-pre-lesson.html"><span class="tag">課前暖身</span><strong>握手問題</strong><small>16 步｜多來 1 人，握手多幾次</small></a>
+      <a class="link post" href="unit-06-distributive-law.html"><span class="tag">單元後講解</span><strong>全班找規律的過程回顧</strong><small>20 步｜鈕扣包兩種圈法、點陣圖</small></a>
+    </article>
+
+    <article class="unit" style="--c:var(--s4)">
+      <h2>第七單元｜擴分、約分與分數加減</h2>
+      <p class="q">同一塊塗色，可以用哪些分數來說？</p>
+      <a class="link pre" href="unit-07-pre-lesson.html"><span class="tag">課前暖身</span><strong>奇數＋奇數</strong><small>17 步｜點點圖裡落單的那一顆</small></a>
+      <a class="link post" href="unit-07-expand-reduce.html"><span class="tag">單元後講解</span><strong>全班找規律的過程回顧</strong><small>20 步｜紙帶切細、合粗與反例</small></a>
+    </article>
+  </section>
+</main>
+<footer>每頁都可用「下一步／上一步」或「自動播放」，鍵盤 ← → 換步驟、空白鍵開關自動播放｜本系列為教學設計稿，尚未在課堂試用</footer>
+</body>
+</html>

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>臆測五階段｜數學家是怎麼發現規律的？</title>
+<style>
+  :root{
+    --bg:#fdf8ef; --ink:#2b2d42; --muted:#6b6f80; --card:#ffffff;
+    --shade:#f4a261; --shade2:#e76f51; --line:#2b2d42; --ok:#2a9d8f; --bad:#d62828; --warn:#e9c46a;
+    --s1:#4cc9f0; --s2:#f72585; --s3:#7209b7; --s4:#3a86ff; --s5:#2a9d8f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:12px 20px 4px;text-align:center}
+  header h1{margin:0;font-size:1.5rem}
+  /* 五站地圖 */
+  .map{display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap;padding:8px 12px}
+  .station{border:3px solid #ccc;background:#fff;border-radius:999px;padding:6px 14px;font-weight:700;color:#999;cursor:pointer;transition:all .35s;font-size:1rem}
+  .station.done{color:var(--ink);border-color:#aaa}
+  .station.active{color:#fff;transform:scale(1.12);box-shadow:0 4px 10px rgba(0,0,0,.18)}
+  .station[data-s="1"].active{background:var(--s1);border-color:var(--s1)}
+  .station[data-s="2"].active{background:var(--s2);border-color:var(--s2)}
+  .station[data-s="3"].active{background:var(--s3);border-color:var(--s3)}
+  .station[data-s="4"].active{background:var(--s4);border-color:var(--s4)}
+  .station[data-s="5"].active{background:var(--s5);border-color:var(--s5)}
+  .arrow{color:#bbb;font-weight:700}
+  /* 舞台 */
+  main{max-width:980px;margin:0 auto;padding:0 14px}
+  .stage{background:var(--card);border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.08);min-height:430px;padding:20px 22px;position:relative;overflow:hidden}
+  .stage-title{font-size:1.35rem;font-weight:800;margin:0 0 4px}
+  .stage-sub{color:var(--muted);margin:0 0 14px}
+  .caption{margin-top:14px;background:#fff7e0;border-left:6px solid var(--warn);border-radius:10px;padding:12px 16px;font-size:1.15rem;line-height:1.7;min-height:64px}
+  .caption b{color:var(--shade2)}
+  .controls{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:14px 0 6px}
+  button{font:inherit;font-size:1.05rem;border:none;border-radius:12px;padding:10px 18px;cursor:pointer;background:var(--ink);color:#fff}
+  button.ghost{background:#e9e6df;color:var(--ink)}
+  button:disabled{opacity:.35;cursor:default}
+  button:focus-visible,.station:focus-visible{outline:3px solid var(--s4);outline-offset:2px}
+  .progress{color:var(--muted);font-size:.95rem;min-width:110px;text-align:center}
+  .bar{height:6px;background:#eee;border-radius:3px;overflow:hidden;max-width:980px;margin:6px auto 0}
+  .bar>i{display:block;height:100%;background:var(--shade);width:0;transition:width .4s}
+  footer{text-align:center;color:var(--muted);font-size:.85rem;padding:14px}
+
+  /* 動畫元件 */
+  .pop{animation:pop .55s both}
+  .fade{animation:fade .6s both}
+  .slide{animation:slide .6s both}
+  @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes slide{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  .d1{animation-delay:.5s}.d2{animation-delay:1s}.d3{animation-delay:1.5s}.d4{animation-delay:2s}.d5{animation-delay:2.5s}.d6{animation-delay:3s}
+  .grow line{stroke-dasharray:60;stroke-dashoffset:60;animation:draw .8s forwards;animation-delay:inherit}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  .vanish{animation:vanish 1s forwards;animation-delay:.6s}
+  @keyframes vanish{to{opacity:0}}
+  .shake{animation:shake .5s 3}
+  @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01s!important;animation-delay:0s!important;transition:none!important}
+  }
+
+  .row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .col{flex:1;min-width:260px}
+  .strip-box{margin:6px 0 10px;display:flex;align-items:center;gap:10px}
+  .strip-label{font-size:1.25rem;font-weight:800;min-width:56px;text-align:right}
+  .tag{display:inline-block;border-radius:8px;padding:2px 8px;font-size:.9rem;font-weight:700;color:#fff;margin-right:6px}
+  .card{border:2px dashed #d8cfc0;border-radius:14px;padding:10px 12px;background:#fffdf8}
+  .card h4{margin:0 0 6px}
+  .bucket{border:3px solid #ddd;border-radius:14px;padding:8px 10px;min-height:120px}
+  .bucket h4{margin:0 0 6px;text-align:center}
+  .chip{display:inline-block;background:#fff;border:2px solid #ccc;border-radius:10px;padding:4px 10px;margin:4px;font-weight:800;font-size:1.1rem}
+  .wall{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+  .note{background:#fff59d;border-radius:4px;padding:12px 12px 14px;box-shadow:2px 4px 8px rgba(0,0,0,.15);font-size:1.08rem;line-height:1.5;position:relative;transform:rotate(-1.5deg)}
+  .note:nth-child(2n){transform:rotate(1.5deg);background:#ffd6e7}
+  .note:nth-child(3n){background:#c8f7dc}
+  .note small{display:block;color:var(--muted);margin-bottom:4px}
+  .stamp{position:absolute;right:8px;top:-12px;font-size:1.05rem;font-weight:900;padding:2px 10px;border-radius:8px;color:#fff}
+  .stamp.bad{background:var(--bad)} .stamp.warn{background:#c98a00} .stamp.ok{background:var(--ok)}
+  .note.crossed{text-decoration:line-through;opacity:.6}
+  .big{font-size:1.4rem;font-weight:800}
+  .hl{background:linear-gradient(transparent 55%,#ffe08a 55%);padding:0 2px}
+  .name-badge{display:inline-block;background:var(--s4);color:#fff;border-radius:12px;padding:4px 14px;font-weight:900;font-size:1.3rem;margin-left:8px}
+  .statement{border:3px solid var(--s4);border-radius:14px;padding:12px 16px;margin:10px 0;font-size:1.15rem;line-height:1.8;background:#f2f7ff}
+  .ins{color:var(--s4);font-weight:900;border-bottom:3px solid var(--s4)}
+  /* 分數＋箭頭（不寫連等式，倍數標在分子上方、分母下方） */
+  .eq{display:inline-grid;grid-template-columns:auto auto auto;grid-template-rows:auto auto auto auto auto;align-items:center;justify-items:center;margin:8px 18px;font-size:1.5rem;font-weight:800}
+  .eq .arc{grid-column:1/4;font-size:1rem;color:var(--shade2);white-space:nowrap}
+  .eq .num,.eq .den{padding:0 6px}
+  .eq .fbar{width:100%;height:3px;background:var(--ink)}
+  .eq .eqs{grid-row:2/5;grid-column:2;padding:0 14px}
+  .map-intro{display:flex;flex-direction:column;gap:8px;max-width:620px;margin:0 auto}
+  .map-intro div{border-radius:12px;padding:10px 14px;color:#fff;font-weight:700;font-size:1.1rem}
+  .map-intro span{font-weight:400;opacity:.95}
+  table.cmp{border-collapse:collapse;margin:6px auto}
+  table.cmp td{padding:4px 10px;font-size:1.1rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔍 臆測五階段：我們怎麼自己發現數學規律？</h1>
+</header>
+<nav class="map" id="map" aria-label="五個階段"></nav>
+<div class="bar"><i id="bar"></i></div>
+<main>
+  <section class="stage" id="stage" aria-live="polite"></section>
+  <div class="controls">
+    <button class="ghost" id="prev" aria-label="上一步">◀ 上一步</button>
+    <span class="progress" id="progress"></span>
+    <button id="next" aria-label="下一步">下一步 ▶</button>
+    <button class="ghost" id="auto" aria-pressed="false">▶ 自動播放</button>
+    <button class="ghost" id="replay" aria-label="重播這一步">↻ 重播</button>
+  </div>
+</main>
+<footer><a href="index.html" style="color:inherit;font-weight:700">🏠 回總目錄</a>｜鍵盤：← → 換步驟、空白鍵開關自動播放｜例子取自五上「擴分、約分」臆測教學設計</footer>
+
+<script>
+/* ---------- 小工具 ---------- */
+const W = 420, H = 46;
+// 畫一條分數紙帶：den 格、前 shaded 格塗色
+// opts.add：再畫出更細的分割線（動畫長出來）；opts.remove：原本的線慢慢消失
+function strip(den, shaded, opts = {}) {
+  const cw = W / den; let s = '';
+  for (let i = 0; i < den; i++) {
+    const fill = i < shaded ? (opts.colorFn ? opts.colorFn(i) : 'var(--shade)') : '#fff';
+    s += `<rect x="${i*cw}" y="0" width="${cw}" height="${H}" fill="${fill}" stroke="${fill}" stroke-width="1"/>`;
+  }
+  let lines = '';
+  for (let i = 1; i < den; i++) {
+    const cls = opts.removeEvery && i % opts.removeEvery !== 0 ? 'vanish' : '';
+    lines += `<line class="${cls}" x1="${i*cw}" y1="0" x2="${i*cw}" y2="${H}" stroke="var(--line)" stroke-width="2"/>`;
+  }
+  let extra = '';
+  if (opts.add) {
+    const fine = den * opts.add, fw = W / fine;
+    for (let i = 1; i < fine; i++) if (i % opts.add) extra += `<line x1="${i*fw}" y1="0" x2="${i*fw}" y2="${H}" stroke="var(--line)" stroke-width="2"/>`;
+    extra = `<g class="grow" style="animation-delay:${opts.delay||0}s">${extra}</g>`;
+  }
+  return `<svg viewBox="-2 -2 ${W+4} ${H+4}" width="100%" style="max-width:${W}px" role="img" aria-label="${shaded}/${den} 的紙帶">${s}${lines}${extra}<rect x="0" y="0" width="${W}" height="${H}" fill="none" stroke="var(--line)" stroke-width="3"/></svg>`;
+}
+const frac = (n, d) => `<span style="display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.1;margin:0 2px"><span>${n}</span><span style="border-top:2px solid currentColor;padding-top:1px">${d}</span></span>`;
+const sbox = (label, svg, cls = '') => `<div class="strip-box ${cls}"><div class="strip-label">${label}</div>${svg}</div>`;
+// 一組等值：分子上方、分母下方標倍數箭頭
+function eq(a, b, c, d, op, cls = '') {
+  return `<div class="eq ${cls}">
+    <div class="arc">${a} ⟶ ${c}　${op}</div>
+    <div class="num" style="grid-row:2;grid-column:1">${a}</div><div class="num" style="grid-row:2;grid-column:3">${c}</div>
+    <div class="fbar" style="grid-row:3;grid-column:1"></div><div class="fbar" style="grid-row:3;grid-column:3"></div>
+    <div class="eqs" style="grid-row:2/5">＝</div>
+    <div class="den" style="grid-row:4;grid-column:1">${b}</div><div class="den" style="grid-row:4;grid-column:3">${d}</div>
+    <div class="arc" style="grid-row:5">${b} ⟶ ${d}　${op}</div></div>`;
+}
+const head = (t, sub) => `<h2 class="stage-title">${t}</h2><p class="stage-sub">${sub}</p>`;
+
+/* ---------- 分鏡腳本 ---------- */
+// s：所屬階段（0＝開場、6＝收尾）；html：舞台；say：旁白
+const STAGES = ['', '造例', '提出猜想', '效化', '一般化', '證實'];
+const SCENES = [
+  { s:0, html: () => head('數學家也是這樣發現規律的', '五個步驟，像偵探辦案一樣') + `
+    <div class="map-intro">
+      <div class="slide" style="background:var(--s1)">① 造例　<span>自己動手做很多例子</span></div>
+      <div class="slide d1" style="background:var(--s2)">② 提出猜想　<span>從例子裡找規律，大膽說出來</span></div>
+      <div class="slide d2" style="background:var(--s3)">③ 效化　<span>全班一起找反例，考驗猜想</span></div>
+      <div class="slide d3" style="background:var(--s4)">④ 一般化　<span>補上條件，讓它對「所有」情況都成立</span></div>
+      <div class="slide d4" style="background:var(--s5)">⑤ 證實　<span>用學過的知識說明「為什麼一定對」</span></div>
+    </div>`,
+    say: '規律不是老師直接告訴你的，而是<b>你自己找出來的</b>。我們用一個例子，走一遍這五個步驟。' },
+
+  /* ① 造例 */
+  { s:1, html: () => head('① 造例：每組拿到不同的卡片', '任務：塗色的部分不能變，你能用哪些不同的分數來說它？') + `
+    <div class="row">
+      <div class="card col pop"><h4><span class="tag" style="background:var(--s1)">甲</span>3/4</h4>${strip(4,3)}</div>
+      <div class="card col pop d1"><h4><span class="tag" style="background:var(--s2)">乙</span>18/24</h4>${strip(24,18)}</div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="card col pop d2"><h4><span class="tag" style="background:var(--s3)">丙</span>12/16</h4>${strip(16,12)}</div>
+      <div class="card col pop d3"><h4><span class="tag" style="background:var(--s4)">丁</span>5/6</h4>${strip(6,5)}</div>
+    </div>`,
+    say: '每一組拿到的卡片<b>不一樣</b>。卡片不同，大家做出來的例子才會豐富，等一下才有東西可以比較。' },
+
+  { s:1, html: () => head('① 造例：把格子切得更細', '拿甲卡 3/4，每一格再切成 2 份、再切成 4 份') +
+    sbox(frac(3,4), strip(4,3), 'fade') +
+    sbox(frac(6,8), strip(4,3,{add:2,delay:.6}), 'slide d1') +
+    sbox(frac(12,16), strip(4,3,{add:4,delay:1.8}), 'slide d3'),
+    say: '每一格切成兩份，塗色變成 <b>8 份裡的 6 份</b>；切成四份，變成 <b>16 份裡的 12 份</b>。塗色的地方有變多嗎？沒有！' },
+
+  { s:1, html: () => head('① 造例：把格子合得更粗', '拿乙卡 18/24，把小格子併在一起') +
+    sbox(frac(18,24), strip(24,18), 'fade') +
+    sbox(frac(9,12), strip(24,18,{removeEvery:2}), 'slide d1') +
+    sbox(frac(3,4), strip(24,18,{removeEvery:6}), 'slide d2'),
+    say: '每 2 小格併成 1 格，變成 <b>9/12</b>；每 6 小格併成 1 格，變成 <b>3/4</b>。咦？跟甲卡一樣！' },
+
+  { s:1, html: () => head('① 造例：咦，有的卡片合不起來', '甲卡 3/4、丁卡 5/6 試著合併……') +
+    `<div class="row"><div class="col">${sbox(frac(3,4), strip(4,3))}</div><div class="col">${sbox(frac(5,6), strip(6,5))}</div></div>
+     <p class="big pop d1" style="text-align:center">🤔 怎麼併都會把格子切歪，合不起來！</p>`,
+    say: '有的組發現：3/4 和 5/6 <b>只能切細，不能合粗</b>。這個發現先記下來，等一下很重要。' },
+
+  { s:1, html: () => head('① 造例：小組整理例子', '大家互相檢查，再分成兩欄') + `
+    <div class="row">
+      <div class="bucket col" style="border-color:var(--s1)"><h4>✂️ 變細的</h4>
+        <span class="chip pop">${frac(6,8)}</span><span class="chip pop d1">${frac(12,16)}</span><span class="chip pop d2">${frac(10,12)}</span><span class="chip pop d3">${frac(36,48)}</span></div>
+      <div class="bucket col" style="border-color:var(--s2)"><h4>🧱 變粗的</h4>
+        <span class="chip pop d1">${frac(9,12)}</span><span class="chip pop d2">${frac(6,8)}</span><span class="chip pop d3">${frac(3,4)}</span></div>
+    </div>`,
+    say: '組員輪流說「我怎麼切、怎麼併」，有人不同意就當場畫圖重做。例子<b>越多、越正確</b>，下一步越好找規律。' },
+
+  /* ② 提出猜想 */
+  { s:2, html: () => head('② 提出猜想：盯著例子找規律', '寫成一句話，還要說出你是看哪幾個例子發現的') + `
+    <div class="row">
+      <div class="col">${eq(3,4,6,8,'×2','fade')}${eq(3,4,12,16,'×4','fade d1')}</div>
+      <div class="col">${eq(18,24,9,12,'÷2','fade d2')}${eq(18,24,3,4,'÷6','fade d3')}</div>
+    </div>
+    <div class="statement pop d4" style="border-color:var(--s2);background:#fff0f6">句型：「我們發現＿＿＿，因為＿＿＿。」</div>`,
+    say: '看看分子和分母是怎麼變的？規則是：<b>有憑有據、大膽猜測</b>，一張只寫一個想法。猜錯也沒關係！' },
+
+  { s:2, html: () => head('② 提出猜想：每組交出 1 條，貼上猜想牆', '老師這時候不說對錯') + wall(),
+    say: '每一組討論後只交 <b>1 條</b>猜想。有的對、有的不一定對、有的可能是錯的——<b>全部都貼上去</b>，這樣下一步才有東西可以考驗。' },
+
+  /* ③ 效化 */
+  { s:3, html: () => head('③ 效化：全班一起當挑戰者', '找一個「反例」，看看猜想會不會倒') + wall() +
+    `<p class="big pop d1" style="text-align:center">反例＝<span class="hl">一個讓猜想不成立的例子</span></p>`,
+    say: '一個猜想說「都會對」，只要找到<b>一個</b>不對的例子，就能把它推翻。這就是效化。' },
+
+  { s:3, html: () => head('③ 效化：考驗「同加一個數」', '3/4 的分子分母都加 1 → 4/5，一樣大嗎？') +
+    sbox(frac(3,4), strip(4,3), 'fade') + sbox(frac(4,5), strip(5,4), 'fade d1') +
+    `<p class="big slide d2">都切成 20 份來比：${frac(3,4)} 是 <span class="hl">15 份</span>，${frac(4,5)} 是 <span class="hl">16 份</span> → 不一樣大！</p>` +
+    sbox(frac(15,20), strip(20,15), 'slide d3') + sbox(frac(16,20), strip(20,16), 'slide d4'),
+    say: '加 1 之後塗色變多了。所以「同加一個數」<b>被推翻</b> ❌' },
+
+  { s:3, html: () => head('③ 效化：考驗「每個分數都能合併」', '還記得甲卡 3/4 嗎？') +
+    sbox(frac(3,4), strip(4,3), 'fade shake') +
+    `<p class="big pop d1">3 和 4 沒有共同可以除的數（除了 1），合不起來。5/6 也是！</p>`,
+    say: '我們在造例時就遇過了——3/4 和 5/6 合不起來。所以這條猜想<b>被推翻</b> ❌' },
+
+  { s:3, html: () => head('③ 效化：考驗「同除一個數」', '18/24：分子分母都除以 4 可以嗎？') +
+    sbox('÷4 ?', strip(24,18,{colorFn:i => i>=16 ? 'var(--bad)' : (Math.floor(i/4)%2 ? 'var(--shade2)' : 'var(--shade)')}), 'fade') +
+    `<p class="big slide d1">24 格每 4 格一組 → 6 組 ✔　但 18 格每 4 格一組 → 4 組還<span style="color:var(--bad)">多 2 格</span> ✘</p>` +
+    sbox('÷6', strip(24,18,{colorFn:i => Math.floor(i/6)%2 ? 'var(--shade2)' : 'var(--shade)'}), 'slide d2') +
+    `<p class="big slide d3">每 6 格一組：24 格 → 4 組、18 格 → 3 組，剛好！變成 ${frac(3,4)}</p>`,
+    say: '「同除一個數」不是全錯，只是<b>少了條件</b>：要能把分子和分母<b>都除盡</b>才行 🔺' },
+
+  { s:3, html: () => head('③ 效化：考驗「同乘一個數」', '如果乘的是 0 或 1 呢？') + `
+    <table class="cmp">
+      <tr class="slide"><td>×0：</td><td class="big">${frac(3,4)} → ${frac('0','0')}</td><td>😵 這不是分數了</td></tr>
+      <tr class="slide d1"><td>×1：</td><td class="big">${frac(3,4)} → ${frac(3,4)}</td><td>😐 根本沒變</td></tr>
+      <tr class="slide d2"><td>×2：</td><td class="big">${frac(3,4)} → ${frac(6,8)}</td><td>😀 成立</td></tr>
+    </table>`,
+    say: '「同乘一個數」也<b>少了條件</b>：不能乘 0，乘 1 也沒意義 🔺' },
+
+  { s:3, html: () => head('③ 效化：結果出爐', '🔺 要加條件　❌ 被推翻') + wall(true),
+    say: '被推翻的不是失敗，而是<b>讓我們更接近真相</b>。兩條要加條件的猜想，帶到下一步。' },
+
+  /* ④ 一般化 */
+  { s:4, html: () => head('④ 一般化：讓它對「所有」分數都成立', '我們只試了幾張卡，換成別的分數還會對嗎？') + `
+    <div class="statement fade">把分數的分子和分母同乘以一個數，分數一樣大。</div>
+    <div class="statement slide d2">把<span class="ins">任何一個</span>分數的分子和分母，同乘以一個<span class="ins">比 1 大的整數</span>，分數一樣大。</div>`,
+    say: '加上「<b>任何一個</b>」，表示對所有分數都成立；再補上剛才找到的條件「<b>比 1 大的整數</b>」。' },
+
+  { s:4, html: () => head('④ 一般化：另一條也補上條件', '「除盡」用數學的話怎麼說？') + `
+    <div class="statement fade">把分數的分子和分母同除以一個數，分數一樣大。</div>
+    <div class="statement slide d2">把<span class="ins">任何一個</span>分數的分子和分母，同除以<span class="ins">它們的公因數</span>，分數一樣大。</div>`,
+    say: '能同時把分子、分母都除盡的數，就是它們的<b>公因數</b>。' },
+
+  { s:4, html: () => head('④ 一般化：現在才幫它取名字', '名字是你發現之後才給的標籤') + `
+    <div class="statement fade">同乘以比 1 大的整數，分數一樣大 <span class="name-badge pop d1">擴分</span></div>
+    <div class="statement fade d2">同除以它們的公因數，分數一樣大 <span class="name-badge pop d3">約分</span></div>`,
+    say: '這兩個規律有名字了：<b>擴分</b>和<b>約分</b>。它們是<b>你們自己找出來的</b>。' },
+
+  /* ⑤ 證實 */
+  { s:5, html: () => head('⑤ 證實：為什麼「一定」會一樣大？', '分數有無限多個，不可能一個一個試完') + `
+    <p class="big fade">要用<span class="hl">以前學過的知識</span>來說明：</p>
+    <div class="row">
+      <span class="chip pop d1">分數是幾個幾分之一</span><span class="chip pop d2">單位分數的大小</span><span class="chip pop d3">等值分數</span>
+    </div>`,
+    say: '試了 100 個例子都對，還不算證明。我們要說出<b>為什麼</b>。' },
+
+  { s:5, html: () => head('⑤ 證實：一小一大，剛好抵消', '把 3/4 的每一格切成 2 份') +
+    sbox(frac(3,4), strip(4,3), 'fade') + sbox(frac(6,8), strip(4,3,{add:2,delay:.6}), 'slide d1') + `
+    <table class="cmp slide d3">
+      <tr><td>每一份：</td><td class="big">${frac(1,4)} → ${frac(1,8)}</td><td>變成<b>一半</b> ⬇</td></tr>
+      <tr><td>塗色份數：</td><td class="big">3 份 → 6 份</td><td>變成<b>兩倍</b> ⬆</td></tr>
+    </table>
+    <p class="big pop d5" style="text-align:center">每份小一半、份數多兩倍 → 塗色一樣多 ✅</p>`,
+    say: '每一份變小了，但份數剛好變多同樣的倍數，<b>一小一大抵消</b>，所以分數的大小不會變。這樣就說服大家了！' },
+
+  /* 收尾 */
+  { s:6, html: () => head('🎉 你剛剛走完了臆測五階段', '下次遇到新問題，也可以這樣自己找規律') + `
+    <div class="map-intro">
+      <div class="slide" style="background:var(--s1)">① 造例　<span>不同的卡片，做出很多例子</span></div>
+      <div class="slide d1" style="background:var(--s2)">② 提出猜想　<span>每組交 1 條，對錯都上牆</span></div>
+      <div class="slide d2" style="background:var(--s3)">③ 效化　<span>用反例推翻 ❌、補條件 🔺</span></div>
+      <div class="slide d3" style="background:var(--s4)">④ 一般化　<span>加上「任何」和條件，最後才取名字</span></div>
+      <div class="slide d4" style="background:var(--s5)">⑤ 證實　<span>用學過的知識說明為什麼一定對</span></div>
+    </div>`,
+    say: '<b>猜錯不可怕</b>，被推翻的猜想也幫了大忙。數學家就是這樣一步一步發現規律的！' },
+];
+
+// 猜想牆（每組 1 條；judged=true 時蓋章）
+function wall(judged = false) {
+  const notes = [
+    ['第 1 組', '分子分母同乘一個數，分數一樣大', 'warn', '🔺 要加條件'],
+    ['第 2 組', '分子分母同加一個數，分數一樣大', 'bad', '❌ 被推翻'],
+    ['第 3 組', '分子分母同除一個數，分數一樣大', 'warn', '🔺 要加條件'],
+    ['第 4 組', '每個分數都可以再合併成更簡單的分數', 'bad', '❌ 被推翻'],
+  ];
+  return `<div class="wall">${notes.map((n, i) => `<div class="note ${judged ? '' : 'pop d' + (i + 1)} ${judged && n[2] === 'bad' ? 'crossed' : ''}">
+    ${judged ? `<span class="stamp ${n[2]} pop d${i + 1}">${n[3]}</span>` : ''}<small>${n[0]}</small>${n[1]}</div>`).join('')}</div>`;
+}
+
+/* ---------- 播放控制 ---------- */
+let idx = 0, timer = null;
+const $ = id => document.getElementById(id);
+const AUTO_MS = 9000;
+
+function buildMap() {
+  $('map').innerHTML = STAGES.slice(1).map((n, i) =>
+    (i ? '<span class="arrow" aria-hidden="true">➜</span>' : '') +
+    `<span class="station" tabindex="0" role="button" data-s="${i + 1}">${i + 1} ${n}</span>`).join('');
+  $('map').querySelectorAll('.station').forEach(el => {
+    const go = () => { idx = SCENES.findIndex(sc => sc.s === +el.dataset.s); render(); };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
+function render() {
+  const sc = SCENES[idx];
+  $('stage').innerHTML = sc.html() + `<div class="caption fade">${sc.say}</div>`;
+  document.querySelectorAll('.station').forEach(el => {
+    const s = +el.dataset.s;
+    el.classList.toggle('active', s === sc.s);
+    el.classList.toggle('done', s < sc.s || sc.s === 6);
+  });
+  $('progress').textContent = `${idx + 1} / ${SCENES.length}`;
+  $('bar').style.width = ((idx + 1) / SCENES.length * 100) + '%';
+  $('prev').disabled = idx === 0;
+  $('next').disabled = idx === SCENES.length - 1;
+  if (timer) schedule();
+}
+function go(d) { const n = idx + d; if (n >= 0 && n < SCENES.length) { idx = n; render(); } }
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(() => { if (idx < SCENES.length - 1) go(1); else setAuto(false); }, AUTO_MS);
+}
+function setAuto(on) {
+  clearTimeout(timer); timer = on ? 1 : null;
+  $('auto').textContent = on ? '⏸ 暫停' : '▶ 自動播放';
+  $('auto').setAttribute('aria-pressed', on);
+  if (on) { if (idx === SCENES.length - 1) { idx = 0; render(); } else schedule(); }
+}
+$('prev').onclick = () => go(-1);
+$('next').onclick = () => go(1);
+$('replay').onclick = () => render();
+$('auto').onclick = () => setAuto(!timer);
+document.addEventListener('keydown', e => {
+  if (e.target.classList && e.target.classList.contains('station')) return;
+  if (e.key === 'ArrowRight') go(1);
+  else if (e.key === 'ArrowLeft') go(-1);
+  else if (e.key === ' ' && e.target.tagName !== 'BUTTON') { e.preventDefault(); setAuto(!timer); }
+});
+// 可用 ?step=N 直接開到第 N 步（方便老師分享連結）
+const q = parseInt(new URLSearchParams(location.search).get('step'), 10);
+if (q >= 1 && q <= SCENES.length) idx = q - 1;
+buildMap(); render();
+</script>
+</body>
+</html>

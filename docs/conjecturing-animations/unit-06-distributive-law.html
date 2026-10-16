@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第六單元 整數四則運算：兩堆乘法可以合起來算嗎？｜臆測五階段</title>
+<style>
+  :root{
+    --bg:#fdf8ef; --ink:#2b2d42; --muted:#6b6f80; --card:#ffffff;
+    --shade:#f4a261; --shade2:#e76f51; --line:#2b2d42; --ok:#2a9d8f; --bad:#d62828; --warn:#e9c46a;
+    --s1:#4cc9f0; --s2:#f72585; --s3:#7209b7; --s4:#3a86ff; --s5:#2a9d8f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:12px 20px 4px;text-align:center}
+  header h1{margin:0;font-size:1.5rem}
+  /* 五站地圖 */
+  .map{display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap;padding:8px 12px}
+  .station{border:3px solid #ccc;background:#fff;border-radius:999px;padding:6px 14px;font-weight:700;color:#999;cursor:pointer;transition:all .35s;font-size:1rem}
+  .station.done{color:var(--ink);border-color:#aaa}
+  .station.active{color:#fff;transform:scale(1.12);box-shadow:0 4px 10px rgba(0,0,0,.18)}
+  .station[data-s="1"].active{background:var(--s1);border-color:var(--s1)}
+  .station[data-s="2"].active{background:var(--s2);border-color:var(--s2)}
+  .station[data-s="3"].active{background:var(--s3);border-color:var(--s3)}
+  .station[data-s="4"].active{background:var(--s4);border-color:var(--s4)}
+  .station[data-s="5"].active{background:var(--s5);border-color:var(--s5)}
+  .arrow{color:#bbb;font-weight:700}
+  /* 舞台 */
+  main{max-width:980px;margin:0 auto;padding:0 14px}
+  .stage{background:var(--card);border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.08);min-height:430px;padding:20px 22px;position:relative;overflow:hidden}
+  .stage-title{font-size:1.35rem;font-weight:800;margin:0 0 4px}
+  .stage-sub{color:var(--muted);margin:0 0 14px}
+  .caption{margin-top:14px;background:#fff7e0;border-left:6px solid var(--warn);border-radius:10px;padding:12px 16px;font-size:1.15rem;line-height:1.7;min-height:64px}
+  .caption b{color:var(--shade2)}
+  .controls{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:14px 0 6px}
+  button{font:inherit;font-size:1.05rem;border:none;border-radius:12px;padding:10px 18px;cursor:pointer;background:var(--ink);color:#fff}
+  button.ghost{background:#e9e6df;color:var(--ink)}
+  button:disabled{opacity:.35;cursor:default}
+  button:focus-visible,.station:focus-visible{outline:3px solid var(--s4);outline-offset:2px}
+  .progress{color:var(--muted);font-size:.95rem;min-width:110px;text-align:center}
+  .bar{height:6px;background:#eee;border-radius:3px;overflow:hidden;max-width:980px;margin:6px auto 0}
+  .bar>i{display:block;height:100%;background:var(--shade);width:0;transition:width .4s}
+  footer{text-align:center;color:var(--muted);font-size:.85rem;padding:14px}
+
+  /* 動畫元件 */
+  .pop{animation:pop .55s both}
+  .fade{animation:fade .6s both}
+  .slide{animation:slide .6s both}
+  @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes slide{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  .d1{animation-delay:.5s}.d2{animation-delay:1s}.d3{animation-delay:1.5s}.d4{animation-delay:2s}.d5{animation-delay:2.5s}.d6{animation-delay:3s}
+  .grow line{stroke-dasharray:60;stroke-dashoffset:60;animation:draw .8s forwards;animation-delay:inherit}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  .vanish{animation:vanish 1s forwards;animation-delay:.6s}
+  @keyframes vanish{to{opacity:0}}
+  .shake{animation:shake .5s 3}
+  @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01s!important;animation-delay:0s!important;transition:none!important}
+  }
+
+  .row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .col{flex:1;min-width:260px}
+  .strip-box{margin:6px 0 10px;display:flex;align-items:center;gap:10px}
+  .strip-label{font-size:1.25rem;font-weight:800;min-width:56px;text-align:right}
+  .tag{display:inline-block;border-radius:8px;padding:2px 8px;font-size:.9rem;font-weight:700;color:#fff;margin-right:6px}
+  .card{border:2px dashed #d8cfc0;border-radius:14px;padding:10px 12px;background:#fffdf8}
+  .card h4{margin:0 0 6px}
+  .bucket{border:3px solid #ddd;border-radius:14px;padding:8px 10px;min-height:120px}
+  .bucket h4{margin:0 0 6px;text-align:center}
+  .chip{display:inline-block;background:#fff;border:2px solid #ccc;border-radius:10px;padding:4px 10px;margin:4px;font-weight:800;font-size:1.1rem}
+  .wall{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+  .note{background:#fff59d;border-radius:4px;padding:12px 12px 14px;box-shadow:2px 4px 8px rgba(0,0,0,.15);font-size:1.08rem;line-height:1.5;position:relative;transform:rotate(-1.5deg)}
+  .note:nth-child(2n){transform:rotate(1.5deg);background:#ffd6e7}
+  .note:nth-child(3n){background:#c8f7dc}
+  .note small{display:block;color:var(--muted);margin-bottom:4px}
+  .stamp{position:absolute;right:8px;top:-12px;font-size:1.05rem;font-weight:900;padding:2px 10px;border-radius:8px;color:#fff}
+  .stamp.bad{background:var(--bad)} .stamp.warn{background:#c98a00} .stamp.ok{background:var(--ok)}
+  .note.crossed{text-decoration:line-through;opacity:.6}
+  .big{font-size:1.4rem;font-weight:800}
+  .hl{background:linear-gradient(transparent 55%,#ffe08a 55%);padding:0 2px}
+  .name-badge{display:inline-block;background:var(--s4);color:#fff;border-radius:12px;padding:4px 14px;font-weight:900;font-size:1.3rem;margin-left:8px}
+  .statement{border:3px solid var(--s4);border-radius:14px;padding:12px 16px;margin:10px 0;font-size:1.15rem;line-height:1.8;background:#f2f7ff}
+  .ins{color:var(--s4);font-weight:900;border-bottom:3px solid var(--s4)}
+  /* 分數＋箭頭（不寫連等式，倍數標在分子上方、分母下方） */
+  .eq{display:inline-grid;grid-template-columns:auto auto auto;grid-template-rows:auto auto auto auto auto;align-items:center;justify-items:center;margin:8px 18px;font-size:1.5rem;font-weight:800}
+  .eq .arc{grid-column:1/4;font-size:1rem;color:var(--shade2);white-space:nowrap}
+  .eq .num,.eq .den{padding:0 6px}
+  .eq .fbar{width:100%;height:3px;background:var(--ink)}
+  .eq .eqs{grid-row:2/5;grid-column:2;padding:0 14px}
+  .map-intro{display:flex;flex-direction:column;gap:8px;max-width:620px;margin:0 auto}
+  .map-intro div{border-radius:12px;padding:10px 14px;color:#fff;font-weight:700;font-size:1.1rem}
+  .map-intro span{font-weight:400;opacity:.95}
+  table.cmp{border-collapse:collapse;margin:6px auto}
+  table.cmp td{padding:4px 10px;font-size:1.1rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔍 第六單元 整數四則運算：兩堆乘法可以合起來算嗎？</h1>
+</header>
+<nav class="map" id="map" aria-label="五個階段"></nav>
+<div class="bar"><i id="bar"></i></div>
+<main>
+  <section class="stage" id="stage" aria-live="polite"></section>
+  <div class="controls">
+    <button class="ghost" id="prev" aria-label="上一步">◀ 上一步</button>
+    <span class="progress" id="progress"></span>
+    <button id="next" aria-label="下一步">下一步 ▶</button>
+    <button class="ghost" id="auto" aria-pressed="false">▶ 自動播放</button>
+    <button class="ghost" id="replay" aria-label="重播這一步">↻ 重播</button>
+  </div>
+</main>
+<footer><a href="index.html" style="color:inherit;font-weight:700">🏠 回總目錄</a>｜鍵盤：← → 換步驟、空白鍵開關自動播放｜例子取自五上第六單元「整數四則運算」臆測教學設計（任務一）</footer>
+
+<script>
+/* ---------- 共用小工具 ---------- */
+const head = (t, sub) => `<h2 class="stage-title">${t}</h2><p class="stage-sub">${sub}</p>`;
+const STAGES = ['', '造例', '提出猜想', '效化', '一般化', '證實'];
+const STAGE_TIPS = ['', '自己動手做很多例子', '從例子裡找規律，大膽說出來', '全班一起找反例，考驗猜想', '補上條件，讓它對「所有」情況都成立', '用學過的知識說明「為什麼一定對」'];
+function introMap(tips = STAGE_TIPS) {
+  return `<div class="map-intro">${[1,2,3,4,5].map(i =>
+    `<div class="slide d${i - 1}" style="background:var(--s${i})">${'①②③④⑤'[i - 1]} ${STAGES[i]}　<span>${tips[i]}</span></div>`).join('')}</div>`;
+}
+// 猜想牆：notes = [組別, 猜想, 'ok'|'warn'|'bad', 蓋章文字]
+function wall(notes, judged = false) {
+  return `<div class="wall">${notes.map((n, i) => `<div class="note ${judged ? '' : 'pop d' + (i + 1)} ${judged && n[2] === 'bad' ? 'crossed' : ''}">
+    ${judged ? `<span class="stamp ${n[2]} pop d${i + 1}">${n[3]}</span>` : ''}<small>${n[0]}</small>${n[1]}</div>`).join('')}</div>`;
+}
+const groupCard = (k, title, body, i) => `<div class="card col pop d${i}"><h4><span class="tag" style="background:var(--s${i + 1})">${k}</span>${title}</h4>${body}</div>`;
+const fourCards = cards => `<div class="row">${cards.slice(0, 2).map((c, i) => groupCard(...c, i)).join('')}</div>
+  <div class="row" style="margin-top:10px">${cards.slice(2).map((c, i) => groupCard(...c, i + 2)).join('')}</div>`;
+const say = s => s;
+
+/* ---------- 第六單元：乘法對加減法的分配律 ---------- */
+const CA = 'var(--s4)', CB = '#b5651d';
+// 鈕扣包：n 包，每包上半 a 顆（金屬）、下半 b 顆（木頭），每包排兩直行
+// mode：'kind' 橫向圈出同一種；'pack' 直向圈出每一包
+function packs(n, a, b, mode) {
+  const r = 9, g = 22, pw = 2 * g + 16, rowsA = Math.ceil(a / 2), rowsB = Math.ceil(b / 2);
+  const ph = (rowsA + rowsB) * g + 22, Wd = n * (pw + 12) + 10;
+  let s = '';
+  for (let p = 0; p < n; p++) {
+    const x0 = 10 + p * (pw + 12);
+    s += `<rect x="${x0}" y="6" width="${pw}" height="${ph}" rx="8" fill="#fffdf6" stroke="#d8cfc0" stroke-width="2"/>`;
+    for (let i = 0; i < a + b; i++) {
+      const isA = i < a, j = isA ? i : i - a, row = isA ? Math.floor(j / 2) : rowsA + Math.floor(j / 2);
+      s += `<circle cx="${x0 + 19 + (j % 2) * g}" cy="${22 + row * g + (isA ? 0 : 6)}" r="${r}" fill="${isA ? CA : CB}"/>`;
+    }
+    if (mode === 'pack') s += `<rect x="${x0 - 3}" y="3" width="${pw + 6}" height="${ph + 6}" rx="10" fill="none" stroke="var(--ok)" stroke-width="4" stroke-dasharray="8 5" class="fade d${1 + p % 5}"/>`;
+  }
+  if (mode === 'kind') {
+    s += `<rect x="4" y="10" width="${Wd - 6}" height="${rowsA * g + 4}" rx="10" fill="none" stroke="${CA}" stroke-width="4" stroke-dasharray="8 5" class="fade d1"/>`;
+    s += `<rect x="4" y="${14 + rowsA * g + 4}" width="${Wd - 6}" height="${rowsB * g + 2}" rx="10" fill="none" stroke="${CB}" stroke-width="4" stroke-dasharray="8 5" class="fade d2"/>`;
+  }
+  return `<svg viewBox="0 0 ${Wd} ${ph + 14}" width="100%" style="max-width:${Math.min(Wd, 520)}px" role="img" aria-label="${n} 包，每包 ${a} 顆和 ${b} 顆">${s}</svg>`;
+}
+// 點陣：c 排，每排 a 個藍點接 b 個橘點；gap＝中間空隙；cross＝每排最後 cross 個打叉
+function grid(c, a, b, opts = {}) {
+  const g = 24, gap = opts.gap ?? 0, Wd = (a + b) * g + gap + 10, Hh = c * g + 10;
+  let s = '';
+  for (let r = 0; r < c; r++) for (let i = 0; i < a + b; i++) {
+    const x = 17 + i * g + (i >= a ? gap : 0), y = 17 + r * g, crossed = opts.cross && i >= a + b - opts.cross;
+    s += `<circle cx="${x}" cy="${y}" r="9" fill="${i < a ? CA : CB}" opacity="${crossed ? .25 : 1}"/>`;
+    if (crossed) s += `<path d="M${x - 8} ${y - 8}L${x + 8} ${y + 8}M${x + 8} ${y - 8}L${x - 8} ${y + 8}" stroke="var(--bad)" stroke-width="3"/>`;
+  }
+  return `<svg viewBox="0 0 ${Wd} ${Hh}" height="${Math.min(Hh, 170)}" role="img" aria-label="${opts.label || c + ' 排點陣'}">${s}</svg>`;
+}
+
+const NOTES = [
+  ['第 1 組（鈕扣）', '兩堆都是「幾的 5 倍」，合起來就是「（幾＋幾）的 5 倍」', 'ok', '⭕ 留下'],
+  ['第 2 組（貼紙）', '合起來不用加括號：5×(4＋3) 可以寫成 5×4＋3', 'bad', '❌ 被推翻'],
+  ['第 3 組（果汁）', '任何兩個乘法相加，都可以把前面的數加起來，再乘後面的數', 'warn', '🔺 要加條件'],
+  ['第 4 組（蘋果橘子）', '兩個乘法沒有一樣的數，就不能合起來', 'ok', '⭕ 留下'],
+];
+
+const SCENES = [
+  { s:0, html: () => head('整數四則運算：兩堆乘法可以合起來算嗎？', '用臆測五階段，自己找出規律') + introMap(),
+    say: '規律不是老師直接告訴你的，而是<b>你自己找出來的</b>。這次的問題是：<b>同一張圖，換一種數法，會發現什麼？</b>' },
+
+  /* ① 造例 */
+  { s:1, html: () => head('① 造例：每組拿到不同的圖卡', '卡片上只有圖，沒有算式') + fourCards([
+      ['卡 A', '鈕扣', '<p>金屬鈕扣一包 6 顆、木頭鈕扣一包 4 顆，各 5 包。</p>'],
+      ['卡 B', '貼紙', '<p>一排 5 張，紅貼紙 4 排、綠貼紙 3 排。</p>'],
+      ['卡 C', '果汁和汽水', '<p>一箱果汁 18 瓶、一箱汽水 12 瓶，各買 5 箱。</p>'],
+      ['卡 D', '蘋果和橘子', '<p>一箱蘋果 6 顆買 5 箱、一箱橘子 4 顆買 3 箱。</p>'],
+    ]),
+    say: '每一組的圖卡<b>不一樣</b>，有一張還特別不一樣。任務：<b>算出總數，而且找出兩種數法</b>。' },
+
+  { s:1, html: () => head('① 造例：卡 A 的第一種數法', '一種一種分開數') + `<div class="fade">${packs(5, 6, 4, 'kind')}</div>
+    <p class="big slide d2"><span style="color:${CA}">金屬 6×5＝30</span>　＋　<span style="color:${CB}">木頭 4×5＝20</span>　→　共 50 顆</p>
+    <p class="big slide d3">算式：6×5＋4×5</p>`,
+    say: '把金屬圈成一塊、木頭圈成一塊。<b>你的圈法就是你的算法</b>。' },
+
+  { s:1, html: () => head('① 造例：卡 A 的第二種數法', '換個圈法：一包一包數') + `<div class="fade">${packs(5, 6, 4, 'pack')}</div>
+    <p class="big slide d2">一包裡合起來 6＋4＝10 顆，有 5 包　→　共 50 顆</p>
+    <p class="big slide d3">算式：(6＋4)×5</p>`,
+    say: '先看<b>一包</b>共幾顆，再乘包數。兩種圈法，答案<b>都是 50</b>！' },
+
+  { s:1, html: () => head('① 造例：卡 B、卡 C 也找到兩種數法', '答案一樣嗎？') + `
+    <div class="row">
+      <div class="col card slide"><h4>卡 B 貼紙</h4>${grid(5, 4, 3, {gap: 0, label: '貼紙：紅貼紙 4 排、綠貼紙 3 排，每排 5 張（直的看）'})}
+        <p>一種一種數：<b>5×4＋5×3</b> → 20＋15 → 35</p><p>併排再數：共 7 排 → <b>5×(4＋3)</b> → 35</p></div>
+      <div class="col card slide d2"><h4>卡 C 果汁汽水</h4>
+        <p class="big">18×5＋12×5 → 90＋60 → 150</p><p class="big">(18＋12)×5 → 30×5 → 150</p><p>一箱合起來剛好 30 瓶，好算！</p></div>
+    </div>`,
+    say: '卡 B 是<b>前面的數</b>一樣（每排 5 張），卡 C 是<b>後面的數</b>一樣（各 5 箱）。兩種數法答案都一樣。' },
+
+  { s:1, html: () => head('① 造例：卡 D 圈不出第二種', '想一箱一箱合起來數……') + `<div class="row" style="align-items:flex-end">
+    <div class="fade"><div style="font-weight:800">蘋果 5 箱，每箱 6 顆</div>${packs(5, 6, 0)}</div>
+    <div class="fade d1"><div style="font-weight:800">橘子 3 箱，每箱 4 顆</div>${packs(3, 0, 4)}</div></div>
+    <p class="big slide d2">6×5＋4×3 → 30＋12 → 42</p>
+    <p class="big pop d3">🤔 箱數不一樣、每箱顆數也不一樣，<span class="hl">併不成一箱一箱</span>！</p>`,
+    say: '第 4 組發現：這張卡<b>只能一種一種分開數</b>。這個「圈不成」的圖，等一下會用到。' },
+
+  { s:1, html: () => head('① 造例：小組分類', '把各人的圈圈圖攤開比對') + `
+    <div class="row">
+      <div class="bucket col" style="border-color:var(--ok)"><h4>✔ 兩種數法答案一樣的</h4>
+        <span class="chip pop">卡 A</span><span class="chip pop d1">卡 B</span><span class="chip pop d2">卡 C</span></div>
+      <div class="bucket col" style="border-color:var(--bad)"><h4>✘ 圈不出第二種的</h4><span class="chip pop d3">卡 D</span></div>
+    </div>`,
+    say: '異質的卡片，讓全班<b>同時有正例和反例</b>的原料。' },
+
+  /* ② 提出猜想 */
+  { s:2, html: () => head('② 提出猜想：比一比兩種算式', '寫成一句話，還要說出你是看哪幾個例子發現的') + `
+    <table class="cmp">
+      <tr class="fade"><td class="big">6×5＋4×5</td><td>和</td><td class="big">(6＋4)×5</td><td>都是 50</td></tr>
+      <tr class="fade d1"><td class="big">5×4＋5×3</td><td>和</td><td class="big">5×(4＋3)</td><td>都是 35</td></tr>
+      <tr class="fade d2"><td class="big">18×5＋12×5</td><td>和</td><td class="big">(18＋12)×5</td><td>都是 150</td></tr>
+    </table>
+    <div class="statement pop d3" style="border-color:var(--s2);background:#fff0f6">句型：「我們發現＿＿＿，因為＿＿＿。」</div>`,
+    say: '規則是：<b>有憑有據、大膽猜測</b>，一張只寫一個想法。猜錯也沒關係！' },
+
+  { s:2, html: () => head('② 提出猜想：每組交出 1 條，貼上猜想牆', '老師這時候不說對錯') + wall(NOTES),
+    say: '有的對、有的不一定對、有的可能是錯的——<b>全部都貼上去</b>，這樣下一步才有東西可以考驗。' },
+
+  /* ③ 效化 */
+  { s:3, html: () => head('③ 效化：全班一起當挑戰者', '用具體的數字試試看') + wall(NOTES) +
+    `<p class="big pop d1" style="text-align:center">反例＝<span class="hl">一個讓猜想不成立的例子</span></p>`,
+    say: '只要找到<b>一個</b>不對的例子，就能推翻「任何」「一定」的猜想。' },
+
+  { s:3, html: () => head('③ 效化：考驗第 3 組「任何兩個乘法都能合」', '拿第 4 組的卡 D 來試：6×5＋4×3，正確答案是 42') + `
+    <table class="cmp">
+      <tr class="slide"><td class="big">(6＋4)×5</td><td>＝ 50</td><td>✘ 不是 42</td></tr>
+      <tr class="slide d1"><td class="big">(6＋4)×3</td><td>＝ 30</td><td>✘ 不是 42</td></tr>
+    </table>
+    <p class="big pop d2" style="text-align:center">不是「任何」都行 → <span class="hl">少了條件</span>：兩個乘法要有一樣的數 🔺</p>`,
+    say: '第 3 組的果汁卡後面都是 5，所以合得起來；換成<b>別組</b>的卡 D 就不行了。這條猜想不是全錯，是<b>少了條件</b> 🔺' },
+
+  { s:3, html: () => head('③ 效化：考驗第 1 組', '第 1 組說「都是幾的 5 倍」，那前面的數一樣呢？') + `
+    <table class="cmp">
+      <tr class="slide"><td>第 2 組貼紙：</td><td class="big">5×4＋5×3 → 35</td><td class="big">5×(4＋3) → 35 ✔</td></tr>
+      <tr class="slide d1"><td>換新數字：</td><td class="big">7×5＋2×5 → 45</td><td class="big">(7＋2)×5 → 45 ✔</td></tr>
+      <tr class="slide d2"><td>連減法：</td><td class="big">8×6－3×6 → 30</td><td class="big">(8－3)×6 → 30 ✔</td></tr>
+    </table>
+    <p class="big pop d3" style="text-align:center">前面一樣、後面一樣都行，加法減法都成立 ⭕</p>`,
+    say: '用<b>別組</b>的貼紙卡來試，發現前面的數一樣也可以合。第 1 組的猜想經得起考驗，<b>連減法也行</b> ⭕' },
+
+  { s:3, html: () => head('③ 效化：考驗第 2 組「不用加括號」', '比一比兩個算式') + `
+    <table class="cmp">
+      <tr class="slide"><td class="big">5×(4＋3)</td><td>先算括號 5×7</td><td class="big">＝ 35 ✔</td></tr>
+      <tr class="slide d1"><td class="big">5×4＋3</td><td>先乘後加 20＋3</td><td class="big">＝ 23 ✘</td></tr>
+    </table>
+    <p class="big pop d2" style="text-align:center">答案不一樣 → 一定要加括號，被推翻 ❌</p>`,
+    say: '少了括號，就會先算乘法，答案完全不同。第 2 組的猜想被推翻 ❌' },
+
+  { s:3, html: () => head('③ 效化：考驗第 4 組「沒有一樣的數就不能合」', '再找一個沒有一樣的數的例子：7×5＋2×3，正確答案是 41') + `
+    <table class="cmp">
+      <tr class="slide"><td class="big">(7＋2)×5</td><td>＝ 45</td><td>✘ 不是 41</td></tr>
+      <tr class="slide d1"><td class="big">(7＋2)×3</td><td>＝ 27</td><td>✘ 不是 41</td></tr>
+    </table>
+    <p class="big pop d2" style="text-align:center">還是合不起來，找不到反例 ⭕</p>`,
+    say: '換新的例子也一樣合不起來。第 4 組的猜想<b>留下</b>，它正好說出了合併的<b>限制條件</b> ⭕' },
+
+  { s:3, html: () => head('③ 效化：結果出爐', '⭕ 留下　🔺 要加條件　❌ 被推翻') + wall(NOTES, true),
+    say: '全班共識：<b>兩個乘法若有一個相同的數（不管在前在後），就能把另外兩個數相加或相減，再乘那個數；沒有相同的數就不能合。</b>' },
+
+  /* ④ 一般化 */
+  { s:4, html: () => head('④ 一般化：換成「任何數」都成立', '用 ○、△、□ 代表任何數') + `
+    <div class="statement fade">○×□ ＋ △×□ ＝ (○＋△)×□</div>
+    <div class="statement fade d1">□×○ ＋ □×△ ＝ □×(○＋△)</div>
+    <div class="statement fade d2">○×□ － △×□ ＝ (○－△)×□　<small>（○ 要比 △ 大或一樣大）</small></div>
+    <div class="statement slide d3" style="border-color:var(--bad);background:#fff3f3">限制條件：兩個乘法一定要有<span class="ins">相同的數 □</span>；像 6×5＋4×3 就不行。</div>`,
+    say: '○、△、□ 可以換成<b>任何數</b>；再加上剛才找到的<b>限制條件</b>。' },
+
+  { s:4, html: () => head('④ 一般化：現在才幫它取名字', '名字是你們發現之後才給的標籤') + `
+    <div class="statement fade">這個規律叫做 <span class="name-badge pop d1">分配律</span></div>
+    <p class="big slide d2">乘法對加法的分配律、乘法對減法的分配律</p>
+    <p class="big slide d3">反過來用，可以讓計算變簡單：</p>
+    <p class="big slide d4">101×23＋99×23 → (101＋99)×23 → 200×23 → 4600</p>`,
+    say: '這個規律有名字了：<b>分配律</b>。它是<b>你們自己找出來的</b>，而且兩個方向都能用。' },
+
+  /* ⑤ 證實 */
+  { s:5, html: () => head('⑤ 證實：為什麼一定相等？', '用點陣圖：□ 排，每排 ○ 個和 △ 個') + `
+    <div class="row" style="align-items:center">
+      <div class="fade">${grid(5, 6, 4, {gap: 30})}<div style="text-align:center"><span style="color:${CA}">6×5</span>　＋　<span style="color:${CB}">4×5</span></div></div>
+      <div class="big slide d1">→</div>
+      <div class="slide d2">${grid(5, 6, 4, {gap: 0})}<div style="text-align:center">每排接起來 (6＋4) 個，還是 5 排 → (6＋4)×5</div></div>
+    </div>
+    <p class="big pop d4" style="text-align:center">點的數量沒變，只是換個方式數 → 一定相等 ✅</p>`,
+    say: '「5 個 6 加 5 個 4」就是「5 個 (6＋4)」。換成<b>任何數</b>，接起來的道理都一樣。' },
+
+  { s:5, html: () => head('⑤ 證實：減法也一樣', '6 排，每排 8 個，每排拿掉 3 個') + `
+    <div class="row" style="align-items:center">
+      <div class="fade">${grid(6, 5, 3, {cross: 3})}</div>
+      <div class="col"><p class="big slide d1">全部 8×6，拿掉 3×6</p><p class="big slide d2">每排剩 (8－3) 個，還是 6 排</p>
+      <p class="big pop d3">8×6－3×6 ＝ (8－3)×6 ✅</p></div>
+    </div>`,
+    say: '每一排都拿掉一樣多，剩下的還是整整齊齊的 6 排。這樣就<b>說服大家</b>了！' },
+
+  /* 收尾 */
+  { s:6, html: () => head('🎉 你走完了臆測五階段', '我們自己找出了分配律') + introMap(['', '同一張圖，圈出兩種數法', '每組交 1 條，對錯都上牆', '卡 D 讓猜想補上條件，括號反例推翻錯誤', '換成任何數，加上「要有相同的數」', '點陣圖接起來、拿掉，說明為什麼']),
+    say: '<b>猜錯不可怕</b>，被推翻的猜想也幫了大忙。這就是數學家發現規律的方式！' },
+];
+/* ---------- 播放控制 ---------- */
+let idx = 0, timer = null;
+const $ = id => document.getElementById(id);
+const AUTO_MS = 9000;
+
+function buildMap() {
+  $('map').innerHTML = STAGES.slice(1).map((n, i) =>
+    (i ? '<span class="arrow" aria-hidden="true">➜</span>' : '') +
+    `<span class="station" tabindex="0" role="button" data-s="${i + 1}">${i + 1} ${n}</span>`).join('');
+  $('map').querySelectorAll('.station').forEach(el => {
+    const go = () => { idx = SCENES.findIndex(sc => sc.s === +el.dataset.s); render(); };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
+function render() {
+  const sc = SCENES[idx];
+  $('stage').innerHTML = sc.html() + `<div class="caption fade">${sc.say}</div>`;
+  document.querySelectorAll('.station').forEach(el => {
+    const s = +el.dataset.s;
+    el.classList.toggle('active', s === sc.s);
+    el.classList.toggle('done', s < sc.s || sc.s === 6);
+  });
+  $('progress').textContent = `${idx + 1} / ${SCENES.length}`;
+  $('bar').style.width = ((idx + 1) / SCENES.length * 100) + '%';
+  $('prev').disabled = idx === 0;
+  $('next').disabled = idx === SCENES.length - 1;
+  if (timer) schedule();
+}
+function go(d) { const n = idx + d; if (n >= 0 && n < SCENES.length) { idx = n; render(); } }
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(() => { if (idx < SCENES.length - 1) go(1); else setAuto(false); }, AUTO_MS);
+}
+function setAuto(on) {
+  clearTimeout(timer); timer = on ? 1 : null;
+  $('auto').textContent = on ? '⏸ 暫停' : '▶ 自動播放';
+  $('auto').setAttribute('aria-pressed', on);
+  if (on) { if (idx === SCENES.length - 1) { idx = 0; render(); } else schedule(); }
+}
+$('prev').onclick = () => go(-1);
+$('next').onclick = () => go(1);
+$('replay').onclick = () => render();
+$('auto').onclick = () => setAuto(!timer);
+document.addEventListener('keydown', e => {
+  if (e.target.classList && e.target.classList.contains('station')) return;
+  if (e.key === 'ArrowRight') go(1);
+  else if (e.key === 'ArrowLeft') go(-1);
+  else if (e.key === ' ' && e.target.tagName !== 'BUTTON') { e.preventDefault(); setAuto(!timer); }
+});
+// 可用 ?step=N 直接開到第 N 步（方便老師分享連結）
+const q = parseInt(new URLSearchParams(location.search).get('step'), 10);
+if (q >= 1 && q <= SCENES.length) idx = q - 1;
+buildMap(); render();
+</script>
+</body>
+</html>

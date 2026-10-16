@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第六單元課前暖身：我們怎麼自己發現規律？｜臆測五階段</title>
+<style>
+  :root{
+    --bg:#fdf8ef; --ink:#2b2d42; --muted:#6b6f80; --card:#ffffff;
+    --shade:#f4a261; --shade2:#e76f51; --line:#2b2d42; --ok:#2a9d8f; --bad:#d62828; --warn:#e9c46a;
+    --s1:#4cc9f0; --s2:#f72585; --s3:#7209b7; --s4:#3a86ff; --s5:#2a9d8f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:12px 20px 4px;text-align:center}
+  header h1{margin:0;font-size:1.5rem}
+  /* 五站地圖 */
+  .map{display:flex;justify-content:center;align-items:center;gap:4px;flex-wrap:wrap;padding:8px 12px}
+  .station{border:3px solid #ccc;background:#fff;border-radius:999px;padding:6px 14px;font-weight:700;color:#999;cursor:pointer;transition:all .35s;font-size:1rem}
+  .station.done{color:var(--ink);border-color:#aaa}
+  .station.active{color:#fff;transform:scale(1.12);box-shadow:0 4px 10px rgba(0,0,0,.18)}
+  .station[data-s="1"].active{background:var(--s1);border-color:var(--s1)}
+  .station[data-s="2"].active{background:var(--s2);border-color:var(--s2)}
+  .station[data-s="3"].active{background:var(--s3);border-color:var(--s3)}
+  .station[data-s="4"].active{background:var(--s4);border-color:var(--s4)}
+  .station[data-s="5"].active{background:var(--s5);border-color:var(--s5)}
+  .arrow{color:#bbb;font-weight:700}
+  /* 舞台 */
+  main{max-width:980px;margin:0 auto;padding:0 14px}
+  .stage{background:var(--card);border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.08);min-height:430px;padding:20px 22px;position:relative;overflow:hidden}
+  .stage-title{font-size:1.35rem;font-weight:800;margin:0 0 4px}
+  .stage-sub{color:var(--muted);margin:0 0 14px}
+  .caption{margin-top:14px;background:#fff7e0;border-left:6px solid var(--warn);border-radius:10px;padding:12px 16px;font-size:1.15rem;line-height:1.7;min-height:64px}
+  .caption b{color:var(--shade2)}
+  .controls{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:14px 0 6px}
+  button{font:inherit;font-size:1.05rem;border:none;border-radius:12px;padding:10px 18px;cursor:pointer;background:var(--ink);color:#fff}
+  button.ghost{background:#e9e6df;color:var(--ink)}
+  button:disabled{opacity:.35;cursor:default}
+  button:focus-visible,.station:focus-visible{outline:3px solid var(--s4);outline-offset:2px}
+  .progress{color:var(--muted);font-size:.95rem;min-width:110px;text-align:center}
+  .bar{height:6px;background:#eee;border-radius:3px;overflow:hidden;max-width:980px;margin:6px auto 0}
+  .bar>i{display:block;height:100%;background:var(--shade);width:0;transition:width .4s}
+  footer{text-align:center;color:var(--muted);font-size:.85rem;padding:14px}
+
+  /* 動畫元件 */
+  .pop{animation:pop .55s both}
+  .fade{animation:fade .6s both}
+  .slide{animation:slide .6s both}
+  @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  @keyframes slide{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+  .d1{animation-delay:.5s}.d2{animation-delay:1s}.d3{animation-delay:1.5s}.d4{animation-delay:2s}.d5{animation-delay:2.5s}.d6{animation-delay:3s}
+  .grow line{stroke-dasharray:60;stroke-dashoffset:60;animation:draw .8s forwards;animation-delay:inherit}
+  @keyframes draw{to{stroke-dashoffset:0}}
+  .vanish{animation:vanish 1s forwards;animation-delay:.6s}
+  @keyframes vanish{to{opacity:0}}
+  .shake{animation:shake .5s 3}
+  @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01s!important;animation-delay:0s!important;transition:none!important}
+  }
+
+  .row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+  .col{flex:1;min-width:260px}
+  .strip-box{margin:6px 0 10px;display:flex;align-items:center;gap:10px}
+  .strip-label{font-size:1.25rem;font-weight:800;min-width:56px;text-align:right}
+  .tag{display:inline-block;border-radius:8px;padding:2px 8px;font-size:.9rem;font-weight:700;color:#fff;margin-right:6px}
+  .card{border:2px dashed #d8cfc0;border-radius:14px;padding:10px 12px;background:#fffdf8}
+  .card h4{margin:0 0 6px}
+  .bucket{border:3px solid #ddd;border-radius:14px;padding:8px 10px;min-height:120px}
+  .bucket h4{margin:0 0 6px;text-align:center}
+  .chip{display:inline-block;background:#fff;border:2px solid #ccc;border-radius:10px;padding:4px 10px;margin:4px;font-weight:800;font-size:1.1rem}
+  .wall{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+  .note{background:#fff59d;border-radius:4px;padding:12px 12px 14px;box-shadow:2px 4px 8px rgba(0,0,0,.15);font-size:1.08rem;line-height:1.5;position:relative;transform:rotate(-1.5deg)}
+  .note:nth-child(2n){transform:rotate(1.5deg);background:#ffd6e7}
+  .note:nth-child(3n){background:#c8f7dc}
+  .note small{display:block;color:var(--muted);margin-bottom:4px}
+  .stamp{position:absolute;right:8px;top:-12px;font-size:1.05rem;font-weight:900;padding:2px 10px;border-radius:8px;color:#fff}
+  .stamp.bad{background:var(--bad)} .stamp.warn{background:#c98a00} .stamp.ok{background:var(--ok)}
+  .note.crossed{text-decoration:line-through;opacity:.6}
+  .big{font-size:1.4rem;font-weight:800}
+  .hl{background:linear-gradient(transparent 55%,#ffe08a 55%);padding:0 2px}
+  .name-badge{display:inline-block;background:var(--s4);color:#fff;border-radius:12px;padding:4px 14px;font-weight:900;font-size:1.3rem;margin-left:8px}
+  .statement{border:3px solid var(--s4);border-radius:14px;padding:12px 16px;margin:10px 0;font-size:1.15rem;line-height:1.8;background:#f2f7ff}
+  .ins{color:var(--s4);font-weight:900;border-bottom:3px solid var(--s4)}
+  /* 分數＋箭頭（不寫連等式，倍數標在分子上方、分母下方） */
+  .eq{display:inline-grid;grid-template-columns:auto auto auto;grid-template-rows:auto auto auto auto auto;align-items:center;justify-items:center;margin:8px 18px;font-size:1.5rem;font-weight:800}
+  .eq .arc{grid-column:1/4;font-size:1rem;color:var(--shade2);white-space:nowrap}
+  .eq .num,.eq .den{padding:0 6px}
+  .eq .fbar{width:100%;height:3px;background:var(--ink)}
+  .eq .eqs{grid-row:2/5;grid-column:2;padding:0 14px}
+  .map-intro{display:flex;flex-direction:column;gap:8px;max-width:620px;margin:0 auto}
+  .map-intro div{border-radius:12px;padding:10px 14px;color:#fff;font-weight:700;font-size:1.1rem}
+  .map-intro span{font-weight:400;opacity:.95}
+  table.cmp{border-collapse:collapse;margin:6px auto}
+  table.cmp td{padding:4px 10px;font-size:1.1rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔍 第六單元課前暖身：我們怎麼自己發現規律？</h1>
+</header>
+<nav class="map" id="map" aria-label="五個階段"></nav>
+<div class="bar"><i id="bar"></i></div>
+<main>
+  <section class="stage" id="stage" aria-live="polite"></section>
+  <div class="controls">
+    <button class="ghost" id="prev" aria-label="上一步">◀ 上一步</button>
+    <span class="progress" id="progress"></span>
+    <button id="next" aria-label="下一步">下一步 ▶</button>
+    <button class="ghost" id="auto" aria-pressed="false">▶ 自動播放</button>
+    <button class="ghost" id="replay" aria-label="重播這一步">↻ 重播</button>
+  </div>
+</main>
+<footer><a href="index.html" style="color:inherit;font-weight:700">🏠 回總目錄</a>｜鍵盤：← → 換步驟、空白鍵開關自動播放｜課前版：用暖身題練習五階段，不揭示本單元規律</footer>
+
+<script>
+/* ---------- 共用小工具 ---------- */
+const head = (t, sub) => `<h2 class="stage-title">${t}</h2><p class="stage-sub">${sub}</p>`;
+const STAGES = ['', '造例', '提出猜想', '效化', '一般化', '證實'];
+const STAGE_TIPS = ['', '自己動手做很多例子', '從例子裡找規律，大膽說出來', '全班一起找反例，考驗猜想', '補上條件，讓它對「所有」情況都成立', '用學過的知識說明「為什麼一定對」'];
+function introMap(tips = STAGE_TIPS) {
+  return `<div class="map-intro">${[1,2,3,4,5].map(i =>
+    `<div class="slide d${i - 1}" style="background:var(--s${i})">${'①②③④⑤'[i - 1]} ${STAGES[i]}　<span>${tips[i]}</span></div>`).join('')}</div>`;
+}
+// 猜想牆：notes = [組別, 猜想, 'ok'|'warn'|'bad', 蓋章文字]
+function wall(notes, judged = false) {
+  return `<div class="wall">${notes.map((n, i) => `<div class="note ${judged ? '' : 'pop d' + (i + 1)} ${judged && n[2] === 'bad' ? 'crossed' : ''}">
+    ${judged ? `<span class="stamp ${n[2]} pop d${i + 1}">${n[3]}</span>` : ''}<small>${n[0]}</small>${n[1]}</div>`).join('')}</div>`;
+}
+const groupCard = (k, title, body, i) => `<div class="card col pop d${i}"><h4><span class="tag" style="background:var(--s${i + 1})">${k}</span>${title}</h4>${body}</div>`;
+const fourCards = cards => `<div class="row">${cards.slice(0, 2).map((c, i) => groupCard(...c, i)).join('')}</div>
+  <div class="row" style="margin-top:10px">${cards.slice(2).map((c, i) => groupCard(...c, i + 2)).join('')}</div>`;
+// 課前版最後一頁：卡片背面朝上，只給任務句
+const hiddenCards = (labels, title) => `<div class="row">${labels.map((k, i) => `
+  <div class="card pop d${i}" style="flex:1;min-width:150px;text-align:center;background:repeating-linear-gradient(45deg,#fff3e0,#fff3e0 10px,#ffe0b2 10px,#ffe0b2 20px)">
+    <h4><span class="tag" style="background:var(--s${i + 1})">${k}</span>${title}</h4><p class="big" style="margin:10px 0">❓</p></div>`).join('')}</div>`;
+const outroScenes = (tips, task, cardLabels, cardTitle) => [
+  { s:6, html: () => head('🎉 你剛剛走完了臆測五階段', '接下來的數學課，換你們自己來') + introMap(tips),
+    say: '<b>猜錯不可怕</b>，被推翻的猜想也幫了大忙。下一頁，是你們這個單元的任務！' },
+  { s:6, html: () => head('🕵️ 換你們了：這個單元的任務', '每組會拿到不同的卡片，上課時才翻開') + hiddenCards(cardLabels, cardTitle) +
+    `<div class="statement pop d4" style="border-color:var(--s1);background:#effaff">${task}</div>`,
+    say: '會發現什麼規律？<b>答案要靠你們自己找</b>。記得：多造例、大膽猜、找反例！' },
+];
+const WARM_TIPS = ['', '不同的卡片，做出很多例子', '每組交 1 條，對錯都上牆', '用反例推翻 ❌、補條件 🔺', '加上「任何」和條件', '用學過的知識說明為什麼一定對'];
+const introScene = (topic) => ({ s:0, html: () => head('數學家也是這樣發現規律的', '五個步驟，像偵探辦案一樣') + introMap(),
+  say: `規律不是老師直接告訴你的，而是<b>你自己找出來的</b>。上這個單元之前，我們先用暖身題「<b>${topic}</b>」練習這五個步驟。` });
+const effIntro = notes => ({ s:3, html: () => head('③ 效化：全班一起當挑戰者', '找一個「反例」，看看猜想會不會倒') + wall(notes) +
+  `<p class="big pop d1" style="text-align:center">反例＝<span class="hl">一個讓猜想不成立的例子</span></p>`,
+  say: '一個猜想說「都會對」，只要找到<b>一個</b>不對的例子，就能把它推翻。這就是效化。' });
+const effResult = (notes, legend) => ({ s:3, html: () => head('③ 效化：結果出爐', legend) + wall(notes, true),
+  say: '被推翻的不是失敗，而是<b>讓我們更接近真相</b>。留下的和要加條件的，帶到下一步。' });
+const conjWall = notes => ({ s:2, html: () => head('② 提出猜想：每組交出 1 條，貼上猜想牆', '老師這時候不說對錯') + wall(notes),
+  say: '每一組討論後只交 <b>1 條</b>猜想。每條都有自己那組的例子撐腰——<b>全部都貼上去</b>，下一步才有東西可以考驗。' });
+const frame = '<div class="statement pop d3" style="border-color:var(--s2);background:#fff0f6">句型：「我們發現＿＿＿，因為＿＿＿。」</div>';
+
+/* ---------- 第六單元課前版：暖身題「握手問題」 ---------- */
+const HS = n => n * (n - 1) / 2;
+// n 個人圍成一圈，兩兩連線＝握一次手；newcomer＝最後一人用紅線標出
+function hands(n, opts = {}) {
+  const R = 70, cx = 90, cy = 90, pts = Array.from({length: n}, (_, i) => {
+    const a = -Math.PI / 2 + 2 * Math.PI * i / n; return [cx + R * Math.cos(a), cy + R * Math.sin(a)]; });
+  let s = '';
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const isNew = opts.newcomer && j === n - 1;
+    s += `<line x1="${pts[i][0]}" y1="${pts[i][1]}" x2="${pts[j][0]}" y2="${pts[j][1]}" stroke="${isNew ? 'var(--bad)' : '#9aa5b8'}" stroke-width="${isNew ? 4 : 2}" ${isNew ? 'class="fade d2"' : ''}/>`;
+  }
+  pts.forEach(([x, y], i) => s += `<circle cx="${x}" cy="${y}" r="12" fill="${opts.newcomer && i === n - 1 ? 'var(--bad)' : 'var(--s4)'}"/><text x="${x}" y="${y + 5}" text-anchor="middle" font-size="13" fill="#fff" font-weight="700">${i + 1}</text>`);
+  return `<div style="text-align:center"><svg viewBox="0 0 180 180" width="160" role="img" aria-label="${n} 人握手圖">${s}</svg><div class="big">${n} 人：${HS(n)} 次</div></div>`;
+}
+const NOTES = [
+  ['甲組（2 人、3 人）', '多 1 個人，握手次數就變 3 倍', 'bad', '❌ 被推翻'],
+  ['乙組（3 人、4 人）', '多 1 個人，握手次數就多 3 次', 'bad', '❌ 被推翻'],
+  ['丙組（4 人、5 人）', '多 1 個人，多的次數＝原來的人數', 'ok', '⭕ 暫時留下'],
+  ['丁組（5 人、6 人）', '握手次數一定比人數多', 'warn', '🔺 要加條件'],
+];
+const SCENES = [
+  introScene('握手問題'),
+  { s:1, html: () => head('① 造例：暖身題', '「每兩個人都要握一次手，人數變多時，握手次數怎麼變？」每組人數不同') + fourCards([
+      ['甲組', '', '<p class="big">2 人、3 人</p>'],
+      ['乙組', '', '<p class="big">3 人、4 人</p>'],
+      ['丙組', '', '<p class="big">4 人、5 人</p>'],
+      ['丁組', '', '<p class="big">5 人、6 人</p>'],
+    ]),
+    say: '每一組拿到的人數<b>不一樣</b>。卡片不同，大家做出來的例子才會豐富，等一下才有東西可以比較。' },
+  { s:1, html: () => head('① 造例：畫圖數一數', '每個人是一個點，握一次手就連一條線') + `<div class="row">
+      ${[2,3,4,5].map((n, i) => `<div class="slide d${i}">${hands(n)}</div>`).join('')}</div>`,
+    say: '不只用想的，還<b>畫圖</b>數線條。數的時候要小心，同一對人只能算一次。' },
+  { s:1, html: () => head('① 造例：小組整理', '大家互相檢查，再排整齊') + `
+    <table class="cmp">
+      <tr class="slide"><td><span class="tag" style="background:var(--s1)">甲</span></td><td class="big">2 人 1 次　3 人 3 次</td></tr>
+      <tr class="slide d1"><td><span class="tag" style="background:var(--s2)">乙</span></td><td class="big">3 人 3 次　4 人 6 次</td></tr>
+      <tr class="slide d2"><td><span class="tag" style="background:var(--s3)">丙</span></td><td class="big">4 人 6 次　5 人 10 次</td></tr>
+      <tr class="slide d3"><td><span class="tag" style="background:var(--s4)">丁</span></td><td class="big">5 人 10 次　6 人 15 次</td></tr>
+    </table>`,
+    say: '組員輪流數給大家看，有人不同意就<b>當場重畫、重數</b>。例子越正確，下一步越好找規律。' },
+  { s:2, html: () => head('② 提出猜想：盯著例子找規律', '寫成一句話，還要說出你是看哪幾個例子發現的') + `
+    <p class="big fade" style="text-align:center">2 人 1 次 → 3 人 3 次 → 4 人 6 次 → 5 人 10 次 → 6 人 15 次</p>
+    <p class="big fade d1" style="text-align:center">你看出什麼了嗎？🤔</p>` + frame,
+    say: '規則是：<b>有憑有據、大膽猜測</b>，一張只寫一個想法。猜錯也沒關係！' },
+  conjWall(NOTES),
+  effIntro(NOTES),
+  { s:3, html: () => head('③ 效化：考驗甲組「變 3 倍」', '甲組的 1 次 → 3 次，真的是 3 倍……') +
+    `<p class="big fade">可是乙組的 3 人 3 次 → 4 人 6 次，只有 2 倍！</p><p class="big pop d1">不是都變 3 倍 → 推翻 ❌</p>`,
+    say: '甲組只看了自己的卡片。<b>換別組的例子</b>來試，就找到反例了。' },
+  { s:3, html: () => head('③ 效化：考驗乙組「多 3 次」', '乙組的 3 次 → 6 次，真的多 3……') +
+    `<p class="big fade">可是丙組的 4 人 6 次 → 5 人 10 次，多了 4 次！</p><p class="big pop d1">不是都多 3 次 → 推翻 ❌</p>`,
+    say: '只要<b>一個</b>反例就夠了。這條猜想被推翻 ❌' },
+  { s:3, html: () => head('③ 效化：考驗丁組「次數一定比人數多」', '人數少的時候呢？') + `
+    <table class="cmp">
+      <tr class="slide"><td class="big">2 人 1 次</td><td>次數比人數少 ✘</td></tr>
+      <tr class="slide d1"><td class="big">3 人 3 次</td><td>一樣多 ✘</td></tr>
+      <tr class="slide d2"><td class="big">4 人 6 次</td><td>比人數多 ✔</td></tr>
+    </table><p class="big pop d3">不是全錯，是<span class="hl">少了條件</span>：4 人以上才成立 🔺</p>`,
+    say: '丁組的猜想不是全錯，只是<b>少了條件</b>。丁組的人數都很多，所以沒發現。' },
+  { s:3, html: () => head('③ 效化：考驗丙組「多的次數＝原來的人數」', '四組資料通通拿來檢查') + `
+    <table class="cmp">
+      <tr class="slide"><td class="big">2 人 → 3 人</td><td>多 2 次 ✔</td></tr>
+      <tr class="slide d1"><td class="big">3 人 → 4 人</td><td>多 3 次 ✔</td></tr>
+      <tr class="slide d2"><td class="big">4 人 → 5 人</td><td>多 4 次 ✔</td></tr>
+      <tr class="slide d3"><td class="big">5 人 → 6 人</td><td>多 5 次 ✔</td></tr>
+    </table><p class="big pop d4">全班都找不到反例 → 先留下 ⭕</p>`,
+    say: '大家拼命找反例都找不到，這條猜想<b>暫時留下</b>。不過「找不到」還不等於「一定對」喔！' },
+  effResult(NOTES, '⭕ 暫時留下　🔺 要加條件　❌ 被推翻'),
+  { s:4, html: () => head('④ 一般化：讓它對「所有」人數都成立', '100 個人、1000 個人也會對嗎？') + `
+    <div class="statement fade"><span class="ins">不管原來有幾個人</span>，多來 1 個人，握手次數<span class="ins">都</span>會多「原來的人數」次。</div>
+    <div class="statement fade d2">握手次數比人數多——<span class="ins">只有 4 人以上</span>才成立。</div>`,
+    say: '加上「<b>不管幾個人</b>」，表示所有人數都成立；另一條補上條件「<b>4 人以上</b>」。' },
+  { s:5, html: () => head('⑤ 證實：為什麼一定多「原來的人數」次？', '看新來的那個人要做什麼') + `<div class="row" style="align-items:center">
+      <div class="fade">${hands(5, {newcomer: true})}</div>
+      <div class="col slide d2"><p class="big">原來 4 個人，彼此早就握過了</p><p class="big">新來的第 5 人，要和<span style="color:var(--bad)">每個人各握一次</span></p><p class="big">→ 紅線剛好 4 條</p></div></div>
+    <p class="big pop d4" style="text-align:center">新來的人要握的次數＝原來的人數，不管原來有幾個人 ✅</p>`,
+    say: '原來的人之間<b>已經握過了</b>，多出來的只有新來那個人的握手，<b>一人一次</b>。這樣就說服大家了！' },
+  ...outroScenes(WARM_TIPS, '這張圖，除了一種一種分開數，還有沒有別的數法可以算出總數？<br>你的圈法就是你的算法：試著圈出兩種不同的數法。', ['卡 A', '卡 B', '卡 C', '卡 D'], '圖卡'),
+];
+/* ---------- 播放控制 ---------- */
+let idx = 0, timer = null;
+const $ = id => document.getElementById(id);
+const AUTO_MS = 9000;
+
+function buildMap() {
+  $('map').innerHTML = STAGES.slice(1).map((n, i) =>
+    (i ? '<span class="arrow" aria-hidden="true">➜</span>' : '') +
+    `<span class="station" tabindex="0" role="button" data-s="${i + 1}">${i + 1} ${n}</span>`).join('');
+  $('map').querySelectorAll('.station').forEach(el => {
+    const go = () => { idx = SCENES.findIndex(sc => sc.s === +el.dataset.s); render(); };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
+function render() {
+  const sc = SCENES[idx];
+  $('stage').innerHTML = sc.html() + `<div class="caption fade">${sc.say}</div>`;
+  document.querySelectorAll('.station').forEach(el => {
+    const s = +el.dataset.s;
+    el.classList.toggle('active', s === sc.s);
+    el.classList.toggle('done', s < sc.s || sc.s === 6);
+  });
+  $('progress').textContent = `${idx + 1} / ${SCENES.length}`;
+  $('bar').style.width = ((idx + 1) / SCENES.length * 100) + '%';
+  $('prev').disabled = idx === 0;
+  $('next').disabled = idx === SCENES.length - 1;
+  if (timer) schedule();
+}
+function go(d) { const n = idx + d; if (n >= 0 && n < SCENES.length) { idx = n; render(); } }
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(() => { if (idx < SCENES.length - 1) go(1); else setAuto(false); }, AUTO_MS);
+}
+function setAuto(on) {
+  clearTimeout(timer); timer = on ? 1 : null;
+  $('auto').textContent = on ? '⏸ 暫停' : '▶ 自動播放';
+  $('auto').setAttribute('aria-pressed', on);
+  if (on) { if (idx === SCENES.length - 1) { idx = 0; render(); } else schedule(); }
+}
+$('prev').onclick = () => go(-1);
+$('next').onclick = () => go(1);
+$('replay').onclick = () => render();
+$('auto').onclick = () => setAuto(!timer);
+document.addEventListener('keydown', e => {
+  if (e.target.classList && e.target.classList.contains('station')) return;
+  if (e.key === 'ArrowRight') go(1);
+  else if (e.key === 'ArrowLeft') go(-1);
+  else if (e.key === ' ' && e.target.tagName !== 'BUTTON') { e.preventDefault(); setAuto(!timer); }
+});
+// 可用 ?step=N 直接開到第 N 步（方便老師分享連結）
+const q = parseInt(new URLSearchParams(location.search).get('step'), 10);
+if (q >= 1 && q <= SCENES.length) idx = q - 1;
+buildMap(); render();
+</script>
+</body>
+</html>
