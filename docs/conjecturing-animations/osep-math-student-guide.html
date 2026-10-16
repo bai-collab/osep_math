@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>osep_math 學生操作教學｜臆測五階段</title>
+<style>
+  :root{
+    --bg:#fdf8ef; --ink:#2b2d42; --muted:#6b6f80; --card:#ffffff;
+    --shade:#f4a261; --shade2:#e76f51; --ok:#2a9d8f; --bad:#d62828; --warn:#e9c46a;
+    --s1:#4cc9f0; --s2:#f72585; --s3:#7209b7; --s4:#3a86ff; --s5:#2a9d8f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:10px 16px 4px;text-align:center}
+  header h1{margin:4px 0 0;font-size:1.45rem}
+  .home{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:12px;background:#e9e6df;color:var(--ink);font-weight:700;text-decoration:none}
+  .home:focus-visible{outline:3px solid var(--s4);outline-offset:2px}
+  /* 站點地圖 */
+  .map{display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px}
+  .station{border:3px solid #ccc;background:#fff;border-radius:999px;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;font-weight:700;color:#8a8d99;cursor:pointer;transition:all .35s;font-size:.98rem}
+  .station.done{color:var(--ink);border-color:#aaa}
+  .station.active{color:#fff;transform:scale(1.08);box-shadow:0 4px 10px rgba(0,0,0,.18);background:var(--c);border-color:var(--c)}
+  .arrow{color:#bbb;font-weight:700}
+  /* 舞台 */
+  main{max-width:980px;margin:0 auto;padding:0 14px}
+  .stage{background:var(--card);border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.08);min-height:380px;padding:18px 20px;position:relative;overflow:hidden}
+  .stage-title{font-size:1.3rem;font-weight:800;margin:0 0 4px}
+  .stage-sub{color:var(--muted);margin:0 0 12px}
+  .caption{margin-top:14px;background:#fff7e0;border-left:6px solid var(--warn);border-radius:10px;padding:12px 16px;font-size:1.1rem;line-height:1.75;min-height:64px}
+  .caption b{color:var(--shade2)}
+  .controls{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin:14px 0 6px}
+  button{font:inherit;font-size:1.05rem;border:none;border-radius:12px;padding:10px 18px;min-height:44px;cursor:pointer;background:var(--ink);color:#fff}
+  button.ghost{background:#e9e6df;color:var(--ink)}
+  button:disabled{opacity:.35;cursor:default}
+  button:focus-visible,.station:focus-visible{outline:3px solid var(--s4);outline-offset:2px}
+  .progress{color:var(--muted);font-size:.95rem;min-width:90px;text-align:center}
+  .bar{height:6px;background:#eee;border-radius:3px;overflow:hidden;max-width:980px;margin:6px auto 0}
+  .bar>i{display:block;height:100%;background:var(--shade);width:0;transition:width .4s}
+  footer{text-align:center;color:var(--muted);font-size:.85rem;padding:14px}
+  footer a{color:inherit;font-weight:700}
+
+  /* 編輯器示意圖 */
+  .ed{display:block;width:100%;height:auto;margin:0 auto;background:#f3f1ea;border-radius:12px;border:1px solid #e3ddd0}
+  .ed text,.mini text{font-family:inherit}
+  .mini{display:block;width:100%;height:auto;max-width:300px;margin:6px auto 0;background:#f3f1ea;border-radius:10px;border:1px solid #e3ddd0}
+  .cards{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px}
+  .cards>div{flex:1;min-width:240px;border-radius:14px;padding:10px 12px;background:#fff;border:2px solid #eee;line-height:1.6}
+  .cards .okc{border-color:#bfe9df;background:#eefaf7}
+  .cards .badc{border-color:#f3c4c4;background:#fff3f3}
+  .cards h4{margin:0 0 2px;font-size:1.05rem}
+  .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-top:10px}
+  .legend div{display:flex;gap:8px;align-items:flex-start;line-height:1.5;font-size:1rem}
+  .legend i{flex:none;width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;font-style:normal;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .tag{display:inline-block;border-radius:8px;padding:2px 8px;font-size:.9rem;font-weight:700;color:#fff;margin-right:6px}
+  .chat{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .chat div{max-width:88%;border-radius:14px;padding:8px 12px;line-height:1.6}
+  .chat .me{align-self:flex-end;background:#dbe8ff}
+  .chat .tutor{align-self:flex-start;background:#f1e3fb}
+  .optbar{margin-top:12px;background:#f1efe8;border:2px dashed #b9b4a4;border-radius:10px;padding:10px 12px;line-height:1.6}
+  .tl{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+  .tl .row{display:flex;gap:10px;align-items:center;padding:6px 8px;border-radius:10px;background:#faf7f0}
+  .tl .row b{flex:none;color:#fff;border-radius:8px;padding:3px 10px;min-width:98px;text-align:center}
+  .tl .link{color:var(--muted);font-size:.9rem;padding:0 0 0 22px}
+  .flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;margin-top:8px}
+  .flow button{background:#fff;color:var(--ink);border:3px solid var(--c);font-weight:700;padding:8px 12px;min-height:48px;text-align:center}
+  .flow button small{display:block;font-weight:400;color:var(--muted);font-size:.78rem}
+  .flow .fa{color:#aaa;font-weight:900}
+  .flow .fv{display:none}
+  .loopnote{margin-top:12px;text-align:center;color:var(--muted)}
+  @media (max-width:600px){
+    .stage{padding:14px 12px}
+    .flow{flex-direction:column}
+    .flow button{width:100%;max-width:340px}
+    .flow .fa{display:none}
+    .flow .fv{display:block}
+    .tl .row{flex-direction:column;align-items:flex-start;gap:4px}
+  }
+
+  /* 動畫（只設定「起點」，終點就是原本畫面，所以關閉動畫時直接顯示最終位置） */
+  .fade{animation:fade .6s both}
+  .pop{animation:pop .5s both;transform-box:fill-box;transform-origin:center}
+  .vanish{opacity:0;animation:vanish .6s both}
+  .hl{animation:pulse 1.2s ease-in-out infinite}
+  .cur{transform:translate(var(--ex),var(--ey));animation:curmove 3.4s .3s ease-in-out both;pointer-events:none}
+  .rip{fill:none;stroke:#ff6a00;stroke-width:3;opacity:0;transform-box:fill-box;transform-origin:center;animation:rip .6s forwards}
+  .drag{opacity:0;animation:dragk 1.03s ease-in-out both}
+  @keyframes fade{from{opacity:0}}
+  @keyframes pop{from{opacity:0;transform:scale(.5)}}
+  @keyframes vanish{from{opacity:1}}
+  @keyframes pulse{50%{stroke-opacity:.25}}
+  @keyframes curmove{0%,12%{transform:translate(var(--sx),var(--sy))}45%,58%{transform:translate(var(--mx),var(--my))}92%,100%{transform:translate(var(--ex),var(--ey))}}
+  @keyframes rip{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(1.6)}}
+  @keyframes dragk{from{transform:translate(var(--sx),var(--sy));opacity:1}90%{opacity:1}}
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+<header>
+  <a class="home" href="index.html">🏠 回總目錄</a>
+  <h1>🖱️ osep_math 學生操作教學</h1>
+</header>
+<nav class="map" id="map" aria-label="操作分段"></nav>
+<div class="bar"><i id="bar"></i></div>
+<main>
+  <section class="stage" id="stage" aria-live="polite"></section>
+  <div class="controls">
+    <button class="ghost" id="prev" aria-label="上一步">◀ 上一步</button>
+    <span class="progress" id="progress"></span>
+    <button id="next" aria-label="下一步">下一步 ▶</button>
+    <button class="ghost" id="auto" aria-pressed="false">▶ 自動播放</button>
+    <button class="ghost" id="replay" aria-label="重播這一步">↻ 重播</button>
+  </div>
+</main>
+<footer><a href="index.html">🏠 回總目錄</a>｜鍵盤：← → 換步驟、空白鍵開關自動播放｜畫面是簡化的示意圖，實際畫面請以你的電腦為準</footer>
+
+<script>
+/* ---------- 小工具 ---------- */
+const $ = id => document.getElementById(id);
+const tw = (s, size) => { let w = 0; for (const ch of s) w += (ch.charCodeAt(0) > 255 ? 1 : .55) * size; return w; };
+const T = (x, y, s, o = {}) => `<text x="${x}" y="${y}" font-size="${o.size || 12}" fill="${o.fill || '#2b2d42'}"${o.w ? ` font-weight="${o.w}"` : ''}${o.anchor ? ` text-anchor="${o.anchor}"` : ''}${o.cls ? ` class="${o.cls}"` : ''}${o.style ? ` style="${o.style}"` : ''}>${s}</text>`;
+const R = (x, y, w, h, fill, o = {}) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${o.rx ?? 4}" fill="${fill}"${o.stroke ? ` stroke="${o.stroke}" stroke-width="${o.sw || 1}"` : ''}${o.cls ? ` class="${o.cls}"` : ''}${o.style ? ` style="${o.style}"` : ''}/>`;
+const G = (cls, style, inner) => `<g${cls ? ` class="${cls}"` : ''}${style ? ` style="${style}"` : ''}>${inner}</g>`;
+const BLK = (x, y, w, h, c, label, o = {}) => R(x, y, w, h, c, { stroke: 'rgba(0,0,0,.25)', rx: 5 }) + T(x + 8, y + h / 2 + 4.5, label, { fill: o.dark ? '#2b2d42' : '#fff', w: 700, size: 12.5 });
+const SLOT = (x, y, w, t) => R(x, y, w, 18, '#fff', { rx: 9, stroke: '#999' }) + T(x + w / 2, y + 13, t, { anchor: 'middle', w: 700, size: 12 });
+// 疊在畫面上的指示物
+const hl = (x, y, w, h) => `<rect class="hl" x="${x}" y="${y}" width="${w}" height="${h}" rx="7" fill="none" stroke="#ff6a00" stroke-width="3"/>`;
+const tag = (x, y, s, o = {}) => { const sz = o.size || 13, w = tw(s, sz) + 16;
+  return G(o.cls || '', o.style || '', `<rect x="${x}" y="${y}" width="${w}" height="22" rx="11" fill="${o.bg || '#d9480f'}"/><text x="${x + 8}" y="${y + 15.5}" font-size="${sz}" fill="#fff" font-weight="700">${s}</text>`); };
+const arrow = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#d9480f" stroke-width="3" marker-end="url(#ah)"/>`;
+// 游標：pts 為 2 或 3 個點（起點→[中途點]→終點），到點時各按一下
+function cursor(pts) {
+  const three = pts.length === 3;
+  const [s, m, e] = three ? pts : [pts[0], pts[1], pts[1]];
+  const st = `--sx:${s[0]}px;--sy:${s[1]}px;--mx:${m[0]}px;--my:${m[1]}px;--ex:${e[0]}px;--ey:${e[1]}px`;
+  const rip = (p, d) => `<circle class="rip" cx="${p[0]}" cy="${p[1]}" r="14" style="animation-delay:${d}s"/>`;
+  return (three ? rip(m, 1.8) + rip(e, 3.4) : rip(e, 1.8)) +
+    `<g class="cur" style="${st}"><path d="M0 0 L0 17 L4.5 13 L8 20.5 L11 19 L7.5 12.5 L13 12.5 Z" fill="#fff" stroke="#111" stroke-width="1.5" stroke-linejoin="round"/></g>`;
+}
+const T2 = 1.9, T3 = 3.5; // 游標按完後的時間點（2 點／3 點）
+
+/* ---------- 編輯器示意圖的各個區塊 ---------- */
+const CATS = [['動作', '#4c97ff'], ['外觀', '#9966ff'], ['聲音', '#cf63cf'], ['事件', '#ffbf00'], ['控制', '#ffab19'], ['感測', '#5cb1d6'], ['運算', '#59c059'], ['變數', '#ff8c1a']];
+function browserBar() {
+  return R(0, -34, 840, 34, '#e3e0d8', { rx: 0 }) + R(190, -28, 460, 22, '#fff', { rx: 11, stroke: '#bbb' }) + T(206, -12.5, '（老師給你的網址）', { size: 12, fill: '#666' });
+}
+function toolbar(o) {
+  return R(0, 0, 840, 34, '#d94a3d', { rx: 0 }) + T(10, 22, 'osep_math', { fill: '#fff', w: 800, size: 14 }) +
+    T(104, 22, '檔案', { fill: '#fff', size: 12 }) + T(144, 22, '編輯', { fill: '#fff', size: 12 }) +
+    T(326, 22, '學生代號', { fill: '#fff', size: 12.5, w: 700 }) +
+    R(392, 6, 110, 22, '#fff', { rx: 4 }) + T(400, 22, '（你的代號）', { size: 12, w: 700 }) +
+    R(510, 6, 84, 22, '#ffe08a', { rx: 4, stroke: '#a77b00' }) + T(552, 22, '確認代號', { anchor: 'middle', size: 12.5, w: 700 }) +
+    (o.confirmed ? T(602, 22, '✓ 已確認', { fill: '#fff', w: 700, size: 12.5, cls: 'pop', style: 'animation-delay:3.6s' }) : '');
+}
+function cats() {
+  let s = R(0, 34, 44, 426, '#f4f4f8', { rx: 0 }) + R(0, 34 + 7 * 50, 44, 50, '#ffe2c2', { rx: 0 });
+  CATS.forEach((c, i) => { const y = 34 + i * 50; s += `<circle cx="22" cy="${y + 20}" r="10" fill="${c[1]}"/>` + T(22, y + 42, c[0], { anchor: 'middle', size: 10.5 }); });
+  return s;
+}
+function palette() {
+  return R(44, 34, 124, 426, '#f9f9fc', { rx: 0, stroke: '#e3e3ec' }) + T(52, 54, '變數', { w: 700, size: 13 }) +
+    R(52, 64, 50, 24, '#e6730a', { rx: 12 }) + T(77, 80, '清單', { anchor: 'middle', fill: '#fff', w: 700, size: 12 }) +
+    BLK(52, 98, 112, 28, '#e6730a', '加入 □ 到 2的倍數') + BLK(52, 134, 112, 28, '#e6730a', '2的倍數 的長度') + BLK(52, 170, 112, 28, '#e6730a', '清空 2的倍數');
+}
+function codeArea(o) {
+  const x = 186, two = o.extra === 'anim' || o.extra === 'snap', innerH = two ? 56 : 28;
+  let s = R(168, 34, 286, 426, '#ffffff', { rx: 0, stroke: '#e3e3ec' });
+  if (o.run) s += G('pop', 'animation-delay:1.9s', `<rect x="180" y="60" width="252" height="${innerH + 108}" rx="8" fill="rgba(255,212,0,.16)" stroke="#ffd400" stroke-width="4"/>`);
+  s += BLK(x, 66, 150, 30, '#e0a800', '當綠旗被點擊', { dark: true }) + BLK(x, 96, 90, 28, '#9966ff', '隱藏');
+  s += R(x, 124, 240, 28, '#e69500', { stroke: 'rgba(0,0,0,.25)', rx: 5 }) + T(x + 8, 143, '重複', { fill: '#fff', w: 700, size: 12.5 }) + SLOT(x + 40, 129, 32, '');
+  s += o.numAnim ? T(x + 56, 142, '3', { anchor: 'middle', w: 700, size: 12, cls: 'vanish', style: 'animation-delay:2s' }) + T(x + 56, 142, '5', { anchor: 'middle', w: 700, size: 12, fill: '#d9480f', cls: 'pop', style: 'animation-delay:2s' })
+    : T(x + 56, 142, '3', { anchor: 'middle', w: 700, size: 12 });
+  s += T(x + 80, 143, '次', { fill: '#fff', w: 700, size: 12.5 });
+  s += R(x, 152, 14, innerH, '#e69500', { rx: 0 }) + R(x, 152 + innerH, 240, 14, '#e69500', { rx: 5, stroke: 'rgba(0,0,0,.25)' });
+  s += BLK(x + 14, 152, 226, 28, '#e6730a', '加入 (數) 到 10的倍數');
+  if (o.extra === 'snap') s += BLK(x + 14, 180, 226, 28, '#e6730a', '加入 … 到 10的倍數的個位');
+  if (o.extra === 'anim') s += G('fade', 'animation-delay:1.9s', BLK(x + 14, 180, 226, 28, '#e6730a', '加入 … 到 10的倍數的個位'));
+  if (o.comment) s += R(186, 262, 254, 40, '#fff59d', { rx: 3, stroke: '#d9c000' }) + `<polygon points="196,262 206,262 200,254" fill="#d9c000"/>` +
+    T(194, 278, o.comment[0], { w: 700, size: 12.5 }) + T(194, 294, o.comment[1], { size: 12 });
+  return s;
+}
+function stageSvg(o) {
+  let s = R(454, 34, 160, 426, '#f0f0f6', { rx: 0, stroke: '#e3e3ec' });
+  s += `<path d="M468 46 v24" stroke="#2a9d8f" stroke-width="3"/><path d="M468 47 q8 -6 16 0 t16 0 v11 q-8 6 -16 0 t-16 0z" fill="#2fb36d"/>`;
+  s += `<circle cx="526" cy="58" r="9" fill="#e5484d"/>`;
+  s += R(454, 72, 160, 120, '#fff', { rx: 0, stroke: '#888' });
+  const sp = `<circle cx="534" cy="128" r="22" fill="#f4a261" stroke="#c9792a" stroke-width="2"/><polygon points="516,112 520,92 530,106" fill="#f4a261" stroke="#c9792a" stroke-width="2"/><polygon points="552,112 548,92 538,106" fill="#f4a261" stroke="#c9792a" stroke-width="2"/><circle cx="526" cy="125" r="3" fill="#2b2d42"/><circle cx="542" cy="125" r="3" fill="#2b2d42"/><path d="M528 135 q6 5 12 0" stroke="#2b2d42" stroke-width="2" fill="none"/>`;
+  if (o.sprite === 'vanish') s += G('vanish', 'animation-delay:2.2s', sp); else if (o.sprite !== 'none') s += sp;
+  if (o.ask) {
+    s += R(460, 124, 148, 32, '#fff', { rx: 10, stroke: '#999' }) + `<polygon points="478,156 488,156 480,164" fill="#fff" stroke="#999"/>` + R(479, 155, 10, 3, '#fff', { rx: 0 }) +
+      T(468, 145, '請輸入一個數', { size: 12.5, w: 700 }) +
+      R(460, 166, 126, 22, '#fff', { rx: 4, stroke: '#3a86ff', sw: 2 }) + T(468, 182, o.typed || '', { w: 700, size: 13 }) +
+      `<circle cx="598" cy="177" r="10" fill="#3a86ff"/>` + T(598, 182, '✓', { anchor: 'middle', fill: '#fff', w: 800, size: 13 });
+  }
+  s += T(462, 240, '角色', { size: 11, fill: '#777', w: 700 }) + R(462, 246, 52, 52, '#fff', { rx: 6, stroke: '#3a86ff', sw: 2 });
+  return s;
+}
+function chip(c) {
+  const x = 630 + c.i * 46, y = 271 + c.r * 22;
+  const body = R(x, y, 40, 18, c.fill || '#fff', { rx: 9, stroke: c.stroke || '#aaa', sw: c.sw || 1 }) + T(x + 20, y + 13, c.t, { anchor: 'middle', w: 700, size: 11.5 });
+  return c.cls ? G(c.cls, c.style, body) : body;
+}
+function panel(o) {
+  const X = 622;
+  let s = R(X, 34, 218, 426, '#fffdf8', { rx: 0, stroke: '#d8cfc0' }) + R(X, 34, 218, 30, '#fff0c9', { rx: 0 });
+  s += T(X + 10, 54, o.title || '學習面板', { w: 700, size: 13 });
+  s += R(748, 38, 86, 22, '#7209b7', { rx: 11 }) + T(791, 53, '解題導師', { anchor: 'middle', fill: '#fff', size: 11.5, w: 700 });
+  if (o.mode === 'select') {
+    s += T(630, 84, '全部課程', { w: 700, size: 12 }) + R(630, 90, 202, 28, '#fff', { rx: 5, stroke: '#888' }) +
+      T(640, 109, '②-1　2 的倍數', { size: 13 }) + T(816, 109, '▾', { size: 13, anchor: 'middle' });
+    ['① 造例', '② 提出猜想', '③ 效化', '④ 一般化', '⑤ 證實'].forEach((n, i) => {
+      const y = 128 + i * 44;
+      if (i === 0) s += R(630, y, 202, 38, '#2bb3dd', { rx: 8 }) + T(642, y + 25, n, { fill: '#fff', w: 800, size: 14 });
+      else s += R(630, y, 202, 38, '#e4e2dc', { rx: 8 }) + T(642, y + 17, n, { fill: '#777', w: 700, size: 13 }) + T(642, y + 32, '先完成前一個階段', { fill: '#777', size: 10.5 }) + T(814, y + 24, '🔒', { size: 14, anchor: 'middle' });
+    });
+    return s;
+  }
+  // 階段內：黃色提示條＋面板內容
+  const h = o.hint;
+  s += R(630, 70, 202, 80, '#fff0a8', { rx: 6, stroke: '#e0b400', sw: 1.5 }) + T(640, 88, h.n, { w: 700, size: 12, fill: '#6b4e00' }) +
+    T(640, 105, h.b[0]) + T(640, 121, h.b[1]) + T(640, 141, '看全部步驟 ▾', { size: 11.5, fill: '#1b62c9' });
+  if (h.btn) s += R(744, 126, 88, 20, '#2a9d8f', { rx: 10 }) + T(788, 140, '這步做好了', { anchor: 'middle', fill: '#fff', w: 700, size: 11.5 });
+  if (o.warn) s += R(630, 156, 202, 42, '#fff', { rx: 5, stroke: '#d62828', sw: 2.5 }) + T(638, 172, '清單裡記到的內容不像這一步', { size: 11, fill: '#d62828', w: 700 }) + T(638, 188, '要的。檢查剛補上的那一塊', { size: 11, fill: '#d62828', w: 700 });
+  // 下半部
+  s += T(630, 209, '我的例子', { size: 11, w: 700, fill: '#555' }) + R(630, 214, 138, 24, '#fff', { rx: 4, stroke: '#999' }) +
+    (o.inputRaw || T(638, 230, '寫下你的例子', { size: 11.5, fill: '#999' })) +
+    R(774, 214, 58, 24, '#3a86ff', { rx: 5 }) + T(803, 230, '加入', { anchor: 'middle', fill: '#fff', w: 700, size: 12 }) +
+    R(630, 243, 202, 22, '#e9f1ff', { rx: 5, stroke: '#3a86ff' }) + T(731, 258, '讀取程式清單「2的倍數」', { anchor: 'middle', size: 11.5, fill: '#1b4fa8', w: 700 });
+  (o.chips || []).forEach(c => { s += chip(c); });
+  if (o.chipExtra) s += o.chipExtra;
+  if (!o.list) [['個位 0：？', 630, false], [o.catOn ? '個位 2：出現' : '個位 2：？', 699, Boolean(o.catOn)], ['個位 4：？', 768, false]].forEach(c => { s += R(c[1], 317, 64, 20, c[2] ? '#cdeac0' : '#fff', { rx: 5, stroke: '#888' }) + T(c[1] + 32, 331, c[0], { anchor: 'middle', size: 10.5 }); });
+  for (let k = 0; k < 3 && !o.list; k++) {
+    const on = o.ticks > k, t = (on ? '☑' : '☐') + ' 檢核點 ' + (k + 1);
+    s += T(634, 354 + k * 15, t, { size: 11.5, fill: on ? '#1d7a6f' : '#666', w: on ? 700 : 400, cls: on && o.tickAnim ? 'pop' : '', style: on && o.tickAnim ? `animation-delay:${.3 + k * .4}s` : '' });
+  }
+  if (!o.list) s += R(630, 390, 202, 20, '#fff', { rx: 10, stroke: '#8a8a8a' }) + T(731, 404, '重新載入本階段半成品（作品會保留）', { anchor: 'middle', size: 10.5 }) +
+    R(630, 414, 202, 22, '#2a9d8f', { rx: 11 }) + T(731, 430, '完成本階段', { anchor: 'middle', fill: '#fff', w: 800, size: 13 });
+  if (o.next) s += G('pop', `animation-delay:${T2}s`, R(630, 438, 202, 20, '#7209b7', { rx: 10 }) + T(731, 452, '前往下一階段 ▶', { anchor: 'middle', fill: '#fff', w: 800, size: 12.5 }));
+  if (o.list) {
+    s += G('fade', 'animation-delay:2s', R(630, 154, 202, 142, '#fff', { rx: 6, stroke: '#999', sw: 1.5 }) +
+      T(640, 174, '✓ 步驟 1　寫下一個 2 的倍數', { size: 11.5, fill: '#1d7a6f' }) +
+      R(634, 181, 194, 22, '#fff0a8', { rx: 4 }) + T(640, 196, '▶ 步驟 2　改「重複」的次數', { size: 11.5, w: 800 }) +
+      T(640, 218, '　 步驟 3　補一塊積木', { size: 11.5, fill: '#555' }) +
+      T(640, 238, '　 步驟 4　按綠旗執行', { size: 11.5, fill: '#555' }) +
+      T(640, 258, '　 步驟 5　讀取程式清單', { size: 11.5, fill: '#555' }) +
+      T(640, 280, '　 ……（共 9 步）', { size: 11.5, fill: '#777' }));
+  }
+  return s;
+}
+function editor(o) {
+  const vb = o.vb || '0 0 840 460', d = vb.split(' ').map(Number), mw = Math.round(460 * d[2] / d[3]);
+  return `<svg class="ed" viewBox="${vb}" style="max-width:${mw}px" role="img" aria-label="${o.label || 'osep_math 編輯器示意圖'}">
+    <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#d9480f"/></marker></defs>
+    ${o.browser ? browserBar() : ''}${toolbar(o.tb || {})}${cats()}${palette()}${codeArea(o.code || {})}${stageSvg(o.stage || {})}${panel(o.panel || { mode: 'select' })}${o.over || ''}</svg>`;
+}
+const HINT = {
+  1: { n: '步驟 1／9・右邊面板', b: ['在「卡片：2」寫 3 個', '2 的倍數，按「加入」'] },
+  2: { n: '步驟 2／9・程式區「步驟 2」', b: ['把「重複 3 次」的 3', '改大一點，再按綠旗'] },
+  3: { n: '步驟 6／9・程式區「步驟 6」', b: ['卡片 10 那段少一塊：', '放進迴圈，再按空白鍵'] },
+  5: { n: '步驟 1／4・程式區「步驟 1」', b: ['照程式區說的試試看，', '做完按「這步做好了」'], btn: true },
+};
+const head = (t, sub) => `<h2 class="stage-title">${t}</h2><p class="stage-sub">${sub}</p>`;
+
+/* 步驟 8 的「接上／沒接上」對照小圖 */
+function miniStack(ok) {
+  const second = ok ? BLK(10, 38, 190, 28, '#e6730a', '加入 … 到 10的倍數的個位') + T(224, 58, '✓', { fill: '#1d7a6f', w: 800, size: 22, anchor: 'middle' })
+    : BLK(40, 82, 190, 28, '#e6730a', '加入 … 到 10的倍數的個位') + `<line x1="105" y1="66" x2="105" y2="80" stroke="#d62828" stroke-width="2" stroke-dasharray="3 3"/>` + T(238, 102, '✗', { fill: '#d62828', w: 800, size: 22, anchor: 'middle' });
+  return `<svg class="mini" viewBox="0 0 250 120" role="img" aria-label="${ok ? '積木貼緊接上了' : '積木只放在旁邊，沒有接上'}">${BLK(10, 10, 200, 28, '#e6730a', '加入 (數) 到 10的倍數')}${second}</svg>`;
+}
+const STAGES = [['① 造例', '自己動手做很多例子', 1], ['② 提出猜想', '從例子裡找規律，大膽說出來', 2], ['③ 效化', '全班一起找反例，考驗猜想', 3], ['④ 一般化', '補上條件，讓它對「所有」情況都成立', 4], ['⑤ 證實', '用學過的知識說明「為什麼一定對」', 5]];
+
+/* ---------- 20 個步驟 ---------- */
+const STATIONS = [['準備', '#1b9ac4'], ['看提示', '#d81b7a'], ['改程式', '#7209b7'], ['執行', '#2f6fdc'], ['填面板', '#238a7e'], ['完成', '#c96a1b'], ['求助與收尾', '#c0482f']];
+const SCENES = [
+  { st: 0, t: '打開網址，填學生代號', sub: '第一件事：告訴系統你是誰',
+    html: () => editor({ vb: '180 -34 500 130', browser: true, tb: { confirmed: true }, label: '最上面紅色工具列：學生代號輸入框與確認代號按鈕',
+      over: hl(186, -31, 468, 28) + hl(388, 2, 118, 30) + hl(506, 2, 92, 30) +
+        tag(192, 46, '① 打開老師給的網址', { cls: 'pop', style: 'animation-delay:.2s' }) + tag(390, 46, '② 填自己的代號', { cls: 'pop', style: 'animation-delay:1.6s' }) + tag(390, 72, '③ 按「確認代號」', { cls: 'pop', style: 'animation-delay:3.4s' }) +
+        cursor([[330, 74], [440, 17], [552, 17]]) }),
+    say: '打開老師給的網址。最上面紅色那一排，在<b>「學生代號」</b>填你自己的代號（老師會發給你），再按<b>「確認代號」</b>。' },
+  { st: 0, t: '認識畫面的四個地方', sub: '先知道每一塊是做什麼的',
+    html: () => {
+      const zone = (x, y, w, h, c, n, name, lx, ly) => R(x, y, w, h, c, { rx: 0 }) +
+        `<circle cx="${x + 24}" cy="${y + 26}" r="19" fill="#2b2d42"/>` + T(x + 24, y + 35, n, { anchor: 'middle', fill: '#fff', w: 800, size: 24 }) +
+        R(lx - 6 - name.length * 13, ly - 25, name.length * 26 + 12, 36, '#2b2d42', { rx: 18 }) + T(lx, ly, name, { anchor: 'middle', fill: '#fff', w: 800, size: 26 });
+      return editor({ label: '編輯器分成四塊：積木區、程式區、舞台、面板', over:
+        G('pop', 'animation-delay:.2s', zone(0, 34, 168, 426, 'rgba(76,201,240,.30)', '1', '積木區', 84, 250)) +
+        G('pop', 'animation-delay:1s', zone(168, 34, 286, 426, 'rgba(247,37,133,.18)', '2', '程式區', 311, 250)) +
+        G('pop', 'animation-delay:1.8s', zone(454, 34, 160, 164, 'rgba(114,9,183,.22)', '3', '舞台', 534, 170)) +
+        G('pop', 'animation-delay:2.6s', zone(622, 34, 218, 426, 'rgba(244,162,97,.38)', '4', '面板', 731, 250)) }) +
+        `<div class="legend"><div><i>1</i><span><b>左邊：積木區</b><br>要用的積木都在這裡，按分類找。</span></div>
+         <div><i>2</i><span><b>中間：程式區</b><br>把積木拼在這裡，也是改程式的地方。</span></div>
+         <div><i>3</i><span><b>右上：舞台</b><br>程式跑起來，角色和問題都在這裡。</span></div>
+         <div><i>4</i><span><b>右邊：面板</b><br>提示、例子、完成按鈕都在這裡。</span></div></div>`;
+    },
+    say: '畫面分成四塊：<b>左邊積木區、中間程式區、右上舞台、右邊面板</b>。待會每一步都會告訴你要去哪一塊操作。' },
+  { st: 0, t: '選單元，點「① 造例」', sub: '右邊面板：全部課程',
+    html: () => editor({ vb: '614 30 226 332', label: '右邊面板：選單元，再點①造例', panel: { mode: 'select' },
+      over: hl(628, 88, 206, 32) + hl(628, 126, 206, 42) + cursor([[770, 60], [720, 104], [730, 147]]) }),
+    say: '右邊面板的<b>「全部課程」</b>選單，選老師說的單元（這裡用「②-1　2 的倍數」當例子），再點<b>「① 造例」</b>開始。' },
+  { st: 0, t: '後面的階段先鎖著', sub: '前一個階段做完，下一個才會打開',
+    html: () => editor({ vb: '614 30 226 332', label: '②到⑤的按鈕寫著先完成前一個階段', panel: { mode: 'select' },
+      over: hl(628, 170, 206, 174) + tag(640, 346, '要先完成前一個階段', { cls: 'pop', style: 'animation-delay:.4s' }) }),
+    say: '② 到 ⑤ 的按鈕寫著<b>「先完成前一個階段」</b>，要把前一個階段做完才會打開。不用急，一個一個來。' },
+  { st: 1, t: '看右邊上方的黃色提示條', sub: '它會告訴你現在要做哪一步',
+    html: () => editor({ vb: '614 30 226 150', label: '面板上方的黃色提示條', panel: { hint: HINT[1], title: '① 造例' },
+      over: hl(627, 67, 208, 87) + tag(640, 158, '照著它一步一步做', { cls: 'pop', style: 'animation-delay:.5s' }) }),
+    say: '進到階段後，面板上方會有一條<b>黃色提示條</b>，寫著「步驟 1／9・右邊面板：……」。它告訴你<b>現在是第幾步、要去哪裡做</b>。照著它一步一步做就對了。' },
+  { st: 1, t: '點「看全部步驟」看清單', sub: '知道自己做到哪了',
+    html: () => editor({ vb: '614 30 226 300', label: '展開全部步驟清單', panel: { hint: HINT[2], title: '① 造例', list: true },
+      over: hl(632, 128, 98, 18) + tag(634, 304, '✓ 已做完', { bg: '#1d7a6f', cls: 'pop', style: 'animation-delay:2.4s' }) + tag(716, 304, '▶ 現在這步', { cls: 'pop', style: 'animation-delay:2.8s' }) +
+        cursor([[790, 200], [676, 141]]) }),
+    say: '點<b>「看全部步驟」</b>可以展開清單。<b>✓</b> 是已經做完的，<b>▶</b> 是現在這一步，沒有標的是還沒做的。' },
+  { st: 2, t: '程式區的黃色註解：在這裡改', sub: '例如把「重複 3 次」的 3 改大',
+    html: () => editor({ vb: '168 34 286 270', label: '程式區：黃色註解寫著步驟 2 在這裡改', code: { comment: ['步驟 2 在這裡改：', '把「重複」的次數改大'], numAnim: true },
+      over: hl(184, 258, 258, 48) + hl(222, 126, 40, 26) + tag(290, 98, '點數字，直接打字', { cls: 'pop', style: 'animation-delay:1.2s' }) + cursor([[390, 70], [240, 140]]) }),
+    say: '程式區裡有黃色註解，寫著<b>「步驟 2 在這裡改」</b>，就是要你改的地方。例如把「重複 3 次」的 3 改大：<b>點積木上的數字，直接打字</b>就可以了。' },
+  { st: 2, t: '補一塊積木：要貼緊接上', sub: '從左邊的分類拖過來',
+    html: () => editor({ vb: '44 34 404 270', label: '從變數分類拖一塊積木，貼緊接在上一塊下面', code: { extra: 'anim', comment: ['步驟 6 在這裡改：', '這段少了一塊！'] },
+      over: hl(49, 95, 118, 34) +
+        `<g class="drag" style="--sx:52px;--sy:98px;transform:translate(200px,180px);animation-delay:.7s">${BLK(0, 0, 226, 28, '#e6730a', '加入 … 到 10的倍數的個位')}</g>` +
+        G('pop', 'animation-delay:1.9s', hl(198, 178, 230, 32)) +
+        tag(200, 232, '放開時會「吸」在一起', { cls: 'pop', style: 'animation-delay:2s' }) + cursor([[60, 112], [210, 194]]) }) +
+      `<div class="cards"><div class="okc"><h4>✓ 貼緊接上了</h4>${miniStack(true)}<div>會一起執行。</div></div><div class="badc"><h4>✗ 只放在旁邊</h4>${miniStack(false)}<div>沒有接上，這一塊<b>不會執行</b>。</div></div></div>`,
+    say: '從左邊的分類（例如<b>「變數」</b>）把積木拖到程式區，要<b>貼緊接在上一塊的下面</b>，放開時會「吸」在一起。只放在旁邊、沒有接上，程式<b>不會執行</b>那一塊。' },
+  { st: 2, t: '紅框提醒：清單內容不對', sub: '提示條下面出現紅色框框時',
+    html: () => editor({ vb: '614 30 226 190', label: '提示條下方的紅色框框', panel: { hint: HINT[3], title: '① 造例', warn: true },
+      over: hl(627, 153, 208, 48) }),
+    say: '如果程式清單裡記到的內容不對，提示條下面會出現<b>紅色框框</b>，寫著「清單裡記到的內容不像這一步要的……」。別緊張，回頭檢查積木有沒有接好、數字改了沒，再執行一次。' },
+  { st: 3, t: '按綠旗或空白鍵執行', sub: '角色會先藏起來',
+    html: () => editor({ vb: '168 34 450 270', label: '按舞台上的綠旗，角色先消失', code: { run: true }, stage: { sprite: 'vanish' },
+      over: hl(458, 40, 46, 34) + R(190, 252, 110, 34, '#fff', { rx: 6, stroke: '#2b2d42', sw: 2 }) + T(245, 275, '空白鍵', { anchor: 'middle', w: 800, size: 15 }) + T(310, 275, '也可以執行', { size: 14, w: 700 }) +
+        tag(462, 120, '角色先藏起來', { cls: 'fade', style: 'animation-delay:2.2s' }) + cursor([[560, 236], [478, 58]]) }),
+    say: '改好、接好之後，按舞台上方的<b>綠旗</b>，或按鍵盤的<b>空白鍵</b>。程式一開始，<b>角色會先藏起來</b>，這是正常的。' },
+  { st: 3, t: '回答問題：輸入答案按 Enter', sub: '問題在舞台下方輸入框的上方',
+    html: () => editor({ vb: '452 36 164 184', label: '舞台下方：問題在輸入框上方，輸入答案', stage: { sprite: 'none', ask: true, typed: '12' },
+      over: hl(457, 123, 154, 36) + hl(457, 164, 154, 28) + tag(458, 194, '輸入答案，按 Enter', { cls: 'pop', style: 'animation-delay:.6s' }) + tag(466, 94, '問題出現在這裡', { cls: 'pop', style: 'animation-delay:.2s' }) }),
+    say: '問題會出現在舞台<b>下方輸入框的上方</b>。在輸入框打好答案，按鍵盤的 <b>Enter</b>，或點旁邊的<b>打勾</b>。例如輸入 12。' },
+  { st: 4, t: '寫下自己的例子，按「加入」', sub: '右邊面板',
+    html: () => editor({ vb: '614 190 226 148', label: '面板：在輸入框寫例子，按加入', panel: { hint: HINT[1], title: '① 造例',
+        inputRaw: T(638, 230, '12', { size: 13, w: 700, cls: 'vanish', style: `animation-delay:${T3}s` }),
+        chips: [{ t: '24', r: 0, i: 0 }, { t: '36', r: 0, i: 1 }, { t: '12', r: 0, i: 2, stroke: '#2a9d8f', sw: 2, fill: '#eefaf7', cls: 'pop', style: `animation-delay:${T3}s` }] },
+      over: hl(627, 211, 142, 30) + hl(771, 211, 64, 30) + cursor([[720, 300], [690, 226], [803, 226]]) }),
+    say: '右邊面板的輸入框寫下你自己的例子（像 12），按<b>「加入」</b>，它就會被記下來。' },
+  { st: 4, t: '按「讀取程式清單」', sub: '把程式找到的數拿進來',
+    html: () => editor({ vb: '614 190 226 148', label: '面板：按讀取程式清單', panel: { hint: HINT[1], title: '① 造例',
+        chips: [{ t: '12', r: 0, i: 0 }, { t: '18', r: 1, i: 0, stroke: '#3a86ff', sw: 2, fill: '#eef4ff', cls: 'pop', style: `animation-delay:${T2}s` }, { t: '30', r: 1, i: 1, stroke: '#3a86ff', sw: 2, fill: '#eef4ff', cls: 'pop', style: `animation-delay:${T2 + .3}s` }],
+        chipExtra: tag(724, 291, '程式找到的', { size: 11, cls: 'pop', style: `animation-delay:${T2 + .6}s` }) },
+      over: hl(627, 240, 208, 28) + cursor([[720, 322], [731, 255]]) }),
+    say: '想把程式找到的數拿進來，就按<b>「讀取程式清單『…』」</b>（按鈕上會寫清單的名字），程式記下來的內容就會出現在面板上。' },
+  { st: 4, t: '用按鈕分類', sub: '按一下，切換「出現／沒出現」',
+    html: () => editor({ vb: '614 190 226 148', label: '面板：按個位數字的按鈕切換分類', panel: { hint: HINT[1], title: '① 造例', catOn: true,
+        chips: [{ t: '12', r: 0, i: 0 }, { t: '24', r: 0, i: 1 }, { t: '36', r: 0, i: 2 }] },
+      over: hl(696, 314, 70, 26) + cursor([[740, 280], [731, 327]]) }),
+    say: '看看例子的個位，在面板下方把 0～9 每個數字<b>按一下，切換成「出現」或「沒出現」</b>。其他單元的分類按鈕名稱不一樣，以你面板上寫的為準。' },
+  { st: 4, t: '程式看不出來的步驟：自己按「這步做好了」', sub: '還有「選做」的步驟可以跳過',
+    html: () => editor({ vb: '614 30 226 150', label: '提示條裡的這步做好了按鈕', panel: { hint: HINT[5], title: '① 造例' },
+      over: hl(741, 123, 94, 26) + cursor([[690, 168], [788, 138]]) }) +
+      `<div class="optbar"><span class="tag" style="background:#6b6f80">選做</span><b>步驟 1／5・程式區「步驟 1」（選做）：再用程式檢查一次</b><br>標著「選做」的步驟，想先跳過也可以。</div>`,
+    say: '有些步驟程式看不出你有沒有做，例如<b>「按空白鍵試試」</b>。自己做完，再按提示條裡的<b>「這步做好了」</b>。標著<b>「選做」</b>的步驟，可以先跳過。' },
+  { st: 5, t: '檢核點打勾，按「完成本階段」', sub: '面板最下面',
+    html: () => editor({ vb: '614 340 226 120', label: '面板最下面：完成本階段與前往下一階段', panel: { hint: HINT[1], title: '① 造例', ticks: 3, tickAnim: true, next: true },
+      over: hl(627, 411, 208, 28) + G('pop', `animation-delay:${T2}s`, hl(627, 436, 208, 24)) + cursor([[770, 372], [730, 425]]) }),
+    say: '檢核點都打勾後，按面板最下面的<b>「完成本階段」</b>，會出現<b>「前往下一階段」</b>，再按它就進到下一階段。' },
+  { st: 5, t: '五個階段，依序往下走', sub: '每一階段都用同樣的方式',
+    html: () => `<div class="tl">${STAGES.map((s, i) => `<div class="row fade" style="animation-delay:${i * .5}s"><b style="background:var(--s${i + 1})">${s[0]}</b><span>${s[1]}</span></div>${i < 4 ? '<div class="link">⬇ 完成本階段 → 前往下一階段</div>' : ''}`).join('')}</div>`,
+    say: '<b>造例 → 提出猜想 → 效化 → 一般化 → 證實</b>，要依序做，不能跳著做。每一階段都是同樣的方法：看提示、改程式、執行、填面板、完成。' },
+  { st: 6, t: '卡住了：問解題導師', sub: '面板上方的紫色按鈕',
+    html: () => editor({ vb: '614 30 226 120', label: '面板上方的解題導師按鈕', panel: { hint: HINT[2], title: '① 造例' },
+      over: hl(744, 35, 94, 30) + cursor([[700, 112], [790, 52]]) }) +
+      `<div class="chat"><div class="me fade" style="animation-delay:2s">我卡在步驟 3，不知道積木要接哪裡。</div><div class="tutor fade" style="animation-delay:2.6s">解題導師會回答你，照著它的話再試試看。</div></div>`,
+    say: '做不下去的時候，按面板上方的<b>「解題導師」</b>，把你卡住的地方問導師。' },
+  { st: 6, t: '重新載入本階段半成品', sub: '程式亂掉時，可以恢復原樣',
+    html: () => editor({ vb: '614 340 226 120', label: '面板下方：重新載入本階段半成品', panel: { hint: HINT[1], title: '① 造例', ticks: 1 },
+      over: hl(627, 387, 208, 26) + cursor([[770, 372], [731, 400]]) }) +
+      `<div class="cards"><div class="badc"><h4>程式</h4>會變回這個階段一開始的<b>半成品原樣</b>。</div><div class="okc"><h4>你寫的作品</h4>寫過的例子、分類<b>都還在，不會不見</b>。</div></div>`,
+    say: '程式改亂了，按<b>「重新載入本階段半成品（作品會保留）」</b>，程式就恢復原樣；你在面板上寫過的作品<b>不會不見</b>。' },
+  { st: 6, t: '總整理：做一個階段的流程', sub: '點方框可以跳回那一步',
+    html: () => {
+      const f = [['填代號', '步驟 1', 1], ['選單元', '步驟 3', 3], ['看黃色提示', '步驟 5', 5], ['改程式／補積木', '步驟 7、8', 7], ['執行', '步驟 10', 10], ['填面板', '步驟 12', 12], ['完成本階段', '步驟 16', 16]];
+      return `<div class="flow">${f.map((b, i) => `${i ? '<span class="fa" aria-hidden="true">➜</span><span class="fa fv" aria-hidden="true">⬇</span>' : ''}<button class="fade" style="--c:var(--s${(i % 5) + 1});animation-delay:${i * .35}s" data-go="${b[2]}">${i + 1}. ${b[0]}<small>${b[1]}</small></button>`).join('')}</div>
+        <p class="loopnote">做完一個階段，按「前往下一階段」，再從「看黃色提示」開始一遍。</p>`;
+    },
+    say: '一個階段的流程：<b>填代號 → 選單元 → 看黃色提示 → 改程式／補積木 → 執行 → 填面板 → 完成本階段</b>。做得到，下一階段就打開了。加油！' },
+];
+
+/* ---------- 播放控制 ---------- */
+let idx = 0, timer = null;
+const AUTO_MS = 9000;
+function buildMap() {
+  $('map').innerHTML = STATIONS.map((n, i) =>
+    (i ? '<span class="arrow" aria-hidden="true">➜</span>' : '') +
+    `<span class="station" tabindex="0" role="button" data-s="${i}" style="--c:${n[1]}">${n[0]}</span>`).join('');
+  $('map').querySelectorAll('.station').forEach(el => {
+    const go = () => { idx = SCENES.findIndex(sc => sc.st === +el.dataset.s); render(); };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+}
+function render() {
+  const sc = SCENES[idx];
+  $('stage').innerHTML = head(`第 ${idx + 1} 步：${sc.t}`, sc.sub) + sc.html() + `<div class="caption fade">${sc.say}</div>`;
+  $('stage').querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { idx = +b.dataset.go - 1; render(); }));
+  document.querySelectorAll('.station').forEach(el => {
+    const s = +el.dataset.s;
+    el.classList.toggle('active', s === sc.st);
+    el.classList.toggle('done', s < sc.st);
+  });
+  $('progress').textContent = `${idx + 1} / ${SCENES.length}`;
+  $('bar').style.width = ((idx + 1) / SCENES.length * 100) + '%';
+  $('prev').disabled = idx === 0;
+  $('next').disabled = idx === SCENES.length - 1;
+  if (timer) schedule();
+}
+function go(d) { const n = idx + d; if (n >= 0 && n < SCENES.length) { idx = n; render(); } }
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(() => { if (idx < SCENES.length - 1) go(1); else setAuto(false); }, AUTO_MS);
+}
+function setAuto(on) {
+  clearTimeout(timer); timer = on ? 1 : null;
+  $('auto').textContent = on ? '⏸ 暫停' : '▶ 自動播放';
+  $('auto').setAttribute('aria-pressed', on);
+  if (on) { if (idx === SCENES.length - 1) { idx = 0; render(); } else schedule(); }
+}
+$('prev').onclick = () => go(-1);
+$('next').onclick = () => go(1);
+$('replay').onclick = () => render();
+$('auto').onclick = () => setAuto(!timer);
+document.addEventListener('keydown', e => {
+  if (e.target.classList && e.target.classList.contains('station')) return;
+  if (e.key === 'ArrowRight') go(1);
+  else if (e.key === 'ArrowLeft') go(-1);
+  else if (e.key === ' ' && e.target.tagName !== 'BUTTON') { e.preventDefault(); setAuto(!timer); }
+});
+// 可用 ?step=N 直接開到第 N 步
+const q = parseInt(new URLSearchParams(location.search).get('step'), 10);
+if (q >= 1 && q <= SCENES.length) idx = q - 1;
+buildMap(); render();
+</script>
+</body>
+</html>

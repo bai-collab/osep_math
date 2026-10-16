@@ -358,4 +358,5 @@ We provide [Scratch](https://scratch.mit.edu) free of charge, and want to keep i
 給國小五年級學生看的臆測教學網頁動畫（造例 → 提出猜想 → 效化 → 一般化 → 證實），第二、四、六、七單元各有「課前暖身」與「單元後講解」兩個版本：
 
 - 線上觀看：<https://bai-collab.github.io/osep_math/conjecturing-animations/>
+- 第一次使用 osep_math 的學生操作教學（20 步）：<https://bai-collab.github.io/osep_math/conjecturing-animations/osep-math-student-guide.html>
 - 檔案與說明：[docs/conjecturing-animations/](docs/conjecturing-animations/)
