@@ -352,3 +352,10 @@ We provide [Scratch](https://scratch.mit.edu) free of charge, and want to keep i
 執行 `start-tutor.cmd`，開啟服務顯示的 `/teacher.html`。已開著舊服務時先 Ctrl+C 停止再重新啟動。預設本機摘要不呼叫 AI；選 AI 分析並送出才會傳送所選資料與使用模型。教師工作台只能在教師機本機使用，GitHub Pages 仍是學生靜態編輯器，無法提供教師後端。
 
 詳細操作及資料邊界見 [教師設定說明](TEACHER-SETUP.md#教師工作台查紀錄與-ai-分析)。金鑰與學生資料留在本機，不包含於 GitHub。
+
+## 臆測五階段教學動畫
+
+給國小五年級學生看的臆測教學網頁動畫（造例 → 提出猜想 → 效化 → 一般化 → 證實），第二、四、六、七單元各有「課前暖身」與「單元後講解」兩個版本：
+
+- 線上觀看：<https://bai-collab.github.io/osep_math/conjecturing-animations/>
+- 檔案與說明：[docs/conjecturing-animations/](docs/conjecturing-animations/)
