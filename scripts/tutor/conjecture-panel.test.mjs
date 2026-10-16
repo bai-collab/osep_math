@@ -550,3 +550,135 @@ test('面板：按綠旗達成的步驟記進草稿；重新載入半成品清�
     act(() => vm.runtime.emit('PROJECT_LOADED'));
     assert.ok(text().includes('步驟 3／9'), '清單清空後仍停在步驟 3');
 });
+
+test('面板：CG 第一步是程式區手動步驟，按「這步做好了」記進草稿並前進；檢核點達成的步驟自動打勾', async t => {
+    const oldWindow = globalThis.window, oldFetch = globalThis.fetch;
+    const storage = memoryStorage();
+    progressLib.saveProgress('S11', progressLib.applyCompletion(progressLib.emptyProgress('C2-1'), 'EX',
+        progressLib.completeStage('EX', EX_DRAFT, unit)), storage);
+    globalThis.window = {localStorage: storage};
+    globalThis.fetch = async () => new Response('', {status: 404});
+    const vm = new VM();
+    let rootNode;
+    t.after(() => {
+        act(() => rootNode.unmount());
+        vm.quit();
+        act(() => setStudentId(''));
+        globalThis.window = oldWindow;
+        globalThis.fetch = oldFetch;
+    });
+    act(() => setStudentId('S11'));
+    await act(async () => {
+        rootNode = create(React.createElement(ConjecturePanel, {vm, task: taskFor('CG'), studentId: 'S11',
+            onSelectTask: () => {}}));
+    });
+    const text = () => JSON.stringify(rootNode.toJSON());
+    assert.ok(text().includes('步驟 1／5・程式區「步驟 1」：'));
+    const doneButton = () => rootNode.root.findAll(n => n.type === 'button' && n.props.children === '這步做好了')[0];
+    act(() => doneButton().props.onClick());
+    assert.ok(text().includes('步驟 2／5・右邊面板：'));
+    assert.deepEqual(progressLib.loadProgress('S11', 'C2-1', storage).drafts.CG.stepsSeen, ['redraw']);
+    act(() => rootNode.root.find(n => n.props['aria-label'] === '條件').props.onChange({target: {value: '個位是 0'}}));
+    act(() => rootNode.root.find(n => n.props['aria-label'] === '結論').props.onChange({target: {value: '是 10 的倍數'}}));
+    // 寫出有條件的猜想後，2、3 步都打勾；選做的第 4 步跳過，直接停在完成本階段。
+    assert.ok(text().includes('步驟 5／5・右邊面板最下面：'));
+});
+
+test('面板：教師預覽時未解鎖的階段也能開、顯示預覽提示；完成階段不送紀錄、不寫學生本機進度', async t => {
+    const previewLib = require('../../src/lib/teacher-preview.js');
+    const oldWindow = globalThis.window, oldFetch = globalThis.fetch;
+    const storage = memoryStorage(), records = [];
+    globalThis.window = {localStorage: storage, location: {protocol: 'http:', hostname: '127.0.0.1'}};
+    globalThis.fetch = async (url, options) => {
+        if (url === './api/teacher/preview') return new Response(JSON.stringify({preview: true}));
+        if (url === './api/records') records.push(JSON.parse(options.body));
+        return new Response('', {status: 404});
+    };
+    previewLib.resetPreviewForTest();
+    const vm = new VM();
+    let rootNode;
+    t.after(() => {
+        act(() => rootNode.unmount());
+        vm.quit();
+        act(() => setStudentId(''));
+        globalThis.window = oldWindow;
+        globalThis.fetch = oldFetch;
+        previewLib.resetPreviewForTest();
+    });
+    act(() => setStudentId('S12'));
+    await act(async () => {
+        rootNode = create(React.createElement(ConjecturePanel, {vm, task: taskFor('CG'), studentId: 'S12',
+            onSelectTask: () => {}}));
+    });
+    await act(async () => {
+        await previewLib.refreshPreview();
+    });
+    const text = () => JSON.stringify(rootNode.toJSON());
+    assert.ok(text().includes('教師預覽'));
+    assert.ok(!text().includes('這個階段還沒解鎖'));
+    const stageButtons = rootNode.root.findAll(n => n.type === 'button' && n.props.title && n.props.onClick &&
+        typeof n.props.disabled === 'boolean');
+    assert.ok(stageButtons.length === 5 && stageButtons.every(b => b.props.disabled === false), '五個階段都能點');
+    act(() => rootNode.root.find(n => n.props['aria-label'] === '條件').props.onChange({target: {value: '個位是 0'}}));
+    act(() => rootNode.root.find(n => n.props['aria-label'] === '結論').props.onChange({target: {value: '是 10 的倍數'}}));
+    const complete = rootNode.root.findAll(n => n.type === 'button' &&
+        [].concat(n.props.children).join('') === '完成本階段')[0];
+    await act(async () => complete.props.onClick());
+    assert.ok(text().includes('教師預覽中：這筆紀錄沒有保存。'));
+    assert.deepEqual(records, [], '預覽不送任何紀錄');
+    assert.equal([...storage.map.keys()].some(key => key.includes('S12')), false, '不寫學生的本機進度');
+});
+
+test('面板：⑥-1 分類型造例——加入算式、擋掉不合規的、逐一分類，完成後送出分類型作品', async t => {
+    const unit61 = require('../../src/lib/conjecture-units/c6-1.js');
+    const oldWindow = globalThis.window, oldFetch = globalThis.fetch;
+    const storage = memoryStorage(), records = [];
+    globalThis.window = {localStorage: storage};
+    globalThis.fetch = async (url, options) => {
+        if (url === './api/records') {
+            records.push(JSON.parse(options.body));
+            return new Response(JSON.stringify({recording: {status: 'saved_local'}}));
+        }
+        return new Response('', {status: 404});
+    };
+    const vm = new VM();
+    vm.toJSON = () => JSON.stringify({targets: [{name: '點點', blocks: {}}]});
+    let rootNode;
+    t.after(() => {
+        act(() => rootNode.unmount());
+        vm.quit();
+        act(() => setStudentId(''));
+        globalThis.window = oldWindow;
+        globalThis.fetch = oldFetch;
+    });
+    act(() => setStudentId('S13'));
+    const task = {...unit61.toCourse().tasks.find(x => x.stage === 'EX'), answerProjectUrl: 'https://x.invalid/C6-1-EX.sb3'};
+    await act(async () => {
+        rootNode = create(React.createElement(ConjecturePanel, {vm, task, studentId: 'S13', onSelectTask: () => {}}));
+    });
+    const text = () => JSON.stringify(rootNode.toJSON());
+    const input = () => rootNode.root.find(n => n.props['aria-label'] === '輸入兩堆乘法相加的算式');
+    const add = value => {
+        act(() => input().props.onChange({target: {value}}));
+        act(() => rootNode.root.findAll(n => n.type === 'button' && n.props.children === '加入')[0].props.onClick());
+    };
+    add('6 x 5 + 4 x 5');
+    add('5*4+5*3');
+    add('6×5＋4×3');
+    add('三十');
+    assert.ok(text().includes('請寫成「□×□＋□×□」'), '不合規的例子被擋下並提示');
+    const chooser = (value, label) => rootNode.root.find(n => n.props['aria-label'] === `${value}：${label}`);
+    act(() => chooser('6×5＋4×5', '可以合起來算').props.onClick());
+    act(() => chooser('5×4＋5×3', '可以合起來算').props.onClick());
+    act(() => chooser('6×5＋4×3', '合不起來').props.onClick());
+    assert.ok(!text().includes('○ '), '檢核點都達成');
+    const complete = rootNode.root.findAll(n => n.type === 'button' &&
+        [].concat(n.props.children).join('') === '完成本階段')[0];
+    await act(async () => complete.props.onClick());
+    const artifact = records.find(r => r.type === 'artifact');
+    assert.equal(artifact.unit, 'C6-1');
+    assert.equal(artifact.artifact.kind, 'sort');
+    assert.deepEqual(artifact.artifact.examples.map(e => e.value), ['6×5＋4×5', '5×4＋5×3', '6×5＋4×3']);
+    assert.deepEqual(artifact.artifact.sorting.map(s => s.category), ['combine', 'combine', 'separate']);
+    assert.equal(records.find(r => r.type === 'gate').gate.activityDone, true);
+});

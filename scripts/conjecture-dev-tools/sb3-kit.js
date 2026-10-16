@@ -50,6 +50,21 @@ const createTarget = ({name, isStage = false}) => {
         }
         return list[0];
     };
+    // 先建好、之後再擺位置的堆疊（工具區依實際高度由上往下排）。
+    api.place = (topId, x, y) => Object.assign(target.blocks[topId], {topLevel: true, x, y});
+    // 估算堆疊在工作區的高度（縮放 1）：帽子／定義 72、一般積木 48、C 形積木加上內層與底部。
+    api.height = topId => {
+        let total = 0;
+        for (let bid = topId; bid; bid = target.blocks[bid].next) {
+            const block = target.blocks[bid];
+            const inner = key => (block.inputs[key] ? api.height(block.inputs[key][1]) : 24);
+            if (block.opcode === 'procedures_definition' || block.opcode.startsWith('event_when')) total += 72;
+            else if (block.opcode === 'control_if_else') total += 48 + inner('SUBSTACK') + 32 + inner('SUBSTACK2') + 24;
+            else if (block.inputs.SUBSTACK) total += 48 + inner('SUBSTACK') + 24;
+            else total += 48;
+        }
+        return total;
+    };
     api.comment = (blockId, text, x, y, width = 260, height = 140) => {
         const cid = id();
         target.comments[cid] = {blockId: blockId || null, x, y, width, height, minimized: false, text};
@@ -200,9 +215,10 @@ const blocks = (p, s) => {
     b.stamp = () => s.block('pen_stamp');
     // 自訂積木（一個數字參數；argName 省略時為沒有參數的積木）。回傳 {define, call(input)}；
     // 定義的本體由呼叫端用 stack 接在 define 後面。
-    b.procedure = (proccode, argName) => {
+    // warp=false：裡面有「詢問」「說…秒」等要讓學生看見過程的積木時，不能「不重新整理畫面」執行。
+    b.procedure = (proccode, argName, {warp = true} = {}) => {
         if (!argName) {
-            const mutation = {tagName: 'mutation', children: [], proccode, argumentids: '[]', warp: 'true'};
+            const mutation = {tagName: 'mutation', children: [], proccode, argumentids: '[]', warp: String(warp)};
             const proto = s.block('procedures_prototype', {shadow: true,
                 mutation: {...mutation, argumentnames: '[]', argumentdefaults: '[]'}});
             const define = s.block('procedures_definition', {inputs: {custom_block: [1, proto]}});
@@ -220,7 +236,7 @@ const blocks = (p, s) => {
                 argumentids: JSON.stringify([argId]),
                 argumentnames: JSON.stringify([argName]),
                 argumentdefaults: JSON.stringify(['']),
-                warp: 'true'}});
+                warp: String(warp)}});
         const define = s.block('procedures_definition', {inputs: {custom_block: [1, proto]}});
         const arg = () => s.block('argument_reporter_string_number', {fields: {VALUE: [argName, null]}});
         const call = input => s.block('procedures_call', {inputs: {[argId]: input},
@@ -229,7 +245,7 @@ const blocks = (p, s) => {
                 children: [],
                 proccode: `${proccode} %s`,
                 argumentids: JSON.stringify([argId]),
-                warp: 'true'}});
+                warp: String(warp)}});
         return {define, call, arg};
     };
     return b;

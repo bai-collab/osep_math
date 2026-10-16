@@ -5,6 +5,8 @@ import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 import {requestGuidance, sanitizeContext, mockGuidance} from './provider.mjs';
 const require = createRequire(import.meta.url);
+// 這些測試用假的 fetch 計算請求；先把教師預覽定為學生模式，不多出預覽查詢。
+require('../../src/lib/teacher-preview.js').settlePreviewForTest(false);
 const {groundRelatedBlocks, createTutorBlockHighlight, HIGHLIGHT_ATTRIBUTE} =
     require('../../src/lib/tutor-block-highlight.js');
 const editor = {workspaceStatus: 'complete', availableStatus: 'complete',

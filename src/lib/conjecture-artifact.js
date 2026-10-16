@@ -53,8 +53,43 @@ const divisors = value => {
     return result;
 };
 
+// 非空短標籤（組別、分類、例子文字）。
+const label = (value, max) => {
+    const result = text(value, max);
+    if (!result) fail();
+    return result;
+};
+const labels = (value, max, itemMax) => {
+    const result = list(value, max, item => label(item, itemMax));
+    if (new Set(result).size !== result.length) fail();
+    return result;
+};
+
+// EX（分類型，第二批單元）：例子是短文字（數或算式），各屬一個組別；學生把每個例子分到單元定義的類別。
+const cleanEXSort = input => {
+    const groups = labels(input.groups, 4, 20);
+    const categories = labels(input.categories, 6, 20);
+    if (!groups.length || categories.length < 2) fail();
+    const examples = list(input.examples, 200, item => {
+        if (!plain(item)) fail();
+        return {group: oneOf(item.group, groups),
+            value: label(item.value, 80),
+            source: oneOf(item.source, ['student', 'program'])};
+    });
+    const keys = new Set(examples.map(e => `${e.group}|${e.value}`));
+    const sorting = list(input.sorting || [], 200, item => {
+        if (!plain(item)) fail();
+        const group = oneOf(item.group, groups);
+        const value = label(item.value, 80);
+        if (!keys.has(`${group}|${value}`)) fail();
+        return {group, value, category: oneOf(item.category, categories)};
+    });
+    return {kind: 'sort', groups, categories, examples, sorting, trace: text(input.trace, 500, {optional: true})};
+};
+
 // EX：學生拿到的卡、造出的例子（標明學生手填或程式產生）、個位分類、一次手動追蹤。
 const cleanEX = input => {
+    if (input.kind === 'sort') return cleanEXSort(input);
     const cards = list(input.cards, 4, item => int(item, 1, 1000));
     if (!cards.length) fail();
     const examples = list(input.examples, 200, item => {
@@ -94,10 +129,15 @@ const cleanCG = input => {
 const cleanVA = input => {
     const tests = list(input.tests, 50, item => {
         if (!plain(item)) fail();
+        // 用來檢驗的可以是一個數（number），或一個算式等短文字（example，第二批單元）。
+        const hasNumber = typeof item.number !== 'undefined' && item.number !== null;
+        const example = text(item.example, 80, {optional: true});
+        if (!hasNumber && !example) fail();
         return {
             conjectureRef: text(item.conjectureRef, 40),
             conjectureText: text(item.conjectureText, 300),
-            number: int(item.number, 0, 100000),
+            ...(hasNumber ? {number: int(item.number, 0, 100000)} : {}),
+            ...(example ? {example} : {}),
             dataFrom: text(item.dataFrom, 40, {optional: true}),
             prediction: oneOf(item.prediction, ['support', 'refute', 'unsure']),
             computation: text(item.computation, 200, {optional: true}),
@@ -120,6 +160,13 @@ const cleanGE = input => {
     const checkedDivisors = divisors(input.checkedDivisors || []);
     const unknownDivisors = divisors(input.unknownDivisors || []);
     if (checkedDivisors.some(d => unknownDivisors.includes(d))) fail();
+    // 第二批單元：逐一標記的是各組的資料卡（短文字 id），不是除數。
+    if (Array.isArray(input.checkedItems) || Array.isArray(input.unknownItems)) {
+        const checkedItems = labels(input.checkedItems || [], 20, 40);
+        const unknownItems = labels(input.unknownItems || [], 20, 40);
+        if (checkedItems.some(item => unknownItems.includes(item))) fail();
+        return {revision, checkedDivisors, unknownDivisors, checkedItems, unknownItems};
+    }
     return {revision, checkedDivisors, unknownDivisors};
 };
 
@@ -146,6 +193,11 @@ const clip = (value, max) => (value.length > max ? `${value.slice(0, max - 1)}�
 
 // 給試算表「作品摘要」欄與教師頁清單用；只依作品內容，不呼叫模型。
 const summarizeArtifact = (stage, artifact) => {
+    if (stage === 'EX' && artifact.kind === 'sort') {
+        const own = artifact.examples.filter(e => e.source === 'student').length;
+        return clip(`${artifact.groups.join('、')}｜例子${artifact.examples.length}（自填${own}）｜分類${
+            artifact.sorting.length}`, 200);
+    }
     if (stage === 'EX') {
         const own = artifact.examples.filter(e => e.source === 'student').length;
         const cards = artifact.cards.join('、');

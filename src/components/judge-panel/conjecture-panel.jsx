@@ -8,11 +8,15 @@ import {validStudentId, newRecordId, safeProgram, recordContext, postStageRecord
     from '../../lib/learning-records.js';
 import {STAGES, STAGE_LABELS} from '../../lib/conjecture-artifact.js';
 import {loadProgress, saveProgress, isUnlocked, checkStage, completeStage, applyCompletion,
-    looksLikeEnumeration, CHECK_LABELS} from '../../lib/conjecture-progress.js';
-import {applyInjection, readNumberList} from '../../lib/conjecture-vm.js';
+    looksLikeEnumeration, checkLabelsFor} from '../../lib/conjecture-progress.js';
+import {applyInjection, readList, readNumberList} from '../../lib/conjecture-vm.js';
 import unitC21 from '../../lib/conjecture-units/c2-1.js';
+import unitC41 from '../../lib/conjecture-units/c4-1.js';
+import unitC61 from '../../lib/conjecture-units/c6-1.js';
+import unitC62 from '../../lib/conjecture-units/c6-2.js';
 import {describeDraft, setWork, getReasoning} from '../../lib/conjecture-stage-work.js';
-import {evaluateSteps, programListNames, newlySeen} from '../../lib/conjecture-steps.js';
+import {evaluateSteps, programListNames, newlySeen, manualIds} from '../../lib/conjecture-steps.js';
+import {useTeacherPreview} from '../../lib/teacher-preview.js';
 
 /**
  * osep_math 臆測五階段任務面板（取代一般題目的說明／自行測試／評分分頁）。
@@ -22,11 +26,16 @@ import {evaluateSteps, programListNames, newlySeen} from '../../lib/conjecture-s
  * 說理是否成立不由程式判定（JU 先標「說理待補」）；目標結論不出現在這個元件。
  */
 
-const UNITS = {[unitC21.UNIT_CODE]: unitC21};
+const UNITS = Object.fromEntries([unitC21, unitC41, unitC61, unitC62].map(unit => [unit.UNIT_CODE, unit]));
 // 本頁已自動載入過半成品的「學生＋階段」：同一位學生回到同一階段不再自動覆蓋正在改的畫布；
 // 換學生代號時鍵值不同，會重新載入（P6 外審 R3a 第 3 點）。
 const autoLoaded = new Set();
 const autoLoadKey = (studentId, taskCode) => `${studentId || ''}|${taskCode}`;
+
+// 教師預覽用的記憶體儲存：從空白開始、只活到頁面關閉，不讀也不寫學生的本機進度（安全審查 P1-2）。
+const previewMemory = new Map();
+const previewStorage = {getItem: key => (previewMemory.has(key) ? previewMemory.get(key) : null),
+    setItem: (key, value) => previewMemory.set(key, String(value))};
 
 const getStorage = () => {
     try {
@@ -41,22 +50,22 @@ const numberValue = value => {
     return Number.isSafeInteger(n) ? n : null;
 };
 
-const ChecklistView = ({checks}) => (
+const ChecklistView = ({checks, labels}) => (
     <ul className={styles.checklist}>
         {checks.map(check => (
             <li
                 className={check.met ? styles.checkMet : styles.checkPending}
                 key={check.id}
             >
-                {check.met ? '✓ ' : '○ '}{CHECK_LABELS[check.id] || check.id}
+                {check.met ? '✓ ' : '○ '}{labels[check.id] || check.id}
             </li>
         ))}
     </ul>
 );
-ChecklistView.propTypes = {checks: PropTypes.arrayOf(PropTypes.object).isRequired};
+ChecklistView.propTypes = {checks: PropTypes.arrayOf(PropTypes.object).isRequired, labels: PropTypes.object};
 
 // 步驟卡：一次亮一步。專案清單在執行停止、重新載入時重讀，讓「按綠旗」這類步驟能自動打勾。
-const StepGuide = ({steps, draft, vm, stageDone, onSeen}) => {
+const StepGuide = ({steps, draft, vm, stageDone, checks, onSeen}) => {
     const [tick, setTick] = useState(0);
     useEffect(() => {
         const runtime = vm && vm.runtime;
@@ -70,8 +79,13 @@ const StepGuide = ({steps, draft, vm, stageDone, onSeen}) => {
         };
     }, [vm]);
     const programLists = {};
-    for (const name of programListNames(steps)) programLists[name] = readNumberList(vm, name) || [];
-    const evaluated = evaluateSteps(steps, {draft, programLists, stageDone});
+    for (const name of programListNames(steps)) programLists[name] = readList(vm, name) || [];
+    const checkMap = Object.fromEntries((checks || []).map(check => [check.id, check.met]));
+    const evaluated = evaluateSteps(steps, {draft, programLists, stageDone, checks: checkMap});
+    // 程式看不出來的操作（例如按空白鍵試試）由學生自己按「這步做好了」。
+    const markDone = id => {
+        if (onSeen && manualIds(steps).includes(id)) onSeen([id]);
+    };
     // 從專案清單看到達成的步驟記進草稿，重新載入半成品後不會被打回去。
     const seenNow = newlySeen(steps, {draft, programLists}).join('|');
     useEffect(() => {
@@ -89,6 +103,20 @@ const StepGuide = ({steps, draft, vm, stageDone, onSeen}) => {
                 >
                     <strong>{`步驟 ${index + 1}／${evaluated.length}・${now.where}：`}</strong>
                     {now.text}
+                    {now.listProblem ? (
+                        <span
+                            className={styles.stepWarning}
+                            role="note"
+                        >{'清單裡記到的內容不像這一步要的。檢查剛剛補上的那一塊：空格裡放的東西對不對、' +
+                            '有沒有貼緊接上？改好再執行一次。'}</span>
+                    ) : null}
+                    {now.manual ? (
+                        <button
+                            className={styles.stepDoneButton}
+                            type="button"
+                            onClick={() => markDone(now.id)}
+                        >{'這步做好了'}</button>
+                    ) : null}
                 </p>
             ) : null}
             {/* 完整步驟清單預設收合（目前步驟已在上方提示條）；學生想看全部時再點開。 */}
@@ -114,6 +142,13 @@ const StepGuide = ({steps, draft, vm, stageDone, onSeen}) => {
                             <span>
                                 <span className={styles.stepWhere}>{step.where}</span>
                                 {step.text}
+                                {step.manual && !step.done ? (
+                                    <button
+                                        className={styles.stepDoneButton}
+                                        type="button"
+                                        onClick={() => markDone(step.id)}
+                                    >{'做好了'}</button>
+                                ) : null}
                             </span>
                         </li>
                     ))}
@@ -127,6 +162,7 @@ StepGuide.propTypes = {
     draft: PropTypes.object,
     vm: PropTypes.object,
     stageDone: PropTypes.bool,
+    checks: PropTypes.arrayOf(PropTypes.object),
     onSeen: PropTypes.func
 };
 
@@ -240,6 +276,131 @@ const ExampleForm = ({unit, draft, onChange, vm}) => {
     );
 };
 ExampleForm.propTypes = {
+    unit: PropTypes.object,
+    draft: PropTypes.object,
+    onChange: PropTypes.func,
+    vm: PropTypes.object
+};
+
+
+// 第二批單元的造例：例子是短文字（數或算式），各屬一個組別；學生把每個例子分到單元定義的類別。
+const normalizeExample = value => String(value || '').trim()
+    .replace(/\s+/g, '')
+    .replace(/[*xX]/g, '×')
+    .replace(/\//g, '÷')
+    .replace(/\+/g, '＋')
+    .replace(/-/g, '－')
+    .replace(/[=]/g, '＝')
+    .replace(/\(/g, '(')
+    .replace(/（/g, '(')
+    .replace(/）/g, ')');
+const exampleKey = e => `${e.group}|${e.value}`;
+
+const SortExampleForm = ({unit, draft, onChange, vm}) => {
+    const [inputs, setInputs] = useState({});
+    const [warning, setWarning] = useState('');
+    const examples = draft.examples || [];
+    const sorting = draft.sorting || {};
+    const add = group => {
+        const value = normalizeExample(inputs[group.id]);
+        if (!value) return;
+        if (!unit.validExample(group.id, value)) {
+            setWarning(group.invalidHint || '這個例子不符合卡片的要求，再看一次。');
+            return;
+        }
+        setWarning('');
+        if (examples.some(e => e.group === group.id && e.value === value)) return;
+        onChange({...draft, examples: [...examples, {group: group.id, value, source: 'student'}]});
+        setInputs({...inputs, [group.id]: ''});
+    };
+    const remove = example => {
+        const nextSorting = {...sorting};
+        delete nextSorting[exampleKey(example)];
+        onChange({...draft,
+            examples: examples.filter(e => exampleKey(e) !== exampleKey(example)),
+            sorting: nextSorting});
+    };
+    const readFromProgram = group => {
+        const values = (readList(vm, group.programList) || []).map(normalizeExample)
+            .filter(value => value && unit.validExample(group.id, value));
+        const fresh = [...new Set(values)]
+            .filter(value => !examples.some(e => e.group === group.id && e.value === value));
+        onChange({...draft,
+            examples: [...examples,
+                ...fresh.slice(0, 100).map(value => ({group: group.id, value, source: 'program'}))]});
+    };
+    const setCategory = (example, category) => {
+        const nextSorting = {...sorting};
+        if (nextSorting[exampleKey(example)] === category) delete nextSorting[exampleKey(example)];
+        else nextSorting[exampleKey(example)] = category;
+        onChange({...draft, sorting: nextSorting});
+    };
+    return (
+        <div>
+            {unit.EX.groups.map(group => (
+                <section
+                    className={styles.card}
+                    key={group.id}
+                >
+                    <h4 className={styles.cardTitle}>{group.label}</h4>
+                    <div className={styles.row}>
+                        <input
+                            aria-label={`輸入${group.label}`}
+                            className={styles.input}
+                            placeholder={group.placeholder}
+                            value={inputs[group.id] || ''}
+                            onChange={e => setInputs({...inputs, [group.id]: e.target.value})}
+                        />
+                        <button
+                            className={styles.smallButton}
+                            type="button"
+                            onClick={() => add(group)}
+                        >{'加入'}</button>
+                        {group.programList ? (
+                            <button
+                                className={styles.smallButton}
+                                type="button"
+                                onClick={() => readFromProgram(group)}
+                            >{`讀取程式清單「${group.programList}」`}</button>
+                        ) : null}
+                    </div>
+                    <ul className={styles.sortList}>
+                        {examples.filter(e => e.group === group.id).map(e => (
+                            <li key={exampleKey(e)}>
+                                <span className={e.source === 'student' ? styles.chipStudent : styles.chipProgram}>
+                                    {e.value}
+                                </span>
+                                {unit.EX.categories.map(category => (
+                                    <button
+                                        aria-label={`${e.value}：${category.label}`}
+                                        aria-pressed={sorting[exampleKey(e)] === category.id}
+                                        className={sorting[exampleKey(e)] === category.id ? styles.sortChosen :
+                                            styles.sortOption}
+                                        key={category.id}
+                                        type="button"
+                                        onClick={() => setCategory(e, category.id)}
+                                    >{category.label}</button>
+                                ))}
+                                <button
+                                    aria-label={`移除 ${e.value}`}
+                                    className={styles.sortRemove}
+                                    type="button"
+                                    onClick={() => remove(e)}
+                                >{'×'}</button>
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            ))}
+            {warning ? <p
+                className={styles.warning}
+                role="status"
+            >{warning}</p> : null}
+            <div className={styles.hint}>{unit.EX.sortHint}</div>
+        </div>
+    );
+};
+SortExampleForm.propTypes = {
     unit: PropTypes.object,
     draft: PropTypes.object,
     onChange: PropTypes.func,
@@ -362,14 +523,20 @@ const ValidationForm = ({unit, progress, draft, onChange, onExposure}) => {
     const tests = draft.tests || [];
     const conjectures = [{id: 'own', by: '我', text: own},
         ...(draft.poolOpened ? unit.CONJECTURE_POOL : [])];
+    // 虛擬組員的資料：第二批單元由單元提供（情境描述或倍數）；②-1 列出卡片的倍數。
+    const dataLinesOf = group => (unit.groupDataLines ? unit.groupDataLines(group) :
+        group.cards.map(card => `${card} 的倍數：${unit.multiplesOf(card, 10).join('、')}`));
+    // 第二批單元可以用算式檢驗（VA_INPUT=text），存成 example；②-1 維持用一個數。
+    const textInput = unit.VA_INPUT === 'text';
     const addTest = () => {
-        const number = numberValue(row.number);
+        const number = textInput ? null : numberValue(row.number);
+        const example = textInput ? normalizeExample(row.number) : '';
         const chosen = conjectures.find(c => c.id === row.conjectureRef);
-        if (number === null || number < 0 || !chosen || !chosen.text) return;
+        if ((textInput ? !example : (number === null || number < 0)) || !chosen || !chosen.text) return;
         onChange({...draft,
             tests: [...tests, {conjectureRef: chosen.id,
                 conjectureText: chosen.text,
-                number,
+                ...(textInput ? {example} : {number}),
                 dataFrom: row.dataFrom,
                 prediction: row.prediction,
                 computation: row.computation.trim(),
@@ -389,12 +556,13 @@ const ValidationForm = ({unit, progress, draft, onChange, onExposure}) => {
                     className={styles.card}
                     key={group.id}
                 >
-                    <strong>{`${group.name}（卡片 ${group.cards.join('、')}）`}</strong>
-                    {group.cards.map(card => (
+                    <strong>{group.cardLabel ? `${group.name}（${group.cardLabel}）` :
+                        `${group.name}（卡片 ${group.cards.join('、')}）`}</strong>
+                    {dataLinesOf(group).map(line => (
                         <div
                             className={styles.dataLine}
-                            key={card}
-                        >{`${card} 的倍數：${unit.multiplesOf(card, 10).join('、')}`}</div>
+                            key={line}
+                        >{line}</div>
                     ))}
                 </section>
             ))}
@@ -416,10 +584,10 @@ const ValidationForm = ({unit, progress, draft, onChange, onExposure}) => {
             </label>
             <div className={styles.row}>
                 <label className={styles.label}>
-                    {'用哪個數'}
+                    {textInput ? '用哪個例子（算式或數）' : '用哪個數'}
                     <input
                         className={styles.input}
-                        inputMode="numeric"
+                        inputMode={textInput ? 'text' : 'numeric'}
                         value={row.number}
                         onChange={e => setRow({...row, number: e.target.value})}
                     />
@@ -464,7 +632,7 @@ const ValidationForm = ({unit, progress, draft, onChange, onExposure}) => {
                 {'驗算（寫出算式）'}
                 <input
                     className={styles.input}
-                    placeholder="例如 26 ÷ 4 ＝ 6 … 2"
+                    placeholder={unit.VA_PLACEHOLDER || '例如 26 ÷ 4 ＝ 6 … 2'}
                     value={row.computation}
                     onChange={e => setRow({...row, computation: e.target.value})}
                 />
@@ -497,7 +665,8 @@ const ValidationForm = ({unit, progress, draft, onChange, onExposure}) => {
             >{'記下這次檢驗'}</button>
             <ol className={styles.testList}>
                 {tests.map((t, i) => (
-                    <li key={i}>{`${t.number}（${t.dataFrom}）→「${t.conjectureText}」：${t.computation || '未寫算式'}，` +
+                    <li key={i}>{`${t.example || t.number}（${t.dataFrom}）→「${t.conjectureText}」：${
+                        t.computation || '未寫算式'}，` +
                         `${verdictLabel(t.verdict)}`}</li>
                 ))}
             </ol>
@@ -522,11 +691,14 @@ ValidationForm.propTypes = {unit: PropTypes.object,
 
 const GeneralizationForm = ({unit, progress, draft, onChange}) => {
     const before = progress.artifacts.CG ? progress.artifacts.CG.conjecture.text : '';
-    const marks = draft.divisorMarks || {};
+    // ②-1 逐一標記除數（divisorMarks）；第二批單元標記各組的資料卡（itemMarks）。
+    const items = unit.GE_ITEMS || unit.CANDIDATE_DIVISORS.map(n => ({id: String(n), label: String(n)}));
+    const field = unit.GE_ITEMS ? 'itemMarks' : 'divisorMarks';
+    const marks = draft[field] || {};
     const vaTests = progress.artifacts.VA ? progress.artifacts.VA.tests : [];
-    const setMark = (n, mark) => onChange({...draft,
+    const setMark = (id, mark) => onChange({...draft,
         before,
-        divisorMarks: {...marks, [n]: marks[n] === mark ? '' : mark}});
+        [field]: {...marks, [id]: marks[id] === mark ? '' : mark}});
     return (
         <div>
             <p className={styles.preview}>{`原本的猜想：${before}`}</p>
@@ -534,7 +706,9 @@ const GeneralizationForm = ({unit, progress, draft, onChange}) => {
                 <details className={styles.card}>
                     <summary>{`回顧效化時的 ${vaTests.length} 筆檢驗`}</summary>
                     <ol className={styles.testList}>
-                        {vaTests.map((t, i) => <li key={i}>{`${t.number}：${t.conjectureText}（${t.computation}）`}</li>)}
+                        {vaTests.map((t, i) => (
+                            <li key={i}>{`${t.example || t.number}：${t.conjectureText}（${t.computation}）`}</li>
+                        ))}
                     </ol>
                 </details>
             ) : null}
@@ -554,24 +728,24 @@ const GeneralizationForm = ({unit, progress, draft, onChange}) => {
                     onChange={e => onChange({...draft, before, reason: e.target.value})}
                 />
             </label>
-            <div className={styles.hint}>{'這些除數，你檢驗過了嗎？沒檢驗過的就標「還不知道」。'}</div>
-            {unit.CANDIDATE_DIVISORS.map(n => (
+            <div className={styles.hint}>{unit.GE_HINT || '這些除數，你檢驗過了嗎？沒檢驗過的就標「還不知道」。'}</div>
+            {items.map(item => (
                 <div
                     className={styles.row}
-                    key={n}
+                    key={item.id}
                 >
-                    <span className={styles.divisor}>{n}</span>
+                    <span className={styles.divisor}>{item.label}</span>
                     <button
-                        aria-pressed={marks[n] === 'checked'}
-                        className={marks[n] === 'checked' ? styles.chipStudent : styles.smallButton}
+                        aria-pressed={marks[item.id] === 'checked'}
+                        className={marks[item.id] === 'checked' ? styles.chipStudent : styles.smallButton}
                         type="button"
-                        onClick={() => setMark(n, 'checked')}
+                        onClick={() => setMark(item.id, 'checked')}
                     >{'檢驗過'}</button>
                     <button
-                        aria-pressed={marks[n] === 'unknown'}
-                        className={marks[n] === 'unknown' ? styles.chipProgram : styles.smallButton}
+                        aria-pressed={marks[item.id] === 'unknown'}
+                        className={marks[item.id] === 'unknown' ? styles.chipProgram : styles.smallButton}
                         type="button"
-                        onClick={() => setMark(n, 'unknown')}
+                        onClick={() => setMark(item.id, 'unknown')}
                     >{'還不知道'}</button>
                 </div>
             ))}
@@ -583,10 +757,10 @@ GeneralizationForm.propTypes = {unit: PropTypes.object,
     draft: PropTypes.object,
     onChange: PropTypes.func};
 
-const JustificationForm = ({draft, onChange}) => (
+const JustificationForm = ({unit, draft, onChange}) => (
     <div>
         <label className={styles.label}>
-            {'我在舞台上操作了什麼？（例如：把 34 拆成 3 包 10 和 4 個）'}
+            {(unit.JU && unit.JU.representationLabel) || '我在舞台上操作了什麼？（例如：把 34 拆成 3 包 10 和 4 個）'}
             <input
                 className={styles.input}
                 value={draft.representation || ''}
@@ -602,17 +776,19 @@ const JustificationForm = ({draft, onChange}) => (
             />
         </label>
         {looksLikeEnumeration(draft.text) ? (
-            <p className={styles.warning}>{'你好像是在列例子。例子列不完，換個方式想：不管有多少包 10，會不會影響結果？為什麼？'}</p>
+            <p className={styles.warning}>{(unit.JU && unit.JU.enumerationHint) ||
+                '你好像是在列例子。例子列不完，換個方式想：不管有多少包 10，會不會影響結果？為什麼？'}</p>
         ) : null}
         <p className={styles.hint}>{'程式不會判斷你的理由對不對；導師會陪你想，老師最後會看。'}</p>
     </div>
 );
-JustificationForm.propTypes = {draft: PropTypes.object, onChange: PropTypes.func};
+JustificationForm.propTypes = {unit: PropTypes.object, draft: PropTypes.object, onChange: PropTypes.func};
 
 const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
     const unit = UNITS[task.unit];
     const stage = task.stage;
-    const storage = getStorage();
+    const {preview, settled: previewSettled} = useTeacherPreview();
+    const storage = preview ? previewStorage : getStorage();
     // progress.owner 標明這份進度屬於哪個學生代號：代號切換時，舊進度不會被拿去搭配新代號查詢（P6 外審 R4b）。
     const [progress, setProgress] = useState(() =>
         ({...loadProgress(studentId, task.unit, storage), owner: studentId}));
@@ -630,14 +806,15 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
         feedbackSeq.current++;
         setFeedback(null);
         setFeedbackStatus('');
-    }, [studentId, task.unit]);
+    }, [studentId, task.unit, preview]);
 
     useEffect(() => {
         conjectureStageView.show();
         return () => conjectureStageView.hide();
     }, []);
 
-    const unlocked = isUnlocked(progress, stage);
+    // 預覽時五個階段都在畫面上解鎖；只在算畫面時覆蓋，不寫入任何過關紀錄。
+    const unlocked = preview || isUnlocked(progress, stage);
     const draft = progress.drafts[stage] || {};
     // 給導師的作品摘要（求助時附上）；每次草稿改變就更新。
     useEffect(() => {
@@ -686,16 +863,17 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
         }
     }, [task, vm, unit, stage]);
 
+    // 載入半成品與記錄接觸都等「是否教師預覽」確認後才做；預覽與學生模式各自載入一次。
     useEffect(() => {
-        const key = autoLoadKey(studentId, task.code);
-        if (!unlocked || autoLoaded.has(key)) return;
+        const key = `${preview ? 'preview|' : ''}${autoLoadKey(studentId, task.code)}`;
+        if (!previewSettled || !unlocked || autoLoaded.has(key)) return;
         autoLoaded.add(key);
         loadStageProject();
-    }, [unlocked, studentId, task.code, loadStageProject]);
+    }, [previewSettled, preview, unlocked, studentId, task.code, loadStageProject]);
 
     useEffect(() => {
-        if (unlocked && stage === 'VA') recordExposure('virtual-data', `${task.unit}-groups`);
-    }, [unlocked, stage, task.unit, recordExposure]);
+        if (previewSettled && unlocked && stage === 'VA') recordExposure('virtual-data', `${task.unit}-groups`);
+    }, [previewSettled, unlocked, stage, task.unit, recordExposure]);
 
     const updateDraft = useCallback(next => {
         const updated = {...progressRef.current, drafts: {...progressRef.current.drafts, [stage]: next}};
@@ -789,16 +967,28 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
     }, [loadFeedback]);
 
     if (!unit) return <p className={styles.panel}>{'找不到這個單元的設定。'}</p>;
+    // 還不知道是不是教師預覽前，不顯示作品表單，避免把預覽的操作寫進學生進度（安全審查 P2-3）。
+    if (!previewSettled) return <p className={styles.panel}>{'確認中…'}</p>;
 
     const formProps = {unit, progress, draft, onChange: updateDraft, vm, onExposure: recordExposure};
     return (
         <div className={styles.panel}>
+            {preview ? (
+                <p
+                    className={styles.previewBanner}
+                    role="status"
+                >
+                    <strong>{'教師預覽'}</strong>
+                    {'：五個階段都已解鎖。這裡做的作品、過關與導師對話都不會保存，也不會寫進學生的進度。' +
+                        '登出教師頁就回到學生模式。教師登入期間請不要載入來路不明的擴充功能。'}
+                </p>
+            ) : null}
             <nav
                 aria-label="五個階段"
                 className={styles.stepper}
             >
                 {STAGES.map(s => {
-                    const open = isUnlocked(progress, s);
+                    const open = preview || isUnlocked(progress, s);
                     const done = progress.gates[s] && progress.gates[s].activityDone;
                     return (
                         <button
@@ -820,6 +1010,7 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
                     {task.steps && task.steps.length ? (
                         <StepGuide
                             draft={draft}
+                            checks={checks}
                             stageDone={Boolean(gate && gate.activityDone)}
                             onSeen={markStepsSeen}
                             steps={task.steps}
@@ -860,9 +1051,13 @@ const ConjecturePanel = ({vm, task, studentId, apiKey, onSelectTask}) => {
                         </section>
                     ) : null}
                     <h4 className={styles.cardTitle}>{'檢核點'}</h4>
-                    <ChecklistView checks={checks} />
+                    <ChecklistView
+                        checks={checks}
+                        labels={checkLabelsFor(unit)}
+                    />
                     <div className={styles.form}>
-                        {stage === 'EX' ? <ExampleForm {...formProps} /> : null}
+                        {stage === 'EX' && unit.EX_MODE !== 'sort' ? <ExampleForm {...formProps} /> : null}
+                        {stage === 'EX' && unit.EX_MODE === 'sort' ? <SortExampleForm {...formProps} /> : null}
                         {stage === 'CG' ? <ConjectureForm {...formProps} /> : null}
                         {stage === 'VA' ? <ValidationForm {...formProps} /> : null}
                         {stage === 'GE' ? <GeneralizationForm {...formProps} /> : null}

@@ -211,3 +211,72 @@ test('專案結構：清單都在舞台、有說明註解、只用 pen 擴充；
         '小英組的資料', '小華組的資料', '我的猜想'].sort());
     vm.quit();
 });
+
+test('CG／VA／GE／JU：主要程式只剩呼叫自訂積木；要讓學生看見詢問與說話的自訂積木不設「不重新整理畫面」', () => {
+    const expected = {
+        CG: {calls: ['畫回造例的例子'], noWarp: []},
+        VA: {calls: ['畫回造例的例子', '驗算機', '反例獵人'], noWarp: ['驗算機']},
+        GE: {calls: ['畫回造例的例子', '驗算機'], noWarp: ['驗算機']},
+        JU: {calls: ['畫出這個數', '平分看看'], noWarp: ['畫出這個數', '平分看看']}
+    };
+    for (const [stage, want] of Object.entries(expected)) {
+        const project = BUILDERS[stage]().toJSON('test');
+        const sprite = project.targets.find(t => !t.isStage);
+        const blocks = sprite.blocks;
+        const hats = Object.values(blocks).filter(b => b.topLevel && b.opcode.startsWith('event_when'));
+        const called = new Set();
+        for (const hat of hats) {
+            for (let id = hat.next; id; id = blocks[id].next) {
+                const block = blocks[id];
+                if (block.opcode === 'procedures_call') called.add(block.mutation.proccode);
+                // 主要程式裡不再直接出現清空、蓋章、問答等工具動作（CG 的選做條件區除外）。
+                if (stage !== 'CG') assert.ok(!['pen_clear', 'data_deletealloflist', 'sensing_askandwait'].includes(block.opcode),
+                    `${stage}: ${block.opcode}`);
+            }
+        }
+        assert.deepEqual([...called].sort(), [...want.calls].sort(), stage);
+        const protos = Object.values(blocks).filter(b => b.opcode === 'procedures_prototype');
+        for (const name of want.noWarp) {
+            assert.equal(protos.find(b => b.mutation.proccode === name).mutation.warp, 'false', `${stage}: ${name}`);
+        }
+        const notes = Object.values(sprite.comments).map(c => c.text).join('\n');
+        assert.ok(notes.includes('工具區'), stage);
+    }
+});
+
+// 版面：同一欄的積木堆疊與註解（以工作區座標估算高度）不能互相重疊（P6 外審 R10b）。
+const stackHeight = (blocks, topId) => {
+    let total = 0;
+    for (let id = topId; id; id = blocks[id].next) {
+        const block = blocks[id];
+        const inner = key => (block.inputs[key] && blocks[block.inputs[key][1]] ? stackHeight(blocks, block.inputs[key][1]) : 24);
+        if (block.opcode === 'procedures_definition' || block.opcode.startsWith('event_when')) total += 72;
+        else if (block.opcode === 'control_if_else') total += 48 + inner('SUBSTACK') + 32 + inner('SUBSTACK2') + 24;
+        else if (block.inputs.SUBSTACK) total += 48 + inner('SUBSTACK') + 24;
+        else total += 48;
+    }
+    return total;
+};
+const overlaps = boxes => {
+    const sorted = [...boxes].sort((a, c) => a.top - c.top);
+    return sorted.slice(1).filter((box, i) => box.top < sorted[i].bottom).map((box, i) => `${sorted[i].name} ↔ ${box.name}`);
+};
+
+test('五個階段的程式區版面：左欄的堆疊與工具區註解、右欄的步驟註解都不重疊', () => {
+    for (const stage of Object.keys(BUILDERS)) {
+        const sprite = BUILDERS[stage]().toJSON('test').targets.find(t => !t.isStage);
+        const left = Object.entries(sprite.blocks).filter(([, b]) => b.topLevel && b.x === 40)
+            .map(([id, b]) => ({name: b.opcode, top: b.y, bottom: b.y + stackHeight(sprite.blocks, id)}));
+        const comments = Object.values(sprite.comments);
+        left.push(...comments.filter(c => c.x === 40).map(c => ({name: `註解「${c.text.slice(0, 8)}」`, top: c.y,
+            bottom: c.y + c.height})));
+        assert.deepEqual(overlaps(left), [], `${stage} 左欄`);
+        const right = comments.filter(c => c.x !== 40).map(c => ({name: `註解「${c.text.slice(0, 8)}」`, top: c.y,
+            bottom: c.y + c.height}));
+        assert.deepEqual(overlaps(right), [], `${stage} 右欄`);
+        // 主要程式（帽子積木）都在工具區標題上方。
+        const toolTitle = comments.find(c => c.text.startsWith('工具區'));
+        const mains = Object.values(sprite.blocks).filter(b => b.topLevel && b.opcode.startsWith('event_when'));
+        assert.ok(mains.every(b => b.y < toolTitle.y), `${stage} 主要程式要在工具區上方`);
+    }
+});

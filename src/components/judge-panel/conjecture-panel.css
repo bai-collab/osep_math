@@ -369,3 +369,87 @@
 .steps[open] .steps-summary {
     margin-bottom: 0.25rem;
 }
+
+/* 程式看不出來的步驟：學生自己按「這步做好了」。 */
+.step-done-button {
+    display: inline-block;
+    margin: 0.25rem 0 0 0.5rem;
+    padding: 0.1rem 0.6rem;
+    border: 1px solid #2f9e5b;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #1a7f37;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.step-done-button:hover {
+    background: #e6f4ea;
+}
+
+/* 程式清單有不合理的內容（多半是積木補錯）時的提醒。 */
+.step-warning {
+    display: block;
+    margin-top: 0.3rem;
+    padding: 0.25rem 0.4rem;
+    border-left: 3px solid #c0392b;
+    background: #fdecea;
+    color: #8a1f14;
+    font-size: 0.85rem;
+}
+
+/* 教師預覽提示：提醒這裡的操作不會保存。 */
+.preview-banner {
+    margin: 0 0 0.5rem;
+    padding: 0.4rem 0.6rem;
+    background: #eef4ff;
+    border: 2px dashed #2457a7;
+    border-radius: 0.375rem;
+    font-size: 0.8rem;
+    color: #1d3f78;
+}
+
+/* 分類型造例：每個例子一列，後面接分類按鈕。 */
+.sort-list {
+    list-style: none;
+    margin: 0.4rem 0 0;
+    padding: 0;
+}
+
+.sort-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 0.25rem 0;
+}
+
+.sort-option,
+.sort-chosen {
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.sort-option {
+    border: 1px solid #b8c4d6;
+    background: #ffffff;
+    color: #33415c;
+}
+
+.sort-chosen {
+    border: 2px solid #2457a7;
+    background: #dceaff;
+    color: #1d3f78;
+    font-weight: bold;
+}
+
+.sort-remove {
+    border: none;
+    background: transparent;
+    color: #8a96a8;
+    font-size: 1rem;
+    cursor: pointer;
+}

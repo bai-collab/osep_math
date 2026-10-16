@@ -5,6 +5,9 @@
  * 單元正本在 src/lib/conjecture-units/。沒有 unlockCode 的課程視為公開（task-list.jsx）。
  */
 import c21 from '../conjecture-units/c2-1.js';
+import c41 from '../conjecture-units/c4-1.js';
+import c61 from '../conjecture-units/c6-1.js';
+import c62 from '../conjecture-units/c6-2.js';
 
 const light = unit => {
     const course = unit.toCourse();
@@ -15,4 +18,4 @@ const light = unit => {
     };
 };
 
-export default [light(c21)];
+export default [light(c21), light(c41), light(c61), light(c62)];

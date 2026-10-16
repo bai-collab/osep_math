@@ -17,7 +17,13 @@ const describeDraft = (stage, draft, artifacts = {}) => {
     const d = draft || {};
     const lines = [];
     if (artifacts.CG && stage !== 'CG') lines.push(`我原本的猜想：${artifacts.CG.conjecture.text}`);
-    if (stage === 'EX') {
+    if (stage === 'EX' && Array.isArray(d.examples) && d.examples.some(e => e && typeof e.group !== 'undefined')) {
+        // 分類型造例（第二批單元）：例子屬於組別，分類存在 sorting。
+        const who = e => (e.source === 'student' ? '自己寫' : '程式找');
+        const sorting = d.sorting || {};
+        lines.push(`我造的例子：${d.examples.map(e => `${e.value}（${who(e)}${
+            sorting[`${e.group}|${e.value}`] ? `，分到「${sorting[`${e.group}|${e.value}`]}」` : '，還沒分類'}）`).join('、')}`);
+    } else if (stage === 'EX') {
         const who = e => (e.source === 'student' ? '自己寫' : '程式找');
         const examples = (d.examples || []).map(e => `${e.value}（卡${e.card}，${who(e)}）`);
         lines.push(`我造的例子：${examples.join('、') || '還沒有'}`);
@@ -29,7 +35,7 @@ const describeDraft = (stage, draft, artifacts = {}) => {
     } else if (stage === 'CG') {
         lines.push(`我的猜想：${d.text || '還沒寫完'}`);
     } else if (stage === 'VA') {
-        (d.tests || []).forEach(t => lines.push(`檢驗：${t.number}（${t.dataFrom}）對「${t.conjectureText}」，` +
+        (d.tests || []).forEach(t => lines.push(`檢驗：${t.example || t.number}（${t.dataFrom}）對「${t.conjectureText}」，` +
             `預測${t.prediction}，算式「${t.computation || '未寫'}」，結果${t.verdict}`));
         if (!(d.tests || []).length) lines.push('還沒有記下任何檢驗');
     } else if (stage === 'GE') {

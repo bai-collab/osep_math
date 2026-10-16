@@ -55,7 +55,21 @@ const allDigits = Array.from({length: 10}, (_, i) => i);
 const checkStage = (stage, draft, unit) => {
     const d = draft || {};
     let checks = [];
-    if (stage === 'EX') {
+    if (stage === 'EX' && unit.EX_MODE === 'sort') {
+        // 分類型造例：自己寫 ≥3、每個例子符合卡片要求（由單元判斷）、每個例子都分好類。
+        const examples = Array.isArray(d.examples) ? d.examples : [];
+        const sorting = d.sorting || {};
+        const own = distinct(examples.filter(e => e.source === 'student').map(e => `${e.group}|${e.value}`));
+        checks = [
+            {id: 'own-examples-3', met: own.length >= 3, by: 'program'},
+            {id: 'examples-valid',
+                met: examples.length > 0 && examples.every(e => unit.validExample(e.group, e.value)),
+                by: 'program'},
+            {id: 'examples-sorted',
+                met: examples.length > 0 && examples.every(e => Boolean(sorting[`${e.group}|${e.value}`])),
+                by: 'program'}
+        ];
+    } else if (stage === 'EX') {
         const examples = Array.isArray(d.examples) ? d.examples : [];
         const own = distinct(examples.filter(e => e.source === 'student').map(e => `${e.card}:${e.value}`));
         const valid = examples.length > 0 && examples.every(e => Number.isSafeInteger(e.value) && e.value > 0 &&
@@ -117,6 +131,17 @@ const looksLikeEnumeration = text => {
 // 由草稿組成作品（未清理）；呼叫端再交給 cleanArtifact，失敗代表草稿格式還不完整。
 const buildArtifact = (stage, draft, unit) => {
     const d = draft || {};
+    if (stage === 'EX' && unit.EX_MODE === 'sort') {
+        const examples = d.examples || [];
+        const sorting = d.sorting || {};
+        return {kind: 'sort',
+            groups: unit.EX.groups.map(g => g.id),
+            categories: unit.EX.categories.map(c => c.id),
+            examples,
+            sorting: examples.filter(e => sorting[`${e.group}|${e.value}`])
+                .map(e => ({group: e.group, value: e.value, category: sorting[`${e.group}|${e.value}`]})),
+            trace: d.trace || ''};
+    }
     if (stage === 'EX') {
         const classification = unit.STUDENT_CARDS
             .filter(card => d.classification && d.classification[card])
@@ -134,6 +159,15 @@ const buildArtifact = (stage, draft, unit) => {
         programCondition: d.programCondition === true};
     }
     if (stage === 'VA') return {tests: d.tests || [], poolOpened: d.poolOpened === true};
+    if (stage === 'GE' && unit.GE_ITEMS) {
+        const marks = d.itemMarks || {};
+        const pick = mark => unit.GE_ITEMS.filter(item => marks[item.id] === mark).map(item => item.id);
+        return {revision: {before: d.before || '', after: d.after || '', reason: d.reason || ''},
+            checkedDivisors: [],
+            unknownDivisors: [],
+            checkedItems: pick('checked'),
+            unknownItems: pick('unknown')};
+    }
     if (stage === 'GE') {
         const marks = d.divisorMarks || {};
         const pick = mark => unit.CANDIDATE_DIVISORS.filter(n => marks[n] === mark);
@@ -177,6 +211,8 @@ const CHECK_LABELS = {
     'own-examples-3': '自己寫了至少 3 個不同的例子',
     'examples-are-multiples': '例子都是卡片上那個數的倍數',
     'ones-classified': '兩張卡的個位都分成了「出現的／沒出現的」',
+    'examples-valid': '例子都符合卡片的要求',
+    'examples-sorted': '每個例子都分好類了',
     'has-conjecture': '寫出一句猜想',
     'has-scope-or-condition': '有說清楚對誰成立或什麼條件下成立',
     'tested-with-new-data': '用別組的資料檢驗過',
@@ -188,9 +224,13 @@ const CHECK_LABELS = {
     'ai-reasoning-suggestion': '導師建議：理由可能符合（老師最後確認）'
 };
 
+// 單元可以用 unit.CHECK_LABELS 改寫個別標籤（例如造例的「符合卡片要求」換成單元自己的說法）。
+const checkLabelsFor = unit => ({...CHECK_LABELS, ...((unit && unit.CHECK_LABELS) || {})});
+
 module.exports = {
     STORAGE_PREFIX,
     CHECK_LABELS,
+    checkLabelsFor,
     emptyProgress,
     storageKey,
     loadProgress,

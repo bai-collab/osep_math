@@ -121,7 +121,9 @@ test('A1 區網監聽器偽造 Host／Origin／X-Forwarded-For 打教師路由�
         ['GET', '/teacher.html'], ['GET', '/teacher.js'], ['GET', '/teacher.css'], ['GET', '/dashboard.js'],
         ['HEAD', '/teacher.html'], ['GET', '/TEACHER.HTML'], ['GET', '/teacher%2Ehtml'], ['GET', '/teacher%2ejs'],
         ['GET', `http://127.0.0.1:${p.localPort}/teacher.html`], ['GET', '/api%2Fteacher%2Fsettings'],
-        ['GET', '/api/tutor'], ['GET', '/api/unknown'], ['POST', '/api/unknown', '{}'], ['PUT', '/api/records', '{}']
+        ['GET', '/api/tutor'], ['GET', '/api/unknown'], ['POST', '/api/unknown', '{}'], ['PUT', '/api/records', '{}'],
+        // 教師預覽只在本機：區網一律 403（含大小寫與百分比編碼變形）。
+        ['GET', '/api/teacher/preview'], ['GET', '/API/teacher/preview'], ['GET', '/api%2Fteacher%2Fpreview']
     ];
     for (const headers of forgeries) {
         for (const [method, route, body] of routes) {

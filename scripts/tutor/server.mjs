@@ -134,6 +134,13 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
         sessions.delete(token);
         return false;
     };
+    // 只認「已完成教師設定＋有效 session」；沒有教師設定的舊版試用一律 false。
+    const validTeacherSession = req => {
+        if (!teacherSettings || teacherSettings.status().initialized !== true) return false;
+        const token = /(?:^|;\s*)osepTeacher=([a-f0-9]{48})(?:;|$)/.exec(req.headers.cookie || '')?.[1];
+        const expires = token ? sessions.get(token) : null;
+        return typeof expires === 'number' && expires > Date.now();
+    };
     const recordsFull = async () => {
         if (!recordStore || typeof recordStore.full !== 'function') return false;
         try { return await recordStore.full(); } catch { return false; }
@@ -182,6 +189,15 @@ export function createTutorServer({buildDir = path.join(root, 'build'), fetchImp
                 return json(res, 200, {managed: status.managed === true, aiConfigured: status.aiConfigured === true});
             }
             return json(res, 200, teacherSettings ? teacherSettings.status() : {managed: false});
+        }
+        // 教師預覽：只回答「這個瀏覽器是否持有有效的教師登入」。不沿用 authorizedTeacher 的未管理試用捷徑，
+        // 必須已完成教師設定且帶有效 session；不發 cookie、不延長期限（安全審查 P2-1、P3-1、P3-4）。
+        if (url.pathname === '/api/teacher/preview') {
+            if (kind !== 'local') return json(res, 403, {error: '此功能只在教師機本機提供。'});
+            if (req.method !== 'GET') return json(res, 405, {error: '只接受 GET。'});
+            const site = req.headers['sec-fetch-site'];
+            if (site && site !== 'same-origin') return json(res, 403, {error: '只接受同來源本機網頁。'});
+            return json(res, 200, {preview: validTeacherSession(req)});
         }
         if (url.pathname === '/api/teacher/settings' || url.pathname === '/api/teacher/logout') {
             if (!teacherSettings) return json(res, 503, {error: '教師設定尚未啟用。'});

@@ -11,6 +11,8 @@ import {requestGuidance} from './provider.mjs';
 import {analyzeDependency} from './dependency-analysis.mjs';
 
 const require = createRequire(import.meta.url);
+// 這些測試用假的 fetch 計算請求；先把教師預覽定為學生模式，不多出預覽查詢。
+require('../../src/lib/teacher-preview.js').settlePreviewForTest(false);
 const React = require('react');
 const {create, act} = require('react-test-renderer');
 const records = require('../../src/lib/learning-records.js');

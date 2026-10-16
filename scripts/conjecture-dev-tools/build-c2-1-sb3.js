@@ -47,9 +47,10 @@ const SPEAKER = '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4" vi
     '<rect width="4" height="4" fill="#ffffff" fill-opacity="0"/></svg>';
 // 版面：腳本在左欄、註解在右欄（工作區座標），避免互相蓋住。
 const NOTE_X = 820;
-const MARK_Y = 1500;
 // 造例階段的工具區起點（主要程式在上方，工具區往下拉才看得到）。
 const EX_TOOL_Y = 1000;
+// 提出猜想～證實的工具區起點。
+const STAGE_TOOL_Y = 780;
 const PLACE_VALUE_BACKDROP = '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360">' +
     '<rect width="480" height="360" fill="#f7f9fc"/>' +
     '<text x="300" y="70" text-anchor="middle" font-family="Sans Serif" font-size="18" fill="#2457a7">' +
@@ -76,8 +77,20 @@ const markerSprite = p => {
     p.costume(s, `${CARD_B}卡`, MARK_B, {cx: 20, cy: 16});
     return s;
 };
-// 自訂積木「標記 (數)」：在百數表上把這個數圈起來（1～100 以外不畫）。
-const defineMark = (p, s, b, y = MARK_Y) => {
+// 工具區（學生不用改的自訂積木）：放在主要程式下方，依每個堆疊的實際高度由上往下排；
+// 說明註解放在各自定義的正上方（有些定義很寬，放右邊會蓋住積木）。回傳 add(定義積木 id, 說明, 註解高度)。
+const TOOL_GAP = 70;
+const toolArea = (s, startY, title = '工具區：下面的積木已經做好，不用改。\n上面的程式會用到這些自訂積木。') => {
+    s.comment(null, title, 40, startY, 360, 70);
+    let y = startY + 110;
+    return (top, note, noteHeight = 80) => {
+        s.comment(top, note, 40, y, 360, noteHeight);
+        s.place(top, 40, y + noteHeight + 20);
+        y += noteHeight + 20 + s.height(top) + TOOL_GAP;
+    };
+};
+// 自訂積木「標記 (數)」：在百數表上把這個數圈起來（1～100 以外不畫）。定義由工具區擺放。
+const defineMark = (p, s, b) => {
     const proc = b.procedure('標記', '數');
     const cellX = b.add(num(-216), rep(b.mul(rep(b.mod(rep(b.subtract(rep(proc.arg()), num(1))), num(10))), num(48))));
     const cellY = b.subtract(num(162), rep(b.mul(rep(b.floor(rep(b.divide(rep(b.subtract(rep(proc.arg()), num(1))),
@@ -86,10 +99,10 @@ const defineMark = (p, s, b, y = MARK_Y) => {
         OPERAND1: bool(b.cmp('gt', rep(proc.arg()), num(0))),
         OPERAND2: bool(b.cmp('lt', rep(proc.arg()), num(101)))}});
     const body = s.stack([b.gotoXY(rep(cellX), rep(cellY)), b.stamp()]);
-    s.stack([proc.define, b.if(inRange, body)], 40, y);
-    s.comment(proc.define, '「標記」會把一個數在百數表上圈起來。這段不用改。', 40, y - 110, 260, 80);
+    s.stack([proc.define, b.if(inRange, body)]);
     return proc;
 };
+const MARK_NOTE = '「標記」會把一個數在百數表上圈起來。這段不用改。';
 // 依序標記某張卡的清單內容（前階段帶進來的例子）。
 const markList = (p, s, b, proc, list, costume) => [
     b.costume(costume),
@@ -99,22 +112,37 @@ const markList = (p, s, b, proc, list, costume) => [
         proc.call(rep(b.itemOf(list, rep(b.getVar('第幾個')))))
     ]))
 ];
-const divisionMachine = (p, s, b, x, y) => {
+// 自訂積木「畫回造例的例子」：把前階段帶進來的兩張卡例子畫回百數表。
+const defineRedraw = (p, s, b, mark) => {
+    const proc = b.procedure('畫回造例的例子');
+    s.stack([proc.define, b.penClear(),
+        ...markList(p, s, b, mark, L.multiples(CARD_A), `${CARD_A}卡`),
+        ...markList(p, s, b, mark, L.multiples(CARD_B), `${CARD_B}卡`)]);
+    return proc;
+};
+const REDRAW_NOTE = `依序圈出清單「${L.multiples(CARD_A)}」「${L.multiples(CARD_B)}」裡的數。`;
+// 驗算機：主要程式只有「當空白鍵被按下 → 驗算機」，算式組裝放進自訂積木（定義由工具區擺放）。
+const divisionMachine = (p, s, b, {x, y, note}) => {
+    const proc = b.procedure('驗算機', null, {warp: false});
     const expr = b.join(rep(b.getVar('被除數'), 'txt'), rep(b.join(txt(' ÷ '), rep(b.join(rep(b.getVar('除以'), 'txt'),
         rep(b.join(txt(' ＝ '), rep(b.join(rep(b.floor(rep(b.divide(rep(b.getVar('被除數')), rep(b.getVar('除以'))))), 'txt'),
             rep(b.join(txt(' … '), rep(b.mod(rep(b.getVar('被除數')), rep(b.getVar('除以'))), 'txt')), 'txt')), 'txt')),
         'txt')), 'txt')), 'txt'));
-    const hat = s.stack([
-        b.whenKey('space'),
+    // 詢問時先把角色藏起來：Scratch 會把問題印在輸入框上方，不會被輸入框蓋住；說答案前再現身。
+    s.stack([proc.define,
+        b.hide(),
         b.ask(txt('要驗算哪個數？')),
         b.setVar('被除數', rep(b.answer(), 'txt')),
         b.ask(txt('要除以多少？')),
         b.setVar('除以', rep(b.answer(), 'txt')),
+        b.show(),
         b.say(rep(expr, 'txt'))
-    ], x, y);
-    s.comment(hat, '驗算機：按空白鍵。先在右邊面板寫下你的「預測」，再用驗算機算，最後把算式抄到面板上。',
-        NOTE_X, y, 280, 100);
+    ]);
+    const hat = s.stack([b.whenKey('space'), proc.call()], x, y);
+    s.comment(hat, note, NOTE_X, y, 280, 110);
+    return proc;
 };
+const MACHINE_NOTE = '問你要算哪個數、除以多少，再說出「商 … 餘數」。';
 
 // ---- 五個階段 ----
 const buildEX = () => {
@@ -124,18 +152,17 @@ const buildEX = () => {
     const s = markerSprite(p);
     const b = blocks(p, s);
     // 工具區（學生不用改）：放在主要程式下方，主要程式只留學生要看、要改的積木。
-    s.comment(null, '工具區：下面的積木已經做好，不用改。\n上面的程式會用到「準備卡片」和「標記」。',
-        40, EX_TOOL_Y, 360, 70);
+    const tool = toolArea(s, EX_TOOL_Y, '工具區：下面的積木已經做好，不用改。\n上面的程式會用到「準備卡片」和「標記」。');
     const prepA = b.procedure(`準備卡片 ${CARD_A}`);
     s.stack([prepA.define, b.penClear(), b.clearList(L.multiples(CARD_A)), b.clearList(L.ones(CARD_A)),
-        b.setVar('卡片', num(CARD_A)), b.setVar('第幾個', num(0)), b.costume(`${CARD_A}卡`)], 40, EX_TOOL_Y + 110);
-    s.comment(prepA.define, `清空百數表和卡片 ${CARD_A} 的兩個清單，從第 0 個開始。`, 420, EX_TOOL_Y + 110, 240, 70);
+        b.setVar('卡片', num(CARD_A)), b.setVar('第幾個', num(0)), b.costume(`${CARD_A}卡`)]);
+    tool(prepA.define, `清空百數表和卡片 ${CARD_A} 的兩個清單，從第 0 個開始。`);
     const prepB = b.procedure(`準備卡片 ${CARD_B}`);
     s.stack([prepB.define, b.clearList(L.multiples(CARD_B)), b.clearList(L.ones(CARD_B)),
-        b.setVar('卡片', num(CARD_B)), b.setVar('第幾個', num(0)), b.costume(`${CARD_B}卡`)], 40, EX_TOOL_Y + 460);
-    s.comment(prepB.define, `清空卡片 ${CARD_B} 的兩個清單，從第 0 個開始（百數表上 ${CARD_A} 的記號會留著）。`,
-        420, EX_TOOL_Y + 460, 240, 80);
-    const proc = defineMark(p, s, b, EX_TOOL_Y + 900);
+        b.setVar('卡片', num(CARD_B)), b.setVar('第幾個', num(0)), b.costume(`${CARD_B}卡`)]);
+    tool(prepB.define, `清空卡片 ${CARD_B} 的兩個清單，從第 0 個開始（百數表上 ${CARD_A} 的記號會留著）。`);
+    const proc = defineMark(p, s, b);
+    tool(proc.define, MARK_NOTE);
     // 卡片 2：完整示範（迴圈次數留給學生改）。
     const loopA = b.repeat(num(3), s.stack([
         b.changeVar('第幾個', num(1)),
@@ -164,30 +191,34 @@ const buildEX = () => {
     return p;
 };
 
+// 提出猜想：步驟 1 按綠旗畫回例子；步驟 4（選做）改猜想條件區。
 const buildCG = () => {
     const p = baseProject();
     addCardLists(p);
     ['第幾個', '數'].forEach(name => p.variable(name, 0));
     const s = markerSprite(p);
     const b = blocks(p, s);
-    const proc = defineMark(p, s, b);
-    const hat = s.stack([b.whenFlag(), b.penClear(),
-        ...markList(p, s, b, proc, L.multiples(CARD_A), `${CARD_A}卡`),
-        ...markList(p, s, b, proc, L.multiples(CARD_B), `${CARD_B}卡`)], 40, 40);
-    s.comment(hat, '按綠旗：把你在「造例」做出的例子畫回百數表。清單裡的資料是從上一階段自動帶進來的。',
-        NOTE_X, 30, 260, 90);
+    const tool = toolArea(s, STAGE_TOOL_Y);
+    const mark = defineMark(p, s, b);
+    const redraw = defineRedraw(p, s, b, mark);
+    tool(redraw.define, REDRAW_NOTE);
+    tool(mark.define, MARK_NOTE);
+    const hat = s.stack([b.whenFlag(), redraw.call()], 40, 40);
+    s.comment(hat, '步驟 1：按綠旗，把你在「造例」做出的例子畫回百數表。清單裡的資料是從上一階段自動帶進來的。',
+        NOTE_X, 30, 280, 90);
     // 選做：猜想條件區（右邊空格留給學生）。
     const condition = b.cmp('equals', rep(b.mod(rep(b.getVar('數')), num(10))), txt(''));
     const check = b.ifElse(condition,
         s.stack([b.say(rep(b.join(rep(b.getVar('數'), 'txt'), txt(' 符合我的猜想條件')), 'txt'))]),
         s.stack([b.say(rep(b.join(rep(b.getVar('數'), 'txt'), txt(' 不符合我的猜想條件')), 'txt'))]));
-    s.stack([b.whenKey('space'), b.ask(txt('輸入一個數，看看它符不符合你的猜想條件')),
-        b.setVar('數', rep(b.answer(), 'txt')), check], 40, 720);
-    s.comment(check, '（選做）猜想條件區：把「＝」右邊的空格改成你猜想裡的條件。\n' +
-        '條件不只一個時，可以用「運算」分類的「或」把它們接起來。改好後按空白鍵試試。', NOTE_X, 820, 280, 130);
+    s.stack([b.whenKey('space'), b.hide(), b.ask(txt('輸入一個數，看看它符不符合你的猜想條件')),
+        b.setVar('數', rep(b.answer(), 'txt')), b.show(), check], 40, 240);
+    s.comment(check, '步驟 4（選做）猜想條件區：把「＝」右邊的空格改成你猜想裡的條件。\n' +
+        '條件不只一個時，可以用「運算」分類的「或」把它們接起來。改好後按空白鍵試試。', NOTE_X, 240, 280, 130);
     return p;
 };
 
+// 效化：步驟 1 綠旗畫回例子；步驟 2 空白鍵驗算機；步驟 5（選做）s 鍵反例獵人。
 const buildVA = () => {
     const p = baseProject();
     addCardLists(p);
@@ -202,28 +233,38 @@ const buildVA = () => {
     p.variable('個位條件', 0);
     const s = markerSprite(p);
     const b = blocks(p, s);
-    const proc = defineMark(p, s, b);
-    const hat = s.stack([b.whenFlag(), b.penClear(),
-        ...markList(p, s, b, proc, L.multiples(CARD_A), `${CARD_A}卡`),
-        ...markList(p, s, b, proc, L.multiples(CARD_B), `${CARD_B}卡`),
-        b.sayFor(txt('按空白鍵用驗算機；按 s 鍵執行反例獵人（輔助）。'), 4)], 40, 40);
-    s.comment(hat, '其他組的資料在舞台的清單裡（小明組、小華組、小英組）。挑一個數來檢驗猜想。', NOTE_X, 30, 260, 80);
-    divisionMachine(p, s, b, 40, 760);
-    // 反例獵人（輔助）：只掃 1～100、只看一個個位數字。
+    const tool = toolArea(s, STAGE_TOOL_Y);
+    const mark = defineMark(p, s, b);
+    const redraw = defineRedraw(p, s, b, mark);
+    const hat = s.stack([b.whenFlag(), redraw.call(),
+        b.sayFor(txt('按空白鍵用驗算機；按 s 鍵執行反例獵人（選做）。'), 4)], 40, 40);
+    s.comment(hat, '步驟 1：按綠旗把你的例子畫回百數表。其他組的資料在右邊面板和舞台的清單裡（小明組、小華組、小英組）。',
+        NOTE_X, 30, 280, 90);
+    const machine = divisionMachine(p, s, b, {x: 40,
+        y: 220,
+        note: '步驟 2：按空白鍵用驗算機。先在右邊面板寫下你的「預測」，再用驗算機算，最後把算式抄到面板上。'});
+    // 反例獵人（選做）：只掃 1～100、只看一個個位數字。學生在「變數」設定條件，不用改積木。
+    const hunter = b.procedure('反例獵人');
     const hit = s.block('operator_and', {inputs: {
         OPERAND1: bool(b.cmp('equals', rep(b.mod(rep(b.getVar('數')), num(10))), rep(b.getVar('個位條件')))),
         OPERAND2: bool(s.block('operator_not', {inputs: {OPERAND: bool(b.cmp('equals',
             rep(b.mod(rep(b.getVar('數')), rep(b.getVar('除數')))), num(0)))}}))}});
-    const hunter = s.stack([b.whenKey('s'), b.clearList(L.counterexamples), b.setVar('數', num(0)),
+    s.stack([hunter.define, b.clearList(L.counterexamples), b.setVar('數', num(0)),
         b.repeat(num(100), s.stack([b.changeVar('數', num(1)),
             b.if(hit, s.stack([b.addTo(L.counterexamples, rep(b.getVar('數'), 'txt'))]))])),
         b.say(rep(b.join(txt('反例獵人找到 '), rep(b.join(rep(b.lengthOf(L.counterexamples), 'txt'), txt(' 個數')), 'txt')),
-            'txt'))], 40, 1100);
-    s.comment(hunter, '（輔助）反例獵人：在「變數」設定『個位條件』和『除數』，再按 s 鍵。\n' +
-        '它只找 1～100，找到的數一定要自己用驗算機再算一次，寫進面板才算數。', NOTE_X, 1100, 300, 130);
+            'txt'))]);
+    const hunt = s.stack([b.whenKey('s'), hunter.call()], 40, 380);
+    s.comment(hunt, '步驟 5（選做）反例獵人：在「變數」設定『個位條件』和『除數』，再按 s 鍵。\n' +
+        '它只找 1～100，找到的數一定要自己用驗算機再算一次，寫進面板才算數。', NOTE_X, 380, 300, 130);
+    tool(redraw.define, REDRAW_NOTE);
+    tool(machine.define, MACHINE_NOTE);
+    tool(hunter.define, `從 1 找到 100：個位是『個位條件』、卻不是『除數』的倍數的數，放進清單「${L.counterexamples}」。`, 90);
+    tool(mark.define, MARK_NOTE);
     return p;
 };
 
+// 一般化：步驟 1（選做）空白鍵驗算機；綠旗畫回例子方便對照。
 const buildGE = () => {
     const p = baseProject();
     addCardLists(p);
@@ -232,16 +273,21 @@ const buildGE = () => {
     p.variable('除以', 1);
     const s = markerSprite(p);
     const b = blocks(p, s);
-    const proc = defineMark(p, s, b);
-    const hat = s.stack([b.whenFlag(), b.penClear(),
-        ...markList(p, s, b, proc, L.multiples(CARD_A), `${CARD_A}卡`),
-        ...markList(p, s, b, proc, L.multiples(CARD_B), `${CARD_B}卡`)], 40, 40);
-    s.comment(hat, '修訂猜想時，可以再用驗算機（空白鍵）多檢查幾個數。檢驗過的除數才能寫進修訂的說法。',
-        NOTE_X, 30, 260, 90);
-    divisionMachine(p, s, b, 40, 760);
+    const tool = toolArea(s, STAGE_TOOL_Y);
+    const mark = defineMark(p, s, b);
+    const redraw = defineRedraw(p, s, b, mark);
+    const hat = s.stack([b.whenFlag(), redraw.call()], 40, 40);
+    s.comment(hat, '按綠旗可以把例子畫回百數表，方便對照。', NOTE_X, 30, 260, 70);
+    const machine = divisionMachine(p, s, b, {x: 40,
+        y: 220,
+        note: '步驟 1（選做）：按空白鍵用驗算機多檢查幾個數。檢驗過的除數才能寫進修訂的說法。'});
+    tool(redraw.define, REDRAW_NOTE);
+    tool(machine.define, MACHINE_NOTE);
+    tool(mark.define, MARK_NOTE);
     return p;
 };
 
+// 證實：步驟 1 綠旗畫出這個數；步驟 2 空白鍵平分看看。學生只用滑桿，不用改積木。
 const buildJU = () => {
     const p = baseProject({chart: false});
     addCardLists(p);
@@ -259,8 +305,10 @@ const buildJU = () => {
     p.costume(s, '一個', ONE, {cx: 9, cy: 7});
     p.costume(s, '說話', SPEAKER, {cx: 2, cy: 2});
     const b = blocks(p, s);
+    const tool = toolArea(s, STAGE_TOOL_Y);
     const total = () => b.add(rep(b.mul(rep(b.getVar('包數')), num(10))), rep(b.getVar('零散')));
-    const draw = s.stack([b.whenFlag(), b.penClear(), b.costume('十包'), b.setVar('第幾個', num(0)),
+    const drawProc = b.procedure('畫出這個數', null, {warp: false});
+    s.stack([drawProc.define, b.penClear(), b.costume('十包'), b.setVar('第幾個', num(0)),
         b.repeat(rep(b.getVar('包數')), s.stack([
             b.gotoXY(rep(b.add(num(-40), rep(b.mul(rep(b.getVar('第幾個')), num(24))))), num(20)),
             b.stamp(), b.changeVar('第幾個', num(1))])),
@@ -269,9 +317,10 @@ const buildJU = () => {
             b.gotoXY(rep(b.add(num(-40), rep(b.mul(rep(b.getVar('第幾個')), num(22))))), num(-120)),
             b.stamp(), b.changeVar('第幾個', num(1))])),
         b.gotoXY(num(200), num(-160)), b.costume('說話'),
-        b.say(rep(b.join(txt('這個數是 '), rep(total(), 'txt')), 'txt'))], 40, 40);
-    s.comment(draw, '用舞台左上角的滑桿改「包數」和「零散」，再按綠旗把數畫出來。', NOTE_X, 30, 260, 80);
-    // 空白鍵：讓學生自己算「每一包剩多少」「零散剩多少」，算對才往下；
+        b.say(rep(b.join(txt('這個數是 '), rep(total(), 'txt')), 'txt'))]);
+    const draw = s.stack([b.whenFlag(), drawProc.call()], 40, 40);
+    s.comment(draw, '步驟 1：用舞台左上角的滑桿改「包數」和「零散」，再按綠旗把數畫出來。', NOTE_X, 30, 280, 80);
+    // 平分看看：讓學生自己算「每一包剩多少」「零散剩多少」，算對才往下；
     // 最後先請學生預測整個數剩多少，才揭曉。程式不替學生說出每包的餘數。
     const divisorText = () => rep(b.getVar('除數'), 'txt');
     const askUntil = (firstQuestion, retryQuestion, correct) => [
@@ -287,19 +336,28 @@ const buildJU = () => {
             rep(b.join(divisorText(), txt(' 份，會剩下幾個？')), 'txt')), 'txt')), 'txt')), 'txt'),
         rep(b.join(txt('再算算看：零散的數 ÷ '), rep(b.join(divisorText(), txt(' 剩下幾個？')), 'txt')), 'txt'),
         () => b.mod(rep(b.getVar('零散')), rep(b.getVar('除數'))));
-    const split = s.stack([b.whenKey('space'), b.costume('說話'),
+    const splitProc = b.procedure('平分看看', null, {warp: false});
+    s.stack([splitProc.define, b.costume('說話'),
+        b.hide(),
         ...perBag,
+        b.show(),
         b.sayFor(rep(b.join(txt('對！每一包都剩下 '), rep(b.answer(), 'txt')), 'txt'), 2),
+        b.hide(),
         ...loose,
+        b.show(),
         b.sayFor(rep(b.join(txt('對！零散的剩下 '), rep(b.answer(), 'txt')), 'txt'), 2),
+        b.hide(),
         b.ask(txt('那整個數平分後，你預測會剩下幾個？')),
         b.setVar('我的預測', rep(b.answer(), 'txt')),
+        b.show(),
         b.say(rep(b.join(txt('你預測 '), rep(b.join(rep(b.getVar('我的預測'), 'txt'),
             rep(b.join(txt('；整個數平分後剩下 '), rep(b.mod(rep(total()), rep(b.getVar('除數'))), 'txt')), 'txt')),
-        'txt')), 'txt'))], 40, 1150);
-    s.comment(split, '按空白鍵：自己算每一包剩多少、零散剩多少，算對才會往下。\n' +
-        '最後先預測整個數剩多少再看答案。改改包數再試一次：剩下的會不會變？為什麼？把理由寫在右邊面板。',
-    NOTE_X, 1150, 300, 130);
+        'txt')), 'txt'))]);
+    const split = s.stack([b.whenKey('space'), splitProc.call()], 40, 200);
+    s.comment(split, '步驟 2：按空白鍵：自己算每一包剩多少、零散剩多少，算對才會往下。最後先預測整個數剩多少再看答案。\n' +
+        '步驟 3：改改包數再試一次：剩下的會不會變？為什麼？把理由寫在右邊面板。', NOTE_X, 200, 300, 150);
+    tool(drawProc.define, '依滑桿的「包數」蓋出十包，再依「零散」蓋出零散的個數，最後說出這個數。');
+    tool(splitProc.define, '先問每一包剩多少、再問零散剩多少，答對才往下；最後先請你預測，再說出整個數剩多少。', 90);
     return p;
 };
 

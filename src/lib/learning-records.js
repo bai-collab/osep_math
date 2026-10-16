@@ -1,5 +1,6 @@
 /* eslint-disable import/no-commonjs */
 const React = require('react');
+const {whenPreviewSettled, isPreview} = require('./teacher-preview.js');
 const listeners = new Set();
 let studentId = '';
 try {
@@ -139,7 +140,11 @@ const recordingText = recording => {
     if (recording.status === 'failed') return '記錄失敗；本次結果仍可查看，請回報教師。';
     return '已保存本機紀錄；試算表同步狀態請看教師頁。';
 };
+// 教師預覽中（教師在這台電腦登入教師頁）不保存任何學習紀錄；第一次確認前先等一下。
+const PREVIEW_TEXT = '教師預覽中：這筆紀錄沒有保存。';
 const postRecord = async (record, failure) => {
+    await whenPreviewSettled();
+    if (isPreview()) return PREVIEW_TEXT;
     try {
         const response = await fetch('./api/records', {method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -164,6 +169,8 @@ const postStageRecord = record => postRecord(record, STAGE_FAILURES[record.type]
 // 需要知道「伺服器真的保存了」的呼叫端用這個版本（例如先確認作品存在，才記下查老師回饋用的 id）。
 const postStageRecordResult = async record => {
     const failure = STAGE_FAILURES[record.type] || '紀錄沒有保存成功，請回報教師。';
+    await whenPreviewSettled();
+    if (isPreview()) return {saved: false, text: PREVIEW_TEXT};
     try {
         const response = await fetch('./api/records', {method: 'POST',
             headers: {'Content-Type': 'application/json'},

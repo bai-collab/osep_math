@@ -96,6 +96,18 @@ const VERDICT = {supports: '支持', refutes: '推翻', unclear: '還不確定'}
  */
 export function describeArtifact (stage, artifact) {
     if (!artifact) return ['（沒有作品）'];
+    if (stage === 'EX' && artifact.kind === 'sort') {
+        // 第二批單元：例子是短文字（數或算式），各分到單元定義的類別。
+        const categoryOf = e => {
+            const found = artifact.sorting.find(item => item.group === e.group && item.value === e.value);
+            return found ? found.category : '未分類';
+        };
+        const line = source => artifact.examples.filter(e => e.source === source).slice(0, 20)
+            .map(e => `${e.value}（${categoryOf(e)}）`)
+            .join('、') || '無';
+        return [`組別：${artifact.groups.join('、')}`, `自己寫的例子：${line('student')}`,
+            `程式找到的例子：${line('program')}`, ...(artifact.trace ? [`追蹤：${artifact.trace}`] : [])];
+    }
     if (stage === 'EX') {
         const own = artifact.examples.filter(e => e.source === 'student').map(e => e.value);
         const program = artifact.examples.filter(e => e.source === 'program').map(e => e.value);
@@ -112,14 +124,19 @@ export function describeArtifact (stage, artifact) {
             `選做程式條件區：${artifact.programCondition ? '有改' : '沒有改'}`];
     }
     if (stage === 'VA') {
-        return [...artifact.tests.map(t => `${t.number}（${t.dataFrom || '未註明'}${t.source === 'scan' ? '，程式掃描' : ''}）→「${
-            t.conjectureText}」：先預測${PREDICTION[t.prediction]}，算式「${t.computation || '未寫'}」，結果${VERDICT[t.verdict]}`),
+        return [...artifact.tests.map(t => `${t.example || t.number}（${t.dataFrom || '未註明'}${
+            t.source === 'scan' ? '，程式掃描' : ''}）→「${t.conjectureText}」：先預測${PREDICTION[t.prediction]}，` +
+            `算式「${t.computation || '未寫'}」，結果${VERDICT[t.verdict]}`),
         `猜想池：${artifact.poolOpened ? '打開過' : '沒有打開'}`];
     }
     if (stage === 'GE') {
         return [`原本：${artifact.revision.before || '（空白）'}`, `修改後：${artifact.revision.after}`,
             `理由：${artifact.revision.reason || '（空白）'}`,
-            `檢驗過的除數：${artifact.checkedDivisors.join('、') || '無'}；還不知道：${artifact.unknownDivisors.join('、') || '無'}`];
+            Array.isArray(artifact.checkedItems) ?
+                `檢驗過的資料：${artifact.checkedItems.join('、') || '無'}；還不知道：${
+                    artifact.unknownItems.join('、') || '無'}` :
+                `檢驗過的除數：${artifact.checkedDivisors.join('、') || '無'}；還不知道：${
+                    artifact.unknownDivisors.join('、') || '無'}`];
     }
     return [`操作的表徵：${artifact.justification.representation || '（空白）'}`, `理由：${artifact.justification.text}`];
 }

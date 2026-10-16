@@ -12,6 +12,7 @@ import styles from './tutor.css';
 import {useTutorConnection, isTutorServicePage} from '../../lib/tutor-connection.js';
 import {useStudentIdentity, validStudentId, newRecordId,
     safeProgram, recordingText, recordContext, markReflected, postSkipReflection} from '../../lib/learning-records.js';
+import {whenPreviewSettled, isPreview, isPreviewSettled} from '../../lib/teacher-preview.js';
 
 export const TutorTab = ({task, vm, grading, apiKey, mode, toolboxXML, visible = true,
     connection: connectionProp = null, reflectionRequest = null, onReflectionDone = () => {}}) => {
@@ -107,7 +108,11 @@ export const TutorTab = ({task, vm, grading, apiKey, mode, toolboxXML, visible =
             if (stageWork) context.stageWork = stageWork;
             let learning;
             let recordWarning = '';
-            if (validStudentId(studentId)) {
+            // 教師預覽中不附學習紀錄，伺服器就不會保存這次對話（安全審查 P1-1）。
+            // 已確認過就不多等一輪，請求照常立刻送出。
+            if (!isPreviewSettled()) await whenPreviewSettled();
+            if (isPreview()) recordWarning = '教師預覽中：這次對話不保存紀錄。';
+            else if (validStudentId(studentId)) {
                 try {
                     learning = {
                         studentId,
