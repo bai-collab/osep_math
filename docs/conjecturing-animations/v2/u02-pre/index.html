@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="zh-Hant">
+<script>if(/[?&]embed=1\b/.test(location.search))document.documentElement.classList.add('embed')</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第二單元課前暖身：我們怎麼自己發現規律？</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=swap">
+<style>
+/* repo 轉教學動畫網頁｜通用骨架（黑板舞台）。新動畫只改「設定區」與「場景區」。 */
+:root{
+  --board:#23392f; --board-deep:#1a2b23; --frame:#6e4c31;
+  --chalk:#efe9d8; --chalk-dim:#a9b3a6;
+  --yellow:#f2c14e; --orange:#e8875b; --blue:#7fb6d9; --green:#8fd18a; --red:#e66a5c;
+  --font-chalk:"LXGW WenKai TC","Kaiti TC","DFKai-SB","BiauKai",serif;
+  --font-body:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--board-deep);color:var(--chalk)}
+body{margin:0;font-family:var(--font-body)}
+/* ===== 播放器版面公版（研習平台頁同一套規則）=====
+   1) 播放區 .player（標題列＋舞台＋字幕＋控制列）剛好佔一個視窗高；章節、延伸閱讀、出處在下方，往下捲才看到。
+   2) 舞台吃「扣掉標題列、字幕、控制列後的剩餘空間」：.stage-area 是容器查詢容器，.board 用 cqw／cqh 算出 16:9 最大尺寸並置中；
+      木框寬度只用 --bw 變數計入（SVG 本身維持 16:9），不得再用固定像素去扣高度。
+   3) 進度條列可收合（#toggleSeek），預設收起；收起時舞台自動變大。字幕至少預留兩行，段落切換時舞台不跳動。    4) 標註工具（手寫筆跡＋文字，.annoLayer 掛在 .board 內）：「標註工具 ▸／▾」（#toggleInk）收合一列工具列，預設收起；標註以段落為單位、只存在記憶體；?embed=1 不啟用。 */
+.wrap{max-width:1600px;margin:0 auto;padding-inline:16px;padding-bottom:28px;display:flex;flex-direction:column;gap:14px}
+.player{box-sizing:border-box;height:100vh;height:100dvh;padding-block:12px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.player>header,.player>.controls{flex:none}
+.theater{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:10px;align-items:center}
+.theater .caption{align-self:stretch;flex:none}
+.stage-area{flex:1 1 0;min-height:0;align-self:stretch;display:flex;align-items:center;justify-content:center;container-type:size}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 16px}
+h1{font-family:var(--font-chalk);font-weight:700;font-size:clamp(1.3rem,2.6vw,1.9rem);margin:0}
+.sub{color:var(--chalk-dim);font-size:.95rem;margin:0}
+.board{--bw:14px;box-sizing:border-box;border:var(--bw) solid var(--frame);border-radius:6px;background:var(--board);box-shadow:inset 0 0 60px rgba(0,0,0,.45);flex:none;max-width:100%;
+  width:100%;width:min(100cqw, calc((100cqh - 2 * var(--bw)) * 16 / 9 + 2 * var(--bw)))}
+/* 全螢幕：theater 本身就是全螢幕元素，沿用同一套規則（舞台吃剩餘空間、字幕預留兩行；字幕字級與行高用 vh／vw） */
+.theater:fullscreen{background:var(--board-deep);gap:1.5vh;padding:2vh 2vw;box-sizing:border-box}
+.theater:fullscreen .caption{text-align:center;font-size:min(2.4vw,3.2vh);line-height:1.4;min-height:2.8em;max-width:100%}
+@media (max-width:640px){.board{--bw:8px}}
+/* 內嵌（?embed=1）：只留舞台與字幕，尺寸全用 vh，播放由外層 postMessage 控制（版面公版不套用） */
+html.embed body{padding:0;overflow:hidden}
+html.embed header,html.embed .controls,html.embed .chapters,html.embed .works,html.embed .note{display:none}
+html.embed .wrap{max-width:none;gap:0;padding:0}
+html.embed .player,html.embed .stage-area{display:contents}
+html.embed .stage-area{container-type:normal}
+html.embed .theater{flex:none;gap:1vh}
+html.embed .board{width:min(100%, calc(89vh * 16 / 9));border-width:1.4vh}
+html.embed .caption{font-size:2.6vh;line-height:1.4;min-height:3.8vh;text-align:center;padding:0 1vh;margin:0}
+.board svg{display:block;width:100%;height:auto;aspect-ratio:16/9}
+.caption{font-family:var(--font-chalk);text-align:center;font-size:clamp(1.05rem,2.2vw,1.45rem);line-height:1.5;min-height:3em;margin:0}
+.caption b{color:var(--yellow);font-weight:700}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+#fs{margin-left:auto}
+button{font:inherit;font-size:.95rem;color:var(--chalk);background:transparent;border:1.5px solid var(--chalk-dim);border-radius:999px;padding:.4em 1em;cursor:pointer}
+button:hover{border-color:var(--yellow);color:var(--yellow)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
+#play{min-width:5.5em;border-color:var(--yellow);color:var(--yellow)}
+#toggleSeek[aria-expanded="true"]{border-color:var(--yellow);color:var(--yellow)}
+/* 進度條列：獨佔 .controls 的第二列；黃色 6px 粗軌道畫在 #seekMarks（細線＝段落分界），上面疊透明的 range 與 16px 圓拇指 */
+.seekrow{display:flex;flex:1 0 100%;align-items:center;gap:12px}
+.seekrow[hidden]{display:none}
+#seekWrap{position:relative;flex:1 1 200px;min-width:120px;height:20px}
+#scrub{position:relative;z-index:1;-webkit-appearance:none;appearance:none;display:block;width:100%;height:20px;padding:0;margin:0;border:0;border-radius:0;background:transparent;cursor:pointer}
+#scrub::-webkit-slider-runnable-track{height:6px;background:transparent}
+#scrub::-moz-range-track{height:6px;border:0;background:transparent}
+#scrub::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:-5px;border:2px solid var(--board-deep);border-radius:50%;background:var(--yellow)}
+#scrub::-moz-range-thumb{box-sizing:border-box;width:16px;height:16px;border:2px solid var(--board-deep);border-radius:50%;background:var(--yellow)}
+#seekMarks{position:absolute;left:8px;right:8px;top:7px;height:6px;border-radius:3px;overflow:hidden;background:var(--yellow);pointer-events:none}
+#seekMarks i{position:absolute;top:0;bottom:0;width:1px;background:var(--board-deep)}
+#time{flex:none;width:8.5em;text-align:right;font-variant-numeric:tabular-nums;color:var(--chalk-dim);font-size:.85rem}
+/* 標註工具（手寫筆跡＋文字）：標註層蓋在舞台上，平常 pointer-events:none，只有畫筆／文字啟用時才攔截；?embed=1 不建立 */
+.board{position:relative}
+.annoLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2;--u:1px}
+.annoLayer canvas{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;background:none;border-radius:0;aspect-ratio:auto;box-shadow:none}
+.annoLayer canvas.on{pointer-events:auto;touch-action:none;cursor:crosshair}
+.annoLayer canvas.on.text-mode{cursor:text}
+.annoLabels{position:absolute;inset:0;pointer-events:none}
+.annoLabel{position:absolute;transform:translateY(-50%);font-family:var(--font-chalk,serif);font-size:calc(34 * var(--u));font-weight:700;line-height:1.25;padding:calc(4 * var(--u)) calc(14 * var(--u));background:rgba(26,43,35,.82);border:calc(2 * var(--u)) solid;border-radius:calc(10 * var(--u));white-space:pre-wrap;max-width:56%;word-break:break-word}
+.annoInput{position:absolute;transform:translateY(-50%);box-sizing:border-box;width:max(180px,32%);max-width:92%;font-family:var(--font-chalk,serif);font-size:max(16px,calc(30 * var(--u)));font-weight:700;pointer-events:auto;background:rgba(26,43,35,.95);border:2px dashed var(--yellow,#f2c14e);color:var(--chalk,#efe9d8)}
+.annoInput[hidden]{display:none}
+#toggleInk[aria-expanded="true"]{border-color:var(--yellow,#f2c14e);color:var(--yellow,#f2c14e)}
+/* 工具列：獨佔 .controls 的一整列 */
+.annoRow{display:flex;flex:1 0 100%;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.annoRow[hidden]{display:none}
+.annoSwatches{display:inline-flex;align-items:center;gap:8px}
+.annoSwatch{width:26px;height:26px;border-radius:50%;padding:0;border:2px solid transparent}
+.annoSwatch[aria-pressed="true"]{border-color:#fff;outline:2px solid var(--board-deep,var(--bg,#1a2b23))}
+.annoRow button[aria-pressed="true"]:not(.annoSwatch){border-color:var(--yellow,#f2c14e);color:var(--board-deep,#1a2b23);background:var(--yellow,#f2c14e)}
+.chapters{display:flex;flex-wrap:wrap;gap:6px;padding:0;margin:0;list-style:none}
+.chapters button{font-size:.85rem;padding:.25em .8em;border-color:rgba(239,233,216,.25);color:var(--chalk-dim)}
+.chapters button[aria-current="true"]{border-color:var(--yellow);color:var(--yellow)}
+.note{color:var(--chalk-dim);font-size:.85rem;margin:0}
+.works h2{font-family:var(--font-chalk);font-size:1.15rem;margin:0 0 6px;color:var(--yellow)}
+.works ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 16px}
+.works a{color:var(--chalk);text-underline-offset:3px}
+.works span{display:block;color:var(--chalk-dim);font-size:.85rem}
+.t-chalk{font-family:var(--font-chalk);fill:var(--chalk)}
+.t-body{font-family:var(--font-body);fill:var(--chalk)}
+</style>
+
+<div class="wrap">
+  <section class="player" aria-label="動畫播放器">
+    <header>
+      <h1 id="title"></h1>
+      <p class="sub" id="subtitle"></p>
+    </header>
+    <div class="theater" id="theater">
+      <div class="stage-area"><div class="board"><svg id="stage" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" role="img"></svg></div></div>
+      <p class="caption" id="caption" aria-live="polite"></p>
+    </div>
+    <div class="controls">
+      <button id="prev" type="button">上一段</button>
+      <button id="play" type="button">播放</button>
+      <button id="next" type="button">下一段</button>
+      <button id="toggleSeek" type="button" aria-expanded="false" aria-controls="seekrow">進度條 ▸</button>
+      <button id="fs" type="button">全螢幕</button>
+      <div class="seekrow" id="seekrow" hidden>
+        <div id="seekWrap">
+          <input id="scrub" type="range" min="0" max="1" step="0.05" value="0" aria-label="時間軸">
+          <div id="seekMarks" aria-hidden="true"></div>
+        </div>
+        <span id="time"></span>
+      </div>
+    </div>
+  </section>
+  <ul class="chapters" id="chapters"></ul>
+  <section class="works" aria-labelledby="works-h"><h2 id="works-h">延伸閱讀</h2><ul id="works"></ul></section>
+  <p class="note" id="note"></p>
+</div>
+
+<script>
+'use strict';
+// ===================== 設定區（段落與字幕由 timing.json 注入）=====================
+// ===== 教學動畫共用圖形（不得與範本播放器或工具重名）=====
+const C = { yellow: 'var(--yellow)', blue: 'var(--blue)', green: 'var(--green)', red: 'var(--red)', orange: 'var(--orange)', purple: '#b9a3e3', chalk: 'var(--chalk)', dim: 'var(--chalk-dim)', deep: 'var(--board-deep)' };
+function arrow(x1, y1, x2, y2, color = C.dim, op = 1, both = false, k = 1, dash = '') {
+  const ex = lerp(x1, x2, k), ey = lerp(y1, y2, k);
+  const ang = Math.atan2(y2 - y1, x2 - x1), h = 16;
+  const head = (x, y, a) => `<polygon points="${x},${y} ${x - h * Math.cos(a - 0.45)},${y - h * Math.sin(a - 0.45)} ${x - h * Math.cos(a + 0.45)},${y - h * Math.sin(a + 0.45)}" fill="${color}"/>`;
+  let g = `<g opacity="${op}"><line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="4" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+  if (k >= 0.99) { g += head(x2, y2, ang); if (both) g += head(x1, y1, ang + Math.PI); }
+  return g + '</g>';
+}
+// 曲線箭頭：二次貝茲，k 為繪製進度（以 dasharray 截斷）
+function curve(x1, y1, cx, cy, x2, y2, color = C.dim, op = 1, k = 1, label = '', lx = 0, ly = 0) {
+  const len = 1400;
+  let g = `<g opacity="${op}"><path d="M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="4" stroke-dasharray="10 9" pathLength="${len}" style="stroke-dashoffset:0"/>`;
+  if (k < 0.99) g = `<g opacity="${op}"><path d="M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="4" pathLength="${len}" stroke-dasharray="${(len * k).toFixed(1)} ${len}"/>`;
+  else {
+    const a = Math.atan2(y2 - cy, x2 - cx), h = 16;
+    g += `<polygon points="${x2},${y2} ${x2 - h * Math.cos(a - 0.45)},${y2 - h * Math.sin(a - 0.45)} ${x2 - h * Math.cos(a + 0.45)},${y2 - h * Math.sin(a + 0.45)}" fill="${color}"/>`;
+  }
+  if (label) g += txt(lx, ly, label, { c: 't-body', s: 24, f: color, o: k >= 0.99 ? 1 : 0 });
+  return g + '</g>';
+}
+function hframe(x, y, w, h, op, label = '', color = C.yellow, glow = 0, size = 32) {
+  return `<g opacity="${op}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="26" fill="rgba(242,193,78,${0.04 + 0.08 * glow})" stroke="${color}" stroke-width="${4 + 2 * glow}" stroke-dasharray="16 12"/>` +
+    (label ? txt(x + 26, y + 44, label, { s: size, w: 1, f: color }) : '') + '</g>';
+}
+function card(x, y, W, h, op, lines, color = C.chalk) {
+  // lines: [[文字, 字級, 顏色, 粗體, 字型類別, 置中]]，依序往下排
+  let g = `<g opacity="${op}">${box(x, y, W, h, color, 1, C.deep)}`;
+  let yy = y + 14;
+  for (const [s, size = 28, f = C.chalk, bold = false, c = 't-chalk', cx = false] of lines) {
+    yy += size * 1.25;
+    g += txt(cx ? x + W / 2 : x + 24, yy, s, { s: size, f, w: bold, c, a: cx ? 'middle' : 'start' });
+    yy += size * 0.3;
+  }
+  return g + '</g>';
+}
+function ccard(x, y, w, h, op, title, sub, color = C.chalk, tsize = 32, ssize = 24) {
+  return `<g opacity="${op}">${box(x, y, w, h, color, 1, C.deep)}` +
+    txt(x + w / 2, y + h / 2 + (sub ? -6 : tsize * 0.35), title, { a: 'middle', s: tsize, w: 1, f: color }) +
+    (sub ? txt(x + w / 2, y + h / 2 + ssize + 8, sub, { a: 'middle', c: 't-body', s: ssize, f: C.dim }) : '') + '</g>';
+}
+function chip(x, y, w, label, op, color = C.chalk, size = 26, h = 58) {
+  return `<g opacity="${op}">${box(x, y, w, h, color, 1, C.deep)}${txt(x + w / 2, y + h / 2 + size * 0.36, label, { a: 'middle', s: size, f: color })}</g>`;
+}
+function tick(x, y, s, op, color = C.green) {
+  return `<path d="M${x - s} ${y} L${x - s / 3} ${y + s * 0.7} L${x + s} ${y - s * 0.8}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="${op}"/>`;
+}
+function cross(x, y, s, op, color = C.red) {
+  return `<g opacity="${op}" stroke="${color}" stroke-width="12" stroke-linecap="round"><line x1="${x - s}" y1="${y - s}" x2="${x + s}" y2="${y + s}"/><line x1="${x + s}" y1="${y - s}" x2="${x - s}" y2="${y + s}"/></g>`;
+}
+function dot(x, y, r, color, op = 1) { return `<circle cx="${x}" cy="${y}" r="${r}" fill="${color}" opacity="${op}"/>`; }
+function underline(x1, x2, y, k, color = C.yellow, op = 1) { return `<line x1="${x1}" y1="${y}" x2="${lerp(x1, x2, k)}" y2="${y}" stroke="${color}" stroke-width="4" opacity="${op}"/>`; }
+// 依進度逐一出現：第 i 個元素在 t0 + i*step 開始、花 dur 秒
+const stagger = (u, t0, i, step = 0.6, dur = 0.7) => ease(P(u, t0 + i * step, t0 + i * step + dur));
+
+// u02-pre 第二單元課前暖身：所有場景只讀段內時間 u，並以程式產生算式與圖形數量。
+const META = {
+  title: '第二單元課前暖身：我們怎麼自己發現規律？',
+  subtitle: '',
+  ariaLabel: '用分色方塊呈現連續奇數逐圈補成正方形，依序說明造例、提出猜想、效化、一般化與證實，最後留下單元任務。',
+  note: '出處：臆測五階段教學設計稿（第二單元任務一教案與五階段流程稿）及本系列舊版動畫。不同顏色的方塊代表不同奇數；L 形是依每圈數量排列的幾何示意。所有算式與判斷由程式計算。鍵盤：空白鍵播放／暫停，左右方向鍵切換段落，F 鍵全螢幕。畫面只由時間決定。',
+  works: [],
+};
+
+const U2A_STEPS = ['造例', '提出猜想', '效化', '一般化', '證實'];
+const U2A_LAYER_COLORS = [C.blue, C.green, C.orange, C.yellow, C.purple];
+const U2A_GROUPS = [
+  {
+    key: '甲', color: C.yellow,
+    examples: [[1], [1, 3], [1, 3, 5]],
+    claimLines: ['從 1 開始加幾個奇數，', '答案就是「幾×幾」'],
+  },
+  {
+    key: '乙', color: C.orange,
+    examples: [[1, 3, 5, 7], [1, 3, 5, 7, 9]],
+    claimLines: ['連續的奇數相加，', '答案都是同一個數乘自己'],
+  },
+  {
+    key: '丙', color: C.blue,
+    examples: [[1, 3], [1, 3, 5, 7]],
+    claimLines: ['答案都是 4 的倍數'],
+  },
+  {
+    key: '丁', color: C.green,
+    examples: [[1, 3, 5], [1, 3, 5, 7, 9]],
+    claimLines: ['答案都是奇數'],
+  },
+];
+META.subtitle = U2A_STEPS.length + ' 個步驟・可停在任一段';
+
+function u2aFade(u, start, duration) {
+  return ease(P(u, start, start + duration));
+}
+function u2aSum(values) {
+  return values.reduce((total, value) => total + value, 0);
+}
+function u2aEquation(values) {
+  return values.map((value) => String(value)).join('＋') + '＝' + String(u2aSum(values));
+}
+function u2aOddSeries(count) {
+  const values = [];
+  for (let index = 0; index < count; index++) values.push(2 * index + 1);
+  return values;
+}
+function u2aSquareEquation(side) {
+  return String(side) + '×' + String(side) + '＝' + String(side * side);
+}
+function u2aIsSquare(value) {
+  const root = Math.floor(Math.sqrt(value));
+  return root * root === value;
+}
+function u2aLayerCount(layer) {
+  return 2 * layer - 1;
+}
+function u2aSquareGrid(cx, cy, side, cell, gap, lastLayerOpacity = 1) {
+  const width = side * cell + (side - 1) * gap;
+  const startX = cx - width / 2;
+  const startY = cy - width / 2;
+  let markup = '';
+  for (let row = 0; row < side; row++) {
+    for (let col = 0; col < side; col++) {
+      const layer = Math.max(row, col) + 1;
+      const opacity = layer === side ? lastLayerOpacity : 1;
+      const x = startX + col * (cell + gap);
+      const y = startY + row * (cell + gap);
+      markup += '<rect x="' + x + '" y="' + y + '" width="' + cell + '" height="' + cell +
+        '" rx="5" fill="' + U2A_LAYER_COLORS[layer - 1] + '" opacity="' + opacity +
+        '" stroke="rgba(239,233,216,.72)" stroke-width="2"/>';
+    }
+  }
+  return markup;
+}
+function u2aGroupCard(x, y, width, height, group, opacity = 1) {
+  let markup = '<g opacity="' + opacity + '">' + box(x, y, width, height, group.color, 1, 'rgba(0,0,0,.10)');
+  markup += txt(x + 28, y + 52, group.key + '組', { s: 32, w: 1, f: group.color });
+  for (let index = 0; index < group.examples.length; index++) {
+    markup += txt(x + 30, y + 104 + index * 44, u2aEquation(group.examples[index]), {
+      s: 25, f: C.chalk,
+    });
+  }
+  return markup + '</g>';
+}
+function u2aClaimCard(x, y, width, height, group, opacity = 1) {
+  let markup = '<g opacity="' + opacity + '">' + box(x, y, width, height, group.color, 1, 'rgba(0,0,0,.10)');
+  markup += txt(x + 28, y + 54, group.key + '組', { s: 31, w: 1, f: group.color });
+  for (let index = 0; index < group.claimLines.length; index++) {
+    markup += txt(x + 28, y + 111 + index * 43, group.claimLines[index], {
+      s: 27, w: index === 0 ? 1 : 0, f: C.chalk,
+    });
+  }
+  return markup + '</g>';
+}
+function u2aTile(x, y, size, color, opacity = 1) {
+  return '<rect x="' + x + '" y="' + y + '" width="' + size + '" height="' + size +
+    '" rx="5" fill="' + color + '" opacity="' + opacity +
+    '" stroke="rgba(239,233,216,.72)" stroke-width="2"/>';
+}
+function u2aMissingCenterGrid(cx, cy, cell, gap) {
+  const side = 3;
+  const width = side * cell + (side - 1) * gap;
+  const startX = cx - width / 2;
+  const startY = cy - width / 2;
+  let markup = '';
+  let firstLayerCount = 0;
+  let secondLayerCount = 0;
+  for (let row = 0; row < side; row++) {
+    for (let col = 0; col < side; col++) {
+      if ((row === 0 && col < 2) || (row === 1 && col === 0)) firstLayerCount++;
+      else if (col === side - 1 || row === side - 1) secondLayerCount++;
+    }
+  }
+  const missing = side * side - firstLayerCount - secondLayerCount;
+  for (let row = 0; row < side; row++) {
+    for (let col = 0; col < side; col++) {
+      const x = startX + col * (cell + gap);
+      const y = startY + row * (cell + gap);
+      if ((row === 0 && col < 2) || (row === 1 && col === 0)) {
+        markup += u2aTile(x, y, cell, U2A_LAYER_COLORS[1]);
+      } else if (col === side - 1 || row === side - 1) {
+        markup += u2aTile(x, y, cell, U2A_LAYER_COLORS[2]);
+      } else {
+        markup += '<rect x="' + x + '" y="' + y + '" width="' + cell + '" height="' + cell +
+          '" rx="5" fill="rgba(0,0,0,.08)" stroke="' + C.yellow +
+          '" stroke-width="3" stroke-dasharray="10 8"/>';
+        markup += txt(x + cell / 2, y + cell / 2 + 9, '缺 ' + String(missing), {
+          a: 'middle', s: 23, w: 1, f: C.yellow,
+        });
+      }
+    }
+  }
+  return { markup, firstLayerCount, secondLayerCount };
+}
+function u2aHatchCard(x, y, width, height, groupLabel, cardIndex, opacity) {
+  const clipId = 'u2aHatch' + String(cardIndex);
+  let markup = '<defs><clipPath id="' + clipId + '"><rect x="' + x + '" y="' + y +
+    '" width="' + width + '" height="' + height + '" rx="16"/></clipPath></defs>';
+  markup += '<g opacity="' + opacity + '"><rect x="' + x + '" y="' + y + '" width="' +
+    width + '" height="' + height + '" rx="16" fill="rgba(0,0,0,.08)" stroke="' +
+    C.chalk + '" stroke-width="3"/>';
+  markup += '<g clip-path="url(#' + clipId + ')" stroke="rgba(239,233,216,.32)" stroke-width="5">';
+  for (let offset = -height; offset < width + height; offset += 42) {
+    markup += '<line x1="' + (x + offset) + '" y1="' + (y + height) + '" x2="' +
+      (x + offset + height) + '" y2="' + y + '"/>';
+  }
+  markup += '</g>';
+  markup += txt(x + width / 2, y + 62, groupLabel, { a: 'middle', s: 31, w: 1, f: C.yellow });
+  markup += txt(x + width / 2, y + 126, '？', { a: 'middle', s: 52, w: 1, f: C.chalk });
+  return markup + '</g>';
+}
+function u2aPaint(svg) {
+  return '<style>#stage > text:last-child{font-size:22px!important}</style>' +
+    svg.replace(/<text ([^>]*?)fill="([^"]+)"/g, '<text $1style="fill:$2" fill="$2"');
+}
+
+function s1(u) {
+  let markup = head(u, '課前暖身', '像偵探一樣找規律');
+  for (let index = 0; index < U2A_STEPS.length; index++) {
+    const y = 224 + index * 105;
+    const opacity = u2aFade(u, 0.4 + index * 0.55, 0.65);
+    markup += box(145, y, 1050, 76, C.yellow, opacity, 'rgba(0,0,0,.08)');
+    markup += txt(190, y + 50, String(index + 1) + '　' + U2A_STEPS[index], {
+      s: 32, w: 1, f: C.chalk, o: opacity,
+    });
+  }
+  const lensOpacity = u2aFade(u, 2.8, 1);
+  markup += '<g opacity="' + lensOpacity + '"><circle cx="1370" cy="425" r="96" fill="none" stroke="' +
+    C.yellow + '" stroke-width="12"/><line x1="1438" y1="495" x2="1510" y2="568" stroke="' +
+    C.yellow + '" stroke-width="20" stroke-linecap="round"/></g>';
+  markup += txt(1370, 590, '找線索', { a: 'middle', s: 31, w: 1, f: C.yellow, o: lensOpacity });
+  const questionOpacity = u2aFade(u, 4.4, 0.8);
+  markup += box(110, 745, 1380, 72, C.yellow, questionOpacity, 'rgba(0,0,0,.05)');
+  markup += txt(800, 792, '暖身題：從 1 開始，把連續的奇數加起來，會發生什麼事？', {
+    a: 'middle', s: 29, w: 1, f: C.yellow, o: questionOpacity,
+  });
+  return u2aPaint(markup);
+}
+
+function s2(u) {
+  let markup = head(u, '造例', '每組拿到不同的卡');
+  markup += txt(800, 205, '題目不同，先各自做出幾個例子', {
+    a: 'middle', s: 27, f: C.dim, o: u2aFade(u, 0.2, 0.6),
+  });
+  const positions = [[100, 240], [830, 240], [100, 515], [830, 515]];
+  for (let index = 0; index < U2A_GROUPS.length; index++) {
+    const position = positions[index];
+    markup += u2aGroupCard(position[0], position[1], 670, 245, U2A_GROUPS[index],
+      u2aFade(u, 0.8 + index * 0.65, 0.65));
+  }
+  return u2aPaint(markup);
+}
+
+function s3(u) {
+  let markup = head(u, '造例', '用方塊拼拼看');
+  markup += txt(800, 210, '每加一個奇數，就補上一圈同色方塊', {
+    a: 'middle', s: 28, f: C.dim, o: u2aFade(u, 0.2, 0.6),
+  });
+  const sides = [1, 2, 3];
+  const centers = [340, 800, 1260];
+  for (let index = 0; index < sides.length; index++) {
+    const side = sides[index];
+    const opacity = u2aFade(u, 0.5 + index * 2.1, 0.8);
+    markup += '<g opacity="' + opacity + '">' + u2aSquareGrid(centers[index], 450, side, 58, 8);
+    markup += txt(centers[index], 610, u2aSquareEquation(side), {
+      a: 'middle', s: 31, w: 1, f: C.yellow,
+    });
+    markup += txt(centers[index], 662, u2aEquation(u2aOddSeries(side)), {
+      a: 'middle', s: 26, f: C.chalk,
+    });
+    markup += '</g>';
+  }
+  markup += txt(800, 710, '每種顏色代表一個奇數；每一圈的方塊數依程式計算', {
+    a: 'middle', s: 26, f: C.chalk, o: u2aFade(u, 8.2, 0.8),
+  });
+  return u2aPaint(markup);
+}
+
+function s4(u) {
+  let markup = head(u, '造例', '整理例子');
+  markup += txt(800, 205, '組員輪流分享；看法不同，就當場重算', {
+    a: 'middle', s: 27, f: C.dim, o: u2aFade(u, 0.2, 0.6),
+  });
+  for (let index = 0; index < U2A_GROUPS.length; index++) {
+    const x = 75 + index * 365;
+    const opacity = u2aFade(u, 0.5 + index * 0.55, 0.6);
+    markup += '<g opacity="' + opacity + '">' +
+      box(x, 255, 335, 505, U2A_GROUPS[index].color, 1, 'rgba(0,0,0,.08)') +
+      txt(x + 24, 305, U2A_GROUPS[index].key + '組', {
+        s: 31, w: 1, f: U2A_GROUPS[index].color,
+      });
+    for (let exampleIndex = 0; exampleIndex < U2A_GROUPS[index].examples.length; exampleIndex++) {
+      markup += txt(x + 22, 375 + exampleIndex * 93,
+        u2aEquation(U2A_GROUPS[index].examples[exampleIndex]), {
+          s: 25, f: C.chalk,
+        });
+    }
+    markup += '</g>';
+  }
+  return u2aPaint(markup);
+}
+
+function s5(u) {
+  let markup = head(u, '提出猜想', '猜想牆');
+  markup += box(115, 205, 1370, 88, C.yellow, u2aFade(u, 0.3, 0.5), 'rgba(0,0,0,.05)');
+  markup += txt(800, 260, '我們發現＿＿＿，因為＿＿＿。', {
+    a: 'middle', s: 31, w: 1, f: C.yellow, o: u2aFade(u, 0.3, 0.5),
+  });
+  const positions = [[100, 325], [825, 325], [100, 560], [825, 560]];
+  for (let index = 0; index < U2A_GROUPS.length; index++) {
+    const group = U2A_GROUPS[index];
+    const position = positions[index];
+    const opacity = u2aFade(u, 0.8 + index * 1.15, 0.7);
+    markup += '<g opacity="' + opacity + '">' + box(position[0], position[1], 675, 205,
+      group.color, 1, 'rgba(0,0,0,.09)');
+    markup += txt(position[0] + 26, position[1] + 53, group.key + '組', {
+      s: 30, w: 1, f: group.color,
+    });
+    for (let line = 0; line < group.claimLines.length; line++) {
+      markup += txt(position[0] + 26, position[1] + 111 + line * 42,
+        group.claimLines[line], { s: 27, w: line === 0 ? 1 : 0, f: C.chalk });
+    }
+    markup += '</g>';
+  }
+  return u2aPaint(markup);
+}
+
+function s6(u) {
+  let markup = head(u, '效化', '考驗丙組');
+  const definitionOpacity = u2aFade(u, 0.3, 0.6);
+  markup += box(100, 205, 1400, 92, C.yellow, definitionOpacity, 'rgba(0,0,0,.05)');
+  markup += txt(800, 264, '反例：一個讓猜想不成立的例子', {
+    a: 'middle', s: 32, w: 1, f: C.yellow, o: definitionOpacity,
+  });
+  const group = U2A_GROUPS[2];
+  const claimOpacity = u2aFade(u, 0.8, 0.6);
+  markup += u2aClaimCard(100, 350, 630, 250, group, claimOpacity);
+  markup += cross(665, 405, 20, u2aFade(u, 3.2, 0.55), C.red);
+  const values = [1, 3, 5];
+  const total = u2aSum(values);
+  const quotient = Math.floor(total / 4);
+  const remainder = total % 4;
+  const evidenceOpacity = u2aFade(u, 1.8, 0.7);
+  markup += '<g opacity="' + evidenceOpacity + '">' +
+    box(830, 350, 670, 250, C.dim, 1, 'rgba(0,0,0,.08)') +
+    txt(1165, 445, u2aEquation(values), { a: 'middle', s: 39, w: 1, f: C.chalk }) +
+    txt(1165, 525, String(total) + ' ÷ 4＝' + String(quotient) + '…' + String(remainder), {
+      a: 'middle', s: 31, w: 1, f: C.yellow,
+    }) + '</g>';
+  markup += txt(800, 700, '餘數不是 0，丙組被推翻', {
+    a: 'middle', s: 31, w: 1, f: C.red, o: u2aFade(u, 5.3, 0.7),
+  });
+  return u2aPaint(markup);
+}
+
+function s7(u) {
+  let markup = head(u, '效化', '考驗丁組');
+  const group = U2A_GROUPS[3];
+  const opacity = u2aFade(u, 0.5, 0.7);
+  markup += u2aClaimCard(100, 315, 630, 240, group, opacity);
+  markup += cross(665, 372, 20, u2aFade(u, 2.4, 0.55), C.red);
+  const values = [1, 3];
+  const total = u2aSum(values);
+  const parity = total % 2 === 0 ? '偶數' : '奇數';
+  markup += '<g opacity="' + u2aFade(u, 1.2, 0.7) + '">' +
+    box(830, 315, 670, 240, C.dim, 1, 'rgba(0,0,0,.08)') +
+    txt(1165, 410, u2aEquation(values), { a: 'middle', s: 43, w: 1, f: C.chalk }) +
+    txt(1165, 486, String(total) + ' 是' + parity, {
+      a: 'middle', s: 33, w: 1, f: C.yellow,
+    }) + '</g>';
+  markup += txt(800, 680, '一個反例就足以推翻猜想', {
+    a: 'middle', s: 32, w: 1, f: C.red, o: u2aFade(u, 5.1, 0.7),
+  });
+  return u2aPaint(markup);
+}
+
+function s8(u) {
+  let markup = head(u, '效化', '考驗乙組：少了條件');
+  const group = U2A_GROUPS[1];
+  markup += u2aClaimCard(95, 300, 540, 240, group, u2aFade(u, 0.4, 0.65));
+  const statusOpacity = u2aFade(u, 2.7, 0.55);
+  markup += '<g opacity="' + statusOpacity + '"><polygon points="454,337 478,379 430,379" fill="none" stroke="' + C.orange + '" stroke-width="6"/>';
+  markup += txt(490, 371, '少了條件', { s: 22, w: 1, f: C.orange }) + '</g>';
+  markup += txt(365, 625, '少了「從 1 開始」', {
+    a: 'middle', s: 29, w: 1, f: C.yellow, o: u2aFade(u, 4.3, 0.7),
+  });
+  const grid = u2aMissingCenterGrid(1100, 440, 75, 9);
+  markup += grid.markup;
+  const firstValues = [3, 5];
+  const secondValues = [5, 7, 9];
+  const firstTotal = u2aSum(firstValues);
+  const secondTotal = u2aSum(secondValues);
+  markup += txt(1100, 610, u2aEquation(firstValues), {
+    a: 'middle', s: 34, w: 1, f: C.chalk, o: u2aFade(u, 1.7, 0.7),
+  });
+  markup += txt(1100, 653, u2aEquation(secondValues), {
+    a: 'middle', s: 32, w: 1, f: C.chalk, o: u2aFade(u, 3.8, 0.7),
+  });
+  markup += txt(1100, 704, '外框有 ' + String(grid.firstLayerCount + grid.secondLayerCount) +
+    ' 格，中間還缺一格', {
+      a: 'middle', s: 25, f: C.dim, o: u2aFade(u, 5.2, 0.7),
+    });
+  if (!u2aIsSquare(firstTotal) && !u2aIsSquare(secondTotal)) {
+    markup += txt(1100, 758, String(firstTotal) + '、' + String(secondTotal) +
+      ' 都不是同一個數乘自己（拼不成正方形）', {
+        a: 'middle', s: 25, w: 1, f: C.yellow, o: u2aFade(u, 7.0, 0.7),
+      });
+  }
+  return u2aPaint(markup);
+}
+
+function s9(u) {
+  let markup = head(u, '效化', '考驗甲組：暫時留下');
+  const examples = [6, 7];
+  for (let index = 0; index < examples.length; index++) {
+    const count = examples[index];
+    const oddValues = u2aOddSeries(count);
+    const total = u2aSum(oddValues);
+    const y = 300 + index * 195;
+    const opacity = u2aFade(u, 0.6 + index * 1.6, 0.7);
+    markup += '<g opacity="' + opacity + '">' +
+      box(105, y, 1390, 110, C.dim, 1, 'rgba(0,0,0,.06)') +
+      txt(155, y + 67, u2aEquation(oddValues), {
+        s: 29, w: 1, f: C.chalk,
+      }) +
+      txt(1285, y + 67, u2aSquareEquation(count), {
+        a: 'middle', s: 37, w: 1, f: C.yellow,
+      }) + '</g>';
+  }
+  const statusOpacity = u2aFade(u, 4.7, 0.7);
+  markup += '<circle cx="600" cy="725" r="17" fill="none" stroke="' + C.green + '" stroke-width="6" opacity="' + statusOpacity + '"/>';
+  markup += txt(635, 735, '暫時留下；還要說明為什麼', {
+    s: 28, w: 1, f: C.green, o: statusOpacity,
+  });
+  return u2aPaint(markup);
+}
+
+function s10(u) {
+  let markup = head(u, '一般化', '把猜想說得更完整');
+  const alpha = u2aFade(u, 0.4, 0.7);
+  const beta = u2aFade(u, 1.2, 0.7);
+  markup += u2aClaimCard(95, 255, 650, 205, U2A_GROUPS[0], alpha);
+  markup += u2aClaimCard(855, 255, 650, 205, U2A_GROUPS[1], beta);
+  markup += txt(800, 505, '補上條件，再加上「任何」', {
+    a: 'middle', s: 30, w: 1, f: C.dim, o: u2aFade(u, 3.6, 0.7),
+  });
+  markup += arrow(700, 525, 900, 525, C.yellow, u2aFade(u, 3.6, 0.7));
+  const conclusionOpacity = u2aFade(u, 5.1, 0.8);
+  markup += hframe(100, 610, 1400, 170, conclusionOpacity, '', C.yellow);
+  markup += txt(800, 680, '從 1 開始，任何幾個連續的奇數相加，', {
+    a: 'middle', s: 31, w: 1, f: C.chalk, o: conclusionOpacity,
+  });
+  markup += txt(800, 735, '和都是「幾×幾」', {
+    a: 'middle', s: 34, w: 1, f: C.yellow, o: conclusionOpacity,
+  });
+  return u2aPaint(markup);
+}
+
+function s11(u) {
+  let markup = head(u, '證實', '正方形大一圈');
+  const previousSide = 3;
+  const newSide = previousSide + 1;
+  const nextSide = newSide + 1;
+  const rightCount = newSide - 1;
+  const bottomCount = newSide - 1;
+  const cornerCount = 1;
+  const newOddCount = rightCount + bottomCount + cornerCount;
+  const nextOddCount = u2aLayerCount(nextSide);
+  const ringOpacity = u2aFade(u, 2.5, 3);
+  if (u < 2.5) {
+    markup += u2aSquareGrid(500, 455, previousSide, 66, 8);
+    markup += txt(500, 655, u2aSquareEquation(previousSide) + ' 正方形', {
+      a: 'middle', s: 30, w: 1, f: C.yellow,
+    });
+  } else {
+    markup += u2aSquareGrid(500, 455, newSide, 66, 8, ringOpacity);
+    markup += txt(500, 655, u2aSquareEquation(newSide) + ' 正方形', {
+      a: 'middle', s: 30, w: 1, f: C.yellow,
+    });
+  }
+  markup += txt(1090, 330, '外面補一圈', {
+    a: 'middle', s: 30, w: 1, f: C.chalk, o: u2aFade(u, 1.2, 0.7),
+  });
+  markup += txt(1090, 430, '右 ' + String(rightCount) + ' ＋ 下 ' + String(bottomCount) +
+    ' ＋ 角 ' + String(cornerCount), {
+      a: 'middle', s: 28, f: C.dim, o: u2aFade(u, 3.3, 0.7),
+    });
+  markup += txt(1090, 495, u2aEquation([rightCount, bottomCount, cornerCount]), {
+    a: 'middle', s: 37, w: 1, f: C.yellow, o: u2aFade(u, 4.0, 0.7),
+  });
+  markup += txt(1090, 595, '新一圈共 ' + String(newOddCount) + ' 格，成為 ' +
+    u2aSquareEquation(newSide) + ' 正方形', {
+      a: 'middle', s: 27, f: C.chalk, o: u2aFade(u, 6.2, 0.7),
+    });
+  markup += txt(1090, 700, '再加 ' + String(nextOddCount) + ' 格，就成為 ' +
+    u2aSquareEquation(nextSide), {
+      a: 'middle', s: 27, f: C.green, o: u2aFade(u, 9.2, 0.7),
+    });
+  return u2aPaint(markup);
+}
+
+function s12(u) {
+  let markup = head(u, '換你們了', '這個單元的任務');
+  const cardOpacity = u2aFade(u, 2.1, 0.8);
+  for (let index = 0; index < U2A_GROUPS.length; index++) {
+    const x = 100 + index * 365;
+    markup += u2aHatchCard(x, 310, 300, 170, '第 ' + String(index + 1) + ' 組', index + 1, cardOpacity);
+  }
+  const taskOpacity = u2aFade(u, 4.4, 0.8);
+  markup += hframe(90, 545, 1420, 245, taskOpacity, '', C.yellow);
+  markup += txt(800, 625, '請在百數表上圈出你們那個數的倍數，', {
+    a: 'middle', s: 28, w: 1, f: C.chalk, o: taskOpacity,
+  });
+  markup += txt(800, 684, '並把每一個倍數的個位數字記下來。', {
+    a: 'middle', s: 28, f: C.chalk, o: taskOpacity,
+  });
+  markup += txt(800, 744, '個位數字總共出現了哪幾種？', {
+    a: 'middle', s: 30, w: 1, f: C.yellow, o: taskOpacity,
+  });
+  return u2aPaint(markup);
+}
+
+const SEGS = [
+  { len: 12, grp: "開場", name: "像偵探一樣找規律", scene: s1,
+    cap: "規律不是老師直接告訴你的，而是<b>你自己找出來的</b>。先用一個暖身題，練習這五個步驟。" },
+  { len: 12, grp: "造例", name: "每組拿到不同的卡", scene: s2,
+    cap: "暖身題：從 1 開始，把連續的奇數加起來，會怎樣？每組卡片<b>不一樣</b>，例子才豐富。" },
+  { len: 14, grp: "造例", name: "用方塊拼拼看", scene: s3,
+    cap: "每加一個奇數，就把方塊加上去。每個顏色是一個奇數，看看它們<b>拼成什麼形狀</b>。" },
+  { len: 10, grp: "造例", name: "整理例子", scene: s4,
+    cap: "組員輪流說出例子，有人不同意就<b>當場重算</b>。例子越正確，越好找規律。" },
+  { len: 14, grp: "提出猜想", name: "猜想牆", scene: s5,
+    cap: "<b>有憑有據、大膽猜</b>，一張只寫一個想法。每組交 1 條，老師先不說對錯。" },
+  { len: 12, grp: "效化", name: "考驗丙組", scene: s6,
+    cap: "反例就是<b>一個</b>讓猜想不成立的例子。1＋3＋5＝9，9 不是 4 的倍數，丙組被推翻。" },
+  { len: 10, grp: "效化", name: "考驗丁組", scene: s7,
+    cap: "1＋3＝4 是偶數。只要<b>一個</b>反例就夠了，丁組被推翻。" },
+  { len: 12, grp: "效化", name: "考驗乙組", scene: s8,
+    cap: "3＋5＝8 拼不成正方形。乙組不是全錯，是<b>少了條件</b>：要從 1 開始。" },
+  { len: 12, grp: "效化", name: "考驗甲組", scene: s9,
+    cap: "加到 6 個、7 個都對，找不到反例，甲組<b>暫時留下</b>。但找不到，還不等於一定對。" },
+  { len: 12, grp: "一般化", name: "加多少個都成立", scene: s10,
+    cap: "乙組補上「從 1 開始」，就和甲組同一句；加上「<b>任何</b>」，表示加多少個都成立。" },
+  { len: 15, grp: "證實", name: "正方形大一圈", scene: s11,
+    cap: "下一個奇數剛好把正方形<b>圍大一圈</b>：右邊、下面、再補一個角。所以永遠是正方形。" },
+  { len: 13, grp: "換你們了", name: "這個單元的任務", scene: s12,
+    cap: "這個單元的卡片上課才翻開。<b>答案要靠你們自己找</b>：多造例、大膽猜、找反例！" },
+];
+
+// ===================== 工具（通常不用改）=====================
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const P = (u, a, b) => clamp((u - a) / (b - a), 0, 1);           // u 在 [a,b] 的進度 0–1
+const ease = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const lerp = (a, b, k) => a + (b - a) * k;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); } // 固定種子亂數
+function txt(x, y, s, o = {}) {
+  const a = o.a || 'start', size = o.s || 32, fill = o.f || 'var(--chalk)', op = o.o ?? 1, w = o.w ? 700 : 400, cls = o.c || 't-chalk';
+  return `<text x="${x}" y="${y}" class="${cls}" font-size="${size}" font-weight="${w}" text-anchor="${a}" fill="${fill}" opacity="${op}">${esc(s)}</text>`;
+}
+function box(x, y, w, h, stroke = 'var(--chalk)', op = 1, fill = 'none') {
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${fill}" stroke="${stroke}" stroke-width="3" opacity="${op}"/>`;
+}
+function head(u, kicker, title) {
+  const o = ease(P(u, 0, 0.8));
+  return txt(80, 90, kicker, { c: 't-body', s: 24, f: 'var(--chalk-dim)', o }) + txt(80, 150, title, { s: 50, w: 1, o });
+}
+
+let acc = 0; SEGS.forEach((s) => { s.a = acc; acc += s.len; s.b = acc; });
+window.DURATION = acc;
+window.SEGS = SEGS.map(({ len, grp, name, cap, a, b }) => ({ len, grp, name, cap, a, b }));
+const stage = document.getElementById('stage'), capEl = document.getElementById('caption');
+const segIndex = (t) => { for (let i = 0; i < SEGS.length; i++) if (t < SEGS[i].b) return i; return SEGS.length - 1; };
+window.seek = async function (t) {
+  t = clamp(Number(t) || 0, 0, window.DURATION);
+  const i = segIndex(t), s = SEGS[i];
+  const u = t - s.a;
+  // 段落切換時淡入淡出（只由 t 決定）
+  const fade = Math.min(P(u, 0, 0.35), i === SEGS.length - 1 ? 1 : 1 - P(u, s.len - 0.35, s.len));
+  stage.innerHTML = `<g opacity="${fade.toFixed(3)}">${s.scene(u)}</g>` +
+    txt(1520, 870, `${i + 1} / ${SEGS.length}・${s.grp}・${s.name}`, { a: 'end', c: 't-body', s: 18, f: 'var(--chalk-dim)' });
+  capEl.innerHTML = s.cap; // 字幕只來自本檔 SEGS（作者撰寫、只含 <b>）
+  return true;
+};
+window.ready = Promise.all([document.fonts ? document.fonts.ready.catch(() => null) : null]);
+
+// ===================== 播放器外殼（只呼叫 seek）=====================
+document.title = META.title;
+document.getElementById('title').textContent = META.title;
+document.getElementById('subtitle').textContent = META.subtitle;
+document.getElementById('note').textContent = META.note;
+stage.setAttribute('aria-label', META.ariaLabel);
+const works = document.getElementById('works');
+if (!META.works.length) document.querySelector('.works').hidden = true;
+for (const [label, desc, href] of META.works) {
+  const li = document.createElement('li'), a = document.createElement('a'), sp = document.createElement('span');
+  a.href = href; a.textContent = label; a.target = '_blank'; a.rel = 'noopener'; sp.textContent = desc;
+  li.append(a, sp); works.append(li);
+}
+const playBtn = document.getElementById('play'), scrub = document.getElementById('scrub'), timeEl = document.getElementById('time');
+scrub.max = window.DURATION;
+// 分段刻度：每段分界一條細線（段落起點／總長）；刻度只畫在 #seekMarks，不影響 range 本身
+const playerMarks = document.getElementById('seekMarks');
+SEGS.forEach((s, i) => { if (i > 0) { const d = document.createElement('i'); d.style.left = (s.a / window.DURATION * 100) + '%'; playerMarks.append(d); } });
+// 進度條列收合：預設收起；只有獨立播放（非 embed）才讀寫 localStorage 的 UI 狀態，embed 一律不碰；不可用時只留在記憶體
+const playerEmbed = document.documentElement.classList.contains('embed');
+const playerUiGet = (k) => { if (playerEmbed) return false; try { return localStorage.getItem(k) === '1'; } catch { return false; } };
+const playerUiSet = (k, v) => { if (playerEmbed) return; try { localStorage.setItem(k, v ? '1' : '0'); } catch { /* 不可用時只留在記憶體 */ } };
+let playerSeekOpen = playerUiGet('anim.ui.seek');
+const playerToggle = document.getElementById('toggleSeek'), playerSeekRow = document.getElementById('seekrow');
+function playerApplyUi() {
+  playerSeekRow.hidden = !playerSeekOpen;
+  playerToggle.setAttribute('aria-expanded', String(playerSeekOpen));
+  playerToggle.textContent = playerSeekOpen ? '進度條 ▾' : '進度條 ▸';
+}
+playerToggle.onclick = () => { playerSeekOpen = !playerSeekOpen; playerUiSet('anim.ui.seek', playerSeekOpen); playerApplyUi(); };
+playerApplyUi();
+// ===== 標註工具（手寫筆跡＋文字；以段落為單位、只存在記憶體、不送網路）=====
+// 與研習平台頁同一套操作：畫筆、文字、5 色色票、收回上一筆、清除本段標註；「標註工具 ▸／▾」可收合（預設收起，鍵 anim.ui.ink）。
+// ?embed=1 完全不啟用（研習平台自己有標註）。座標一律存 0–1 的相對位置，舞台縮放或長寬比改變時筆跡仍落在同一處。
+(() => {
+  if (document.documentElement.classList.contains('embed')) return;
+  const stageEl = document.getElementById('stage') || document.getElementById('c');
+  const ctl = document.querySelector('.controls') || document.getElementById('bar');
+  if (!stageEl || !ctl || typeof window.seek !== 'function') return;
+  const COLORS = ['#efe9d8', '#f2c14e', '#e8875b', '#7fb6d9', '#8fd18a'];
+  const ends = typeof SEGS !== 'undefined' ? SEGS.map((s) => s.b) : TIMING.map((s) => s.end);
+  const segOf = (t) => { for (let i = 0; i < ends.length; i++) if (t < ends[i]) return i; return ends.length - 1; };
+  const uiGet = () => { try { return localStorage.getItem('anim.ui.ink') === '1'; } catch { return false; } };
+  const uiSet = (v) => { try { localStorage.setItem('anim.ui.ink', v ? '1' : '0'); } catch { /* 不可用時只留在記憶體 */ } };
+  const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+  const store = new Map(); // 段落索引 → [{k:'s',color,pts} | {k:'l',x,y,text,color}]（依畫下順序）
+  const items = (i) => { let a = store.get(i); if (!a) store.set(i, (a = [])); return a; };
+  let seg = 0, tool = null, penColor = COLORS[1], drawing = null, labelAt = null, open = uiGet();
+
+  // 標註層：有 .board 就掛在木框內（與 SVG 同尺寸）；沒有（如純 canvas 舞台）就掛在舞台父層並追蹤舞台矩形
+  const board = stageEl.closest('.board'), host = board || stageEl.parentElement;
+  if (!board) host.style.position = 'relative';
+  const layer = mk('div', 'annoLayer'), cv = mk('canvas'), labels = mk('div', 'annoLabels'), inp = mk('input', 'annoInput');
+  cv.setAttribute('aria-label', '標註區');
+  inp.type = 'text'; inp.maxLength = 60; inp.hidden = true; inp.placeholder = '輸入文字，按 Enter 放上；Esc 取消'; inp.setAttribute('aria-label', '文字標註');
+  layer.append(cv, labels, inp); host.append(layer);
+  const ctx = cv.getContext('2d');
+
+  // 工具列（控制列第三列）與切換鈕
+  const toggle = mk('button', '', '標註工具 ▸'), row = mk('div', 'annoRow');
+  toggle.id = 'toggleInk'; toggle.type = 'button'; toggle.setAttribute('aria-controls', 'annoTools'); toggle.setAttribute('aria-expanded', 'false');
+  row.id = 'annoTools'; row.hidden = true;
+  const penBtn = mk('button', '', '畫筆'), textBtn = mk('button', '', '文字'), sw = mk('span', 'annoSwatches'), undoBtn = mk('button', '', '收回上一筆'), clearBtn = mk('button', '', '清除本段標註');
+  for (const b of [penBtn, textBtn, undoBtn, clearBtn]) b.type = 'button';
+  penBtn.setAttribute('aria-pressed', 'false'); textBtn.setAttribute('aria-pressed', 'false');
+  const swBtns = COLORS.map((c, i) => {
+    const b = mk('button', 'annoSwatch'); b.type = 'button'; b.style.background = c; b.setAttribute('aria-label', `顏色 ${i + 1}`); b.setAttribute('aria-pressed', c === penColor ? 'true' : 'false');
+    b.onclick = () => { penColor = c; swBtns.forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')); if (labelAt) { inp.style.color = c; inp.focus(); } else if (!tool) setTool('pen'); };
+    sw.append(b); return b;
+  });
+  row.append(penBtn, textBtn, sw, undoBtn, clearBtn);
+  const seekToggle = document.getElementById('toggleSeek');
+  if (seekToggle && seekToggle.parentNode === ctl) seekToggle.after(toggle); else ctl.append(toggle);
+  ctl.append(row);
+
+  function fit() {
+    if (!board) { layer.style.inset = 'auto'; Object.assign(layer.style, { left: stageEl.offsetLeft + 'px', top: stageEl.offsetTop + 'px', width: stageEl.offsetWidth + 'px', height: stageEl.offsetHeight + 'px' }); }
+    const w = layer.clientWidth, h = layer.clientHeight, d = window.devicePixelRatio || 1;
+    layer.style.setProperty('--u', (w / 1600) + 'px');
+    cv.width = Math.max(1, Math.round(w * d)); cv.height = Math.max(1, Math.round(h * d));
+    redraw();
+  }
+  function strokePath(s) {
+    const p = s.pts, W = cv.width, H = cv.height, d = W / (layer.clientWidth || W);
+    if (p.length < 4) return;
+    ctx.strokeStyle = s.color; ctx.lineWidth = Math.max(2 * d, 5 * W / 1600); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(p[0] * W, p[1] * H);
+    for (let i = 2; i < p.length; i += 2) ctx.lineTo(p[i] * W, p[i + 1] * H);
+    ctx.stroke();
+  }
+  function redraw() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (const it of items(seg)) if (it.k === 's') strokePath(it);
+    if (drawing && drawing.seg === seg) strokePath(drawing);
+  }
+  function renderLabels() {
+    labels.replaceChildren(...items(seg).filter((i) => i.k === 'l').map((l) => {
+      const d = mk('div', 'annoLabel', l.text);
+      d.style.left = (l.x * 100) + '%'; d.style.top = (l.y * 100) + '%'; d.style.color = l.color; d.style.borderColor = l.color;
+      return d;
+    }));
+  }
+  function setTool(t) {
+    tool = t;
+    penBtn.setAttribute('aria-pressed', t === 'pen' ? 'true' : 'false');
+    textBtn.setAttribute('aria-pressed', t === 'text' ? 'true' : 'false');
+    cv.classList.toggle('on', !!t); cv.classList.toggle('text-mode', t === 'text');
+    if (t !== 'text') closeInput();
+  }
+  function openInput(x, y) {
+    labelAt = { x, y, seg };
+    inp.value = ''; inp.style.left = (Math.min(x, 0.62) * 100) + '%'; inp.style.top = (Math.max(0.05, Math.min(y, 0.95)) * 100) + '%'; inp.style.color = penColor;
+    inp.hidden = false; requestAnimationFrame(() => inp.focus());
+  }
+  function closeInput() { inp.hidden = true; labelAt = null; }
+  function norm(e) {
+    const r = cv.getBoundingClientRect();
+    return [Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 10000) / 10000, Math.round(Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) * 10000) / 10000];
+  }
+  function endStroke() {
+    if (!drawing) return;
+    const s = drawing; drawing = null;
+    if (s.pts.length === 2) s.pts.push(s.pts[0] + 1 / 1600, s.pts[1] + 1 / 900); // 點一下也留下一個點
+    items(s.seg).push(s);
+    if (s.seg === seg) redraw();
+  }
+  cv.addEventListener('pointerdown', (e) => {
+    if (!tool) return;
+    e.preventDefault();
+    const [x, y] = norm(e);
+    if (tool === 'text') { openInput(x, y); return; }
+    cv.setPointerCapture(e.pointerId);
+    drawing = { k: 's', seg, color: penColor, pts: [x, y] };
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!drawing) return;
+    const [x, y] = norm(e), p = drawing.pts, r = cv.getBoundingClientRect();
+    if (Math.hypot((x - p[p.length - 2]) * r.width, (y - p[p.length - 1]) * r.height) < 3 || p.length >= 800) return;
+    p.push(x, y); redraw();
+  });
+  cv.addEventListener('pointerup', endStroke);
+  cv.addEventListener('pointercancel', endStroke);
+  cv.addEventListener('click', (e) => e.stopPropagation()); // 全螢幕「點畫面播放／暫停」不被標註動作觸發
+  // 文字輸入：所有按鍵都不往上送，空白鍵、方向鍵、F 不會觸發播放器快捷鍵
+  inp.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      const text = inp.value.trim();
+      if (text && labelAt) { items(labelAt.seg).push({ k: 'l', x: labelAt.x, y: labelAt.y, text, color: penColor }); if (labelAt.seg === seg) renderLabels(); }
+      closeInput();
+    } else if (e.key === 'Escape') closeInput();
+  });
+  inp.addEventListener('keyup', (e) => e.stopPropagation());
+  inp.addEventListener('blur', (e) => { if (e.relatedTarget && row.contains(e.relatedTarget)) return; closeInput(); }); // 點色票／按鈕時保留輸入，點別處就取消
+  penBtn.onclick = () => setTool(tool === 'pen' ? null : 'pen');
+  textBtn.onclick = () => setTool(tool === 'text' ? null : 'text');
+  undoBtn.onclick = () => { if (items(seg).pop()) { redraw(); renderLabels(); } };
+  clearBtn.onclick = () => { if (items(seg).length && confirm('清除本段所有筆跡與文字標註？')) { items(seg).length = 0; redraw(); renderLabels(); } };
+  function applyUi() {
+    row.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.textContent = open ? '標註工具 ▾' : '標註工具 ▸';
+    if (!open) setTool(null);
+  }
+  toggle.onclick = () => { open = !open; uiSet(open); applyUi(); };
+  // 全螢幕下不放工具列；進入全螢幕時關閉畫筆，筆跡仍顯示（標註層在全螢幕元素內）
+  document.addEventListener('fullscreenchange', () => { if (document.fullscreenElement) setTool(null); });
+  // 換段時顯示該段的標註：包住 seek，不改變 seek 的畫面與回傳值
+  const baseSeek = window.seek;
+  window.seek = async function (t) {
+    const r = await baseSeek.call(this, t);
+    const i = segOf(Number(t) || 0);
+    if (i !== seg) { seg = i; closeInput(); redraw(); renderLabels(); }
+    return r;
+  };
+  new ResizeObserver(fit).observe(board || stageEl);
+  applyUi(); fit();
+})();
+let cur = 0, playing = false, last = 0;
+const chap = document.getElementById('chapters');
+const btns = SEGS.map((s, i) => {
+  const li = document.createElement('li'), b = document.createElement('button');
+  b.type = 'button'; b.textContent = `${i + 1}・${s.name}`; b.onclick = () => { playerPause(); playerShow(s.a); };
+  li.append(b); chap.append(li); return b;
+});
+function playerShow(t) {
+  cur = clamp(t, 0, window.DURATION); scrub.value = cur;
+  timeEl.textContent = `${cur.toFixed(1)} / ${window.DURATION.toFixed(1)}`;
+  window.seek(cur);
+  const i = segIndex(cur); btns.forEach((b, j) => b.setAttribute('aria-current', j === i ? 'true' : 'false'));
+}
+function playerTick(now) { if (!playing) return; cur += (now - last) / 1000; last = now; if (cur >= window.DURATION) { cur = window.DURATION; playerPause(); } playerShow(cur); if (playing) requestAnimationFrame(playerTick); }
+function playerPlay() { if (cur >= window.DURATION - 0.05) cur = 0; playing = true; playBtn.textContent = '暫停'; last = performance.now(); requestAnimationFrame(playerTick); }
+function playerPause() { playing = false; playBtn.textContent = '播放'; }
+playBtn.onclick = () => (playing ? playerPause() : playerPlay());
+scrub.oninput = () => { playerPause(); playerShow(Number(scrub.value)); };
+document.getElementById('prev').onclick = () => { playerPause(); playerShow(SEGS[segIndex(cur - 0.6)].a); };
+document.getElementById('next').onclick = () => { playerPause(); const i = segIndex(cur) + 1; playerShow(i < SEGS.length ? SEGS[i].a : window.DURATION); };
+document.getElementById('fs').onclick = () => { const th = document.getElementById('theater'); document.fullscreenElement ? document.exitFullscreen() : th.requestFullscreen?.(); };
+addEventListener('keydown', (e) => {
+  if (document.documentElement.classList.contains('embed')) return;
+  if (e.target.closest('input,button')) return;
+  if (e.key === ' ') { e.preventDefault(); playing ? playerPause() : playerPlay(); }
+  else if (e.key === 'ArrowRight') document.getElementById('next').click();
+  else if (e.key === 'ArrowLeft') document.getElementById('prev').click();
+  else if (e.key === 'f' || e.key === 'F') document.getElementById('fs').click();
+});
+window.ready.then(() => playerShow(cur));
+// 研習平台嵌入契約（postMessage 握手，鍵名 ptt 為相容用）：被嵌入時才啟用
+addEventListener('message', (e) => {
+  if (e.source !== window.parent || window.parent === window) return;
+  const m = e.data;
+  if (!m || m.ptt !== 1 || m.type !== 'seek' || typeof m.t !== 'number' || !Number.isFinite(m.t)) return;
+  window.seek(m.t);
+});
+if (window.parent !== window) window.ready.then(() => parent.postMessage({ ptt: 1, type: 'ready', duration: window.DURATION }, '*'));
+</script>
+</html>

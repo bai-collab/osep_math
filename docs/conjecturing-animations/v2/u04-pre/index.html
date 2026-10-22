@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="zh-Hant">
+<script>if(/[?&]embed=1\b/.test(location.search))document.documentElement.classList.add('embed')</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第四單元課前暖身：我們怎麼自己發現規律？</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=swap">
+<style>
+/* repo 轉教學動畫網頁｜通用骨架（黑板舞台）。新動畫只改「設定區」與「場景區」。 */
+:root{
+  --board:#23392f; --board-deep:#1a2b23; --frame:#6e4c31;
+  --chalk:#efe9d8; --chalk-dim:#a9b3a6;
+  --yellow:#f2c14e; --orange:#e8875b; --blue:#7fb6d9; --green:#8fd18a; --red:#e66a5c;
+  --font-chalk:"LXGW WenKai TC","Kaiti TC","DFKai-SB","BiauKai",serif;
+  --font-body:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--board-deep);color:var(--chalk)}
+body{margin:0;font-family:var(--font-body)}
+/* ===== 播放器版面公版（研習平台頁同一套規則）=====
+   1) 播放區 .player（標題列＋舞台＋字幕＋控制列）剛好佔一個視窗高；章節、延伸閱讀、出處在下方，往下捲才看到。
+   2) 舞台吃「扣掉標題列、字幕、控制列後的剩餘空間」：.stage-area 是容器查詢容器，.board 用 cqw／cqh 算出 16:9 最大尺寸並置中；
+      木框寬度只用 --bw 變數計入（SVG 本身維持 16:9），不得再用固定像素去扣高度。
+   3) 進度條列可收合（#toggleSeek），預設收起；收起時舞台自動變大。字幕至少預留兩行，段落切換時舞台不跳動。    4) 標註工具（手寫筆跡＋文字，.annoLayer 掛在 .board 內）：「標註工具 ▸／▾」（#toggleInk）收合一列工具列，預設收起；標註以段落為單位、只存在記憶體；?embed=1 不啟用。 */
+.wrap{max-width:1600px;margin:0 auto;padding-inline:16px;padding-bottom:28px;display:flex;flex-direction:column;gap:14px}
+.player{box-sizing:border-box;height:100vh;height:100dvh;padding-block:12px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.player>header,.player>.controls{flex:none}
+.theater{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:10px;align-items:center}
+.theater .caption{align-self:stretch;flex:none}
+.stage-area{flex:1 1 0;min-height:0;align-self:stretch;display:flex;align-items:center;justify-content:center;container-type:size}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 16px}
+h1{font-family:var(--font-chalk);font-weight:700;font-size:clamp(1.3rem,2.6vw,1.9rem);margin:0}
+.sub{color:var(--chalk-dim);font-size:.95rem;margin:0}
+.board{--bw:14px;box-sizing:border-box;border:var(--bw) solid var(--frame);border-radius:6px;background:var(--board);box-shadow:inset 0 0 60px rgba(0,0,0,.45);flex:none;max-width:100%;
+  width:100%;width:min(100cqw, calc((100cqh - 2 * var(--bw)) * 16 / 9 + 2 * var(--bw)))}
+/* 全螢幕：theater 本身就是全螢幕元素，沿用同一套規則（舞台吃剩餘空間、字幕預留兩行；字幕字級與行高用 vh／vw） */
+.theater:fullscreen{background:var(--board-deep);gap:1.5vh;padding:2vh 2vw;box-sizing:border-box}
+.theater:fullscreen .caption{text-align:center;font-size:min(2.4vw,3.2vh);line-height:1.4;min-height:2.8em;max-width:100%}
+@media (max-width:640px){.board{--bw:8px}}
+/* 內嵌（?embed=1）：只留舞台與字幕，尺寸全用 vh，播放由外層 postMessage 控制（版面公版不套用） */
+html.embed body{padding:0;overflow:hidden}
+html.embed header,html.embed .controls,html.embed .chapters,html.embed .works,html.embed .note{display:none}
+html.embed .wrap{max-width:none;gap:0;padding:0}
+html.embed .player,html.embed .stage-area{display:contents}
+html.embed .stage-area{container-type:normal}
+html.embed .theater{flex:none;gap:1vh}
+html.embed .board{width:min(100%, calc(89vh * 16 / 9));border-width:1.4vh}
+html.embed .caption{font-size:2.6vh;line-height:1.4;min-height:3.8vh;text-align:center;padding:0 1vh;margin:0}
+.board svg{display:block;width:100%;height:auto;aspect-ratio:16/9}
+.caption{font-family:var(--font-chalk);text-align:center;font-size:clamp(1.05rem,2.2vw,1.45rem);line-height:1.5;min-height:3em;margin:0}
+.caption b{color:var(--yellow);font-weight:700}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+#fs{margin-left:auto}
+button{font:inherit;font-size:.95rem;color:var(--chalk);background:transparent;border:1.5px solid var(--chalk-dim);border-radius:999px;padding:.4em 1em;cursor:pointer}
+button:hover{border-color:var(--yellow);color:var(--yellow)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
+#play{min-width:5.5em;border-color:var(--yellow);color:var(--yellow)}
+#toggleSeek[aria-expanded="true"]{border-color:var(--yellow);color:var(--yellow)}
+/* 進度條列：獨佔 .controls 的第二列；黃色 6px 粗軌道畫在 #seekMarks（細線＝段落分界），上面疊透明的 range 與 16px 圓拇指 */
+.seekrow{display:flex;flex:1 0 100%;align-items:center;gap:12px}
+.seekrow[hidden]{display:none}
+#seekWrap{position:relative;flex:1 1 200px;min-width:120px;height:20px}
+#scrub{position:relative;z-index:1;-webkit-appearance:none;appearance:none;display:block;width:100%;height:20px;padding:0;margin:0;border:0;border-radius:0;background:transparent;cursor:pointer}
+#scrub::-webkit-slider-runnable-track{height:6px;background:transparent}
+#scrub::-moz-range-track{height:6px;border:0;background:transparent}
+#scrub::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:-5px;border:2px solid var(--board-deep);border-radius:50%;background:var(--yellow)}
+#scrub::-moz-range-thumb{box-sizing:border-box;width:16px;height:16px;border:2px solid var(--board-deep);border-radius:50%;background:var(--yellow)}
+#seekMarks{position:absolute;left:8px;right:8px;top:7px;height:6px;border-radius:3px;overflow:hidden;background:var(--yellow);pointer-events:none}
+#seekMarks i{position:absolute;top:0;bottom:0;width:1px;background:var(--board-deep)}
+#time{flex:none;width:8.5em;text-align:right;font-variant-numeric:tabular-nums;color:var(--chalk-dim);font-size:.85rem}
+/* 標註工具（手寫筆跡＋文字）：標註層蓋在舞台上，平常 pointer-events:none，只有畫筆／文字啟用時才攔截；?embed=1 不建立 */
+.board{position:relative}
+.annoLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2;--u:1px}
+.annoLayer canvas{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;background:none;border-radius:0;aspect-ratio:auto;box-shadow:none}
+.annoLayer canvas.on{pointer-events:auto;touch-action:none;cursor:crosshair}
+.annoLayer canvas.on.text-mode{cursor:text}
+.annoLabels{position:absolute;inset:0;pointer-events:none}
+.annoLabel{position:absolute;transform:translateY(-50%);font-family:var(--font-chalk,serif);font-size:calc(34 * var(--u));font-weight:700;line-height:1.25;padding:calc(4 * var(--u)) calc(14 * var(--u));background:rgba(26,43,35,.82);border:calc(2 * var(--u)) solid;border-radius:calc(10 * var(--u));white-space:pre-wrap;max-width:56%;word-break:break-word}
+.annoInput{position:absolute;transform:translateY(-50%);box-sizing:border-box;width:max(180px,32%);max-width:92%;font-family:var(--font-chalk,serif);font-size:max(16px,calc(30 * var(--u)));font-weight:700;pointer-events:auto;background:rgba(26,43,35,.95);border:2px dashed var(--yellow,#f2c14e);color:var(--chalk,#efe9d8)}
+.annoInput[hidden]{display:none}
+#toggleInk[aria-expanded="true"]{border-color:var(--yellow,#f2c14e);color:var(--yellow,#f2c14e)}
+/* 工具列：獨佔 .controls 的一整列 */
+.annoRow{display:flex;flex:1 0 100%;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.annoRow[hidden]{display:none}
+.annoSwatches{display:inline-flex;align-items:center;gap:8px}
+.annoSwatch{width:26px;height:26px;border-radius:50%;padding:0;border:2px solid transparent}
+.annoSwatch[aria-pressed="true"]{border-color:#fff;outline:2px solid var(--board-deep,var(--bg,#1a2b23))}
+.annoRow button[aria-pressed="true"]:not(.annoSwatch){border-color:var(--yellow,#f2c14e);color:var(--board-deep,#1a2b23);background:var(--yellow,#f2c14e)}
+.chapters{display:flex;flex-wrap:wrap;gap:6px;padding:0;margin:0;list-style:none}
+.chapters button{font-size:.85rem;padding:.25em .8em;border-color:rgba(239,233,216,.25);color:var(--chalk-dim)}
+.chapters button[aria-current="true"]{border-color:var(--yellow);color:var(--yellow)}
+.note{color:var(--chalk-dim);font-size:.85rem;margin:0}
+.works h2{font-family:var(--font-chalk);font-size:1.15rem;margin:0 0 6px;color:var(--yellow)}
+.works ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 16px}
+.works a{color:var(--chalk);text-underline-offset:3px}
+.works span{display:block;color:var(--chalk-dim);font-size:.85rem}
+.t-chalk{font-family:var(--font-chalk);fill:var(--chalk)}
+.t-body{font-family:var(--font-body);fill:var(--chalk)}
+</style>
+
+<div class="wrap">
+  <section class="player" aria-label="動畫播放器">
+    <header>
+      <h1 id="title"></h1>
+      <p class="sub" id="subtitle"></p>
+    </header>
+    <div class="theater" id="theater">
+      <div class="stage-area"><div class="board"><svg id="stage" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" role="img"></svg></div></div>
+      <p class="caption" id="caption" aria-live="polite"></p>
+    </div>
+    <div class="controls">
+      <button id="prev" type="button">上一段</button>
+      <button id="play" type="button">播放</button>
+      <button id="next" type="button">下一段</button>
+      <button id="toggleSeek" type="button" aria-expanded="false" aria-controls="seekrow">進度條 ▸</button>
+      <button id="fs" type="button">全螢幕</button>
+      <div class="seekrow" id="seekrow" hidden>
+        <div id="seekWrap">
+          <input id="scrub" type="range" min="0" max="1" step="0.05" value="0" aria-label="時間軸">
+          <div id="seekMarks" aria-hidden="true"></div>
+        </div>
+        <span id="time"></span>
+      </div>
+    </div>
+  </section>
+  <ul class="chapters" id="chapters"></ul>
+  <section class="works" aria-labelledby="works-h"><h2 id="works-h">延伸閱讀</h2><ul id="works"></ul></section>
+  <p class="note" id="note"></p>
+</div>
+
+<script>
+'use strict';
+// ===================== 設定區（段落與字幕由 timing.json 注入）=====================
+// ===== 教學動畫共用圖形（不得與範本播放器或工具重名）=====
+const C = { yellow: 'var(--yellow)', blue: 'var(--blue)', green: 'var(--green)', red: 'var(--red)', orange: 'var(--orange)', purple: '#b9a3e3', chalk: 'var(--chalk)', dim: 'var(--chalk-dim)', deep: 'var(--board-deep)' };
+function arrow(x1, y1, x2, y2, color = C.dim, op = 1, both = false, k = 1, dash = '') {
+  const ex = lerp(x1, x2, k), ey = lerp(y1, y2, k);
+  const ang = Math.atan2(y2 - y1, x2 - x1), h = 16;
+  const head = (x, y, a) => `<polygon points="${x},${y} ${x - h * Math.cos(a - 0.45)},${y - h * Math.sin(a - 0.45)} ${x - h * Math.cos(a + 0.45)},${y - h * Math.sin(a + 0.45)}" fill="${color}"/>`;
+  let g = `<g opacity="${op}"><line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="4" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+  if (k >= 0.99) { g += head(x2, y2, ang); if (both) g += head(x1, y1, ang + Math.PI); }
+  return g + '</g>';
+}
+// 曲線箭頭：二次貝茲，k 為繪製進度（以 dasharray 截斷）
+function curve(x1, y1, cx, cy, x2, y2, color = C.dim, op = 1, k = 1, label = '', lx = 0, ly = 0) {
+  const len = 1400;
+  let g = `<g opacity="${op}"><path d="M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="4" stroke-dasharray="10 9" pathLength="${len}" style="stroke-dashoffset:0"/>`;
+  if (k < 0.99) g = `<g opacity="${op}"><path d="M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="4" pathLength="${len}" stroke-dasharray="${(len * k).toFixed(1)} ${len}"/>`;
+  else {
+    const a = Math.atan2(y2 - cy, x2 - cx), h = 16;
+    g += `<polygon points="${x2},${y2} ${x2 - h * Math.cos(a - 0.45)},${y2 - h * Math.sin(a - 0.45)} ${x2 - h * Math.cos(a + 0.45)},${y2 - h * Math.sin(a + 0.45)}" fill="${color}"/>`;
+  }
+  if (label) g += txt(lx, ly, label, { c: 't-body', s: 24, f: color, o: k >= 0.99 ? 1 : 0 });
+  return g + '</g>';
+}
+function hframe(x, y, w, h, op, label = '', color = C.yellow, glow = 0, size = 32) {
+  return `<g opacity="${op}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="26" fill="rgba(242,193,78,${0.04 + 0.08 * glow})" stroke="${color}" stroke-width="${4 + 2 * glow}" stroke-dasharray="16 12"/>` +
+    (label ? txt(x + 26, y + 44, label, { s: size, w: 1, f: color }) : '') + '</g>';
+}
+function card(x, y, W, h, op, lines, color = C.chalk) {
+  // lines: [[文字, 字級, 顏色, 粗體, 字型類別, 置中]]，依序往下排
+  let g = `<g opacity="${op}">${box(x, y, W, h, color, 1, C.deep)}`;
+  let yy = y + 14;
+  for (const [s, size = 28, f = C.chalk, bold = false, c = 't-chalk', cx = false] of lines) {
+    yy += size * 1.25;
+    g += txt(cx ? x + W / 2 : x + 24, yy, s, { s: size, f, w: bold, c, a: cx ? 'middle' : 'start' });
+    yy += size * 0.3;
+  }
+  return g + '</g>';
+}
+function ccard(x, y, w, h, op, title, sub, color = C.chalk, tsize = 32, ssize = 24) {
+  return `<g opacity="${op}">${box(x, y, w, h, color, 1, C.deep)}` +
+    txt(x + w / 2, y + h / 2 + (sub ? -6 : tsize * 0.35), title, { a: 'middle', s: tsize, w: 1, f: color }) +
+    (sub ? txt(x + w / 2, y + h / 2 + ssize + 8, sub, { a: 'middle', c: 't-body', s: ssize, f: C.dim }) : '') + '</g>';
+}
+function chip(x, y, w, label, op, color = C.chalk, size = 26, h = 58) {
+  return `<g opacity="${op}">${box(x, y, w, h, color, 1, C.deep)}${txt(x + w / 2, y + h / 2 + size * 0.36, label, { a: 'middle', s: size, f: color })}</g>`;
+}
+function tick(x, y, s, op, color = C.green) {
+  return `<path d="M${x - s} ${y} L${x - s / 3} ${y + s * 0.7} L${x + s} ${y - s * 0.8}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="${op}"/>`;
+}
+function cross(x, y, s, op, color = C.red) {
+  return `<g opacity="${op}" stroke="${color}" stroke-width="12" stroke-linecap="round"><line x1="${x - s}" y1="${y - s}" x2="${x + s}" y2="${y + s}"/><line x1="${x + s}" y1="${y - s}" x2="${x - s}" y2="${y + s}"/></g>`;
+}
+function dot(x, y, r, color, op = 1) { return `<circle cx="${x}" cy="${y}" r="${r}" fill="${color}" opacity="${op}"/>`; }
+function underline(x1, x2, y, k, color = C.yellow, op = 1) { return `<line x1="${x1}" y1="${y}" x2="${lerp(x1, x2, k)}" y2="${y}" stroke="${color}" stroke-width="4" opacity="${op}"/>`; }
+// 依進度逐一出現：第 i 個元素在 t0 + i*step 開始、花 dur 秒
+const stagger = (u, t0, i, step = 0.6, dur = 0.7) => ease(P(u, t0 + i * step, t0 + i * step + dur));
+
+// U4 課前暖身動畫 v2：場景只由段內時間 u 決定；所有面積、周長與數量在程式中計算。
+const META = {
+  title: '第四單元課前暖身：我們怎麼自己發現規律？',
+  subtitle: '五階段課前暖身｜可停在任一段',
+  ariaLabel: '以四組長方形、方格紙、猜想卡與切割圖，說明如何從造例走到檢驗和說明。',
+  note: '出處：臆測五階段教學設計稿與本系列舊版動畫。方格紙格數、沿邊描出的周長線與四塊原圖是視覺表徵，不另加比喻；所有算式與判斷由程式計算。鍵盤：空白鍵播放／暫停，左右方向鍵切換段落，F 鍵全螢幕。畫面只由時間決定。',
+  works: [],
+};
+
+const U4A_STEPS = ['造例', '提出猜想', '效化', '一般化', '證實'];
+const U4A_GROUPS = [
+  { key: '甲', color: C.yellow, length: 1, width: 1 },
+  { key: '乙', color: C.orange, length: 2, width: 2 },
+  { key: '丙', color: C.blue, length: 3, width: 3 },
+  { key: '丁', color: C.green, length: 2, width: 1 },
+];
+const U4A_CLAIMS = [
+  { key: '甲', color: C.yellow, text: '邊長變 2 倍，面積就多 3', mark: 'cross' },
+  { key: '乙', color: C.orange, text: '變大以後，周長和面積會一樣大', mark: 'cross' },
+  { key: '丙', color: C.blue, text: '邊長變 2 倍，面積就變 4 倍', mark: 'triangle' },
+  { key: '丁', color: C.green, text: '長和寬都變 2 倍，周長也變 2 倍', mark: 'circle' },
+];
+const U4A_MARK_COLORS = { cross: C.red, triangle: C.orange, circle: C.green };
+const U4A_SCALE = 2;
+const U4A_CELL = 36;
+const U4A_GAP = 4;
+const U4A_TILE_COLORS = [C.yellow, C.blue, C.orange, C.green];
+const U4A_TASK_MULTIPLE_MIN = 4;
+const U4A_TASK_MULTIPLE_MAX = 5;
+
+const u4aK = (u, a, d) => ease(P(u, a, a + d));
+const u4aArea = (length, width) => length * width;
+const u4aPerimeter = (length, width) => 2 * (length + width);
+const u4aGridWidth = (count, size = U4A_CELL, gap = U4A_GAP) => count * size + Math.max(0, count - 1) * gap;
+
+function u4aText(x, y, value, options = {}) {
+  return txt(x, y, String(value), options);
+}
+
+function u4aFrame(x, y, width, height, stroke = C.dim, opacity = 1, fill = 'rgba(0,0,0,.08)') {
+  return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="18" fill="${fill}" stroke="${stroke}" stroke-width="3" opacity="${opacity}"/>`;
+}
+
+function u4aGrid(length, width, x, y, size = U4A_CELL, opacity = 1, stroke = C.chalk, fill = 'rgba(239,233,216,.08)') {
+  let u4aMarkup = `<g opacity="${opacity}">`;
+  for (let u4aRow = 0; u4aRow < width; u4aRow++) {
+    for (let u4aCol = 0; u4aCol < length; u4aCol++) {
+      const u4aX = x + u4aCol * (size + U4A_GAP);
+      const u4aY = y + u4aRow * (size + U4A_GAP);
+      u4aMarkup += `<rect x="${u4aX}" y="${u4aY}" width="${size}" height="${size}" rx="2" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    }
+  }
+  return u4aMarkup + '</g>';
+}
+
+function u4aQuadrantGrid(length, width, x, y, size = U4A_CELL, opacity = 1) {
+  let u4aMarkup = `<g opacity="${opacity}">`;
+  for (let u4aRow = 0; u4aRow < width; u4aRow++) {
+    for (let u4aCol = 0; u4aCol < length; u4aCol++) {
+      const u4aTile = (u4aRow < width / U4A_SCALE ? 0 : 2) + (u4aCol < length / U4A_SCALE ? 0 : 1);
+      const u4aX = x + u4aCol * (size + U4A_GAP);
+      const u4aY = y + u4aRow * (size + U4A_GAP);
+      u4aMarkup += `<rect x="${u4aX}" y="${u4aY}" width="${size}" height="${size}" rx="2" fill="${U4A_TILE_COLORS[u4aTile]}" fill-opacity=".22" stroke="${U4A_TILE_COLORS[u4aTile]}" stroke-width="3"/>`;
+    }
+  }
+  return u4aMarkup + '</g>';
+}
+
+function u4aRectGlyph(length, width, x, y, maxSide, color, opacity = 1) {
+  const u4aUnit = maxSide / Math.max(length, width);
+  const u4aW = length * u4aUnit;
+  const u4aH = width * u4aUnit;
+  return `<rect x="${x}" y="${y}" width="${u4aW}" height="${u4aH}" rx="8" fill="${color}" fill-opacity=".10" stroke="${color}" stroke-width="4" opacity="${opacity}"/>`;
+}
+
+function u4aArrow(x1, y1, x2, y2, opacity = 1) {
+  return arrow(x1, y1, x2, y2, C.yellow, opacity);
+}
+
+function u4aMark(x, y, type, color, opacity = 1) {
+  if (type === 'cross') return cross(x, y, 23, opacity, color);
+  if (type === 'circle') return `<circle cx="${x}" cy="${y}" r="23" fill="none" stroke="${color}" stroke-width="7" opacity="${opacity}"/>`;
+  return `<polygon points="${x},${y - 25} ${x + 24},${y + 20} ${x - 24},${y + 20}" fill="none" stroke="${color}" stroke-width="7" opacity="${opacity}"/>`;
+}
+
+function u4aWrap(text, maxChars) {
+  const u4aChars = Array.from(text);
+  const u4aLines = [];
+  for (let u4aIndex = 0; u4aIndex < u4aChars.length; u4aIndex += maxChars) {
+    u4aLines.push(u4aChars.slice(u4aIndex, u4aIndex + maxChars).join(''));
+  }
+  return u4aLines;
+}
+
+function u4aPaint(svg) {
+  return '<style>#stage > text:last-child{font-size:22px!important}</style>' +
+    svg.replace(/<text ([^>]*?)fill="([^"]+)"/g, '<text $1style="fill:$2" fill="$2"');
+}
+
+function s1(u) {
+  let u4aMarkup = head(u, '課前暖身', '像偵探一樣找規律');
+  const u4aQuestionOpacity = u4aK(u, 0.35, 0.7);
+  u4aMarkup += u4aFrame(100, 200, 1400, 112, C.yellow, u4aQuestionOpacity, 'rgba(242,193,78,.05)');
+  u4aMarkup += u4aText(800, 270, '把長和寬都變成 2 倍，周長和面積會變怎樣？', {
+    a: 'middle', s: 34, w: 1, f: C.yellow, o: u4aQuestionOpacity,
+  });
+  for (let u4aIndex = 0; u4aIndex < U4A_STEPS.length; u4aIndex++) {
+    const u4aX = 75 + u4aIndex * 298;
+    const u4aOpacity = u4aK(u, 1.0 + u4aIndex * 0.65, 0.55);
+    u4aMarkup += u4aFrame(u4aX, 365, 250, 86, C.dim, u4aOpacity, 'rgba(0,0,0,.08)');
+    u4aMarkup += u4aText(u4aX + 125, 420, U4A_STEPS[u4aIndex], {
+      a: 'middle', s: 29, w: 1, f: C.chalk, o: u4aOpacity,
+    });
+    if (u4aIndex < U4A_STEPS.length - 1) u4aMarkup += u4aArrow(u4aX + 258, 407, u4aX + 286, 407, u4aOpacity);
+  }
+  const u4aShapeOpacity = u4aK(u, 4.0, 0.8);
+  const u4aBaseLength = 2;
+  const u4aBaseWidth = 1;
+  u4aMarkup += u4aText(430, 525, '原來的圖形', { a: 'middle', s: 27, f: C.dim, o: u4aShapeOpacity });
+  u4aMarkup += u4aText(1170, 525, '長和寬都放大', { a: 'middle', s: 27, f: C.dim, o: u4aShapeOpacity });
+  u4aMarkup += u4aGrid(u4aBaseLength, u4aBaseWidth, 340, 565, 48, u4aShapeOpacity, C.chalk);
+  u4aMarkup += u4aArrow(500, 590, 720, 590, u4aShapeOpacity);
+  u4aMarkup += u4aGrid(u4aBaseLength * U4A_SCALE, u4aBaseWidth * U4A_SCALE, 900, 555, 48, u4aShapeOpacity, C.yellow, 'rgba(242,193,78,.12)');
+  u4aMarkup += u4aText(430, 655, `${u4aBaseLength} × ${u4aBaseWidth}`, { a: 'middle', s: 26, f: C.chalk, o: u4aShapeOpacity });
+  u4aMarkup += u4aText(1170, 655, `${u4aBaseLength * U4A_SCALE} × ${u4aBaseWidth * U4A_SCALE}`, { a: 'middle', s: 26, f: C.yellow, o: u4aShapeOpacity });
+  return u4aPaint(u4aMarkup);
+}
+
+function s2(u) {
+  let u4aMarkup = head(u, '造例', '每組拿到不同的卡');
+  u4aMarkup += u4aText(800, 205, '先做出不同的圖形，再比較周長和面積', {
+    a: 'middle', s: 28, f: C.dim, o: u4aK(u, 0.35, 0.7),
+  });
+  for (let u4aIndex = 0; u4aIndex < U4A_GROUPS.length; u4aIndex++) {
+    const u4aGroup = U4A_GROUPS[u4aIndex];
+    const u4aX = u4aIndex % 2 === 0 ? 75 : 825;
+    const u4aY = u4aIndex < 2 ? 245 : 515;
+    const u4aOpacity = u4aK(u, 0.7 + u4aIndex * 0.8, 0.65);
+    const u4aAfterLength = u4aGroup.length * U4A_SCALE;
+    const u4aAfterWidth = u4aGroup.width * U4A_SCALE;
+    const u4aMaxSide = 132;
+    u4aMarkup += u4aFrame(u4aX, u4aY, 700, 260, u4aGroup.color, u4aOpacity, 'rgba(0,0,0,.08)');
+    u4aMarkup += u4aText(u4aX + 38, u4aY + 48, `${u4aGroup.key}組`, { s: 31, w: 1, f: u4aGroup.color, o: u4aOpacity });
+    u4aMarkup += u4aText(u4aX + 230, u4aY + 48, '前', { a: 'middle', s: 25, f: C.dim, o: u4aOpacity });
+    u4aMarkup += u4aText(u4aX + 510, u4aY + 48, '後', { a: 'middle', s: 25, f: C.dim, o: u4aOpacity });
+    const u4aBeforeW = u4aGroup.length * (u4aMaxSide / Math.max(u4aAfterLength, u4aAfterWidth));
+    const u4aBeforeH = u4aGroup.width * (u4aMaxSide / Math.max(u4aAfterLength, u4aAfterWidth));
+    const u4aAfterW = u4aAfterLength * (u4aMaxSide / Math.max(u4aAfterLength, u4aAfterWidth));
+    const u4aAfterH = u4aAfterWidth * (u4aMaxSide / Math.max(u4aAfterLength, u4aAfterWidth));
+    const u4aShapeBottom = u4aY + 202;
+    u4aMarkup += u4aRectGlyph(u4aGroup.length, u4aGroup.width, u4aX + 230 - u4aBeforeW / 2, u4aShapeBottom - u4aBeforeH, Math.max(u4aBeforeW, u4aBeforeH), u4aGroup.color, u4aOpacity);
+    u4aMarkup += u4aArrow(u4aX + 315, u4aY + 145, u4aX + 410, u4aY + 145, u4aOpacity);
+    u4aMarkup += u4aRectGlyph(u4aAfterLength, u4aAfterWidth, u4aX + 510 - u4aAfterW / 2, u4aShapeBottom - u4aAfterH, Math.max(u4aAfterW, u4aAfterH), u4aGroup.color, u4aOpacity);
+    u4aMarkup += u4aText(u4aX + 230, u4aY + 232, `${u4aGroup.length} × ${u4aGroup.width}`, { a: 'middle', s: 26, f: C.chalk, o: u4aOpacity });
+    u4aMarkup += u4aText(u4aX + 510, u4aY + 232, `${u4aAfterLength} × ${u4aAfterWidth}`, { a: 'middle', s: 26, f: C.chalk, o: u4aOpacity });
+  }
+  return u4aPaint(u4aMarkup);
+}
+
+function s3(u) {
+  let u4aMarkup = head(u, '造例', '在方格紙上畫');
+  const u4aCases = [
+    { label: '甲組', length: U4A_GROUPS[0].length, width: U4A_GROUPS[0].width, color: U4A_GROUPS[0].color },
+    { label: '丙組', length: U4A_GROUPS[2].length, width: U4A_GROUPS[2].width, color: U4A_GROUPS[2].color },
+  ];
+  for (let u4aIndex = 0; u4aIndex < u4aCases.length; u4aIndex++) {
+    const u4aCase = u4aCases[u4aIndex];
+    const u4aX = u4aIndex === 0 ? 55 : 815;
+    const u4aOpacity = u4aK(u, 0.45 + u4aIndex * 1.0, 0.7);
+    const u4aCellSize = 48;
+    const u4aAfterLength = u4aCase.length * U4A_SCALE;
+    const u4aAfterWidth = u4aCase.width * U4A_SCALE;
+    const u4aBeforeW = u4aGridWidth(u4aCase.length, u4aCellSize);
+    const u4aBeforeH = u4aGridWidth(u4aCase.width, u4aCellSize);
+    const u4aAfterW = u4aGridWidth(u4aAfterLength, u4aCellSize);
+    const u4aAfterH = u4aGridWidth(u4aAfterWidth, u4aCellSize);
+    const u4aBeforeCenterX = u4aX + 192;
+    const u4aAfterCenterX = u4aX + 535;
+    const u4aGridY = 330;
+    const u4aArrowY = u4aGridY + (u4aBeforeH + u4aAfterH) / 4;
+    u4aMarkup += u4aFrame(u4aX, 220, 730, 555, u4aCase.color, u4aOpacity, 'rgba(0,0,0,.06)');
+    u4aMarkup += u4aText(u4aX + 365, 270, u4aCase.label, { a: 'middle', s: 32, w: 1, f: u4aCase.color, o: u4aOpacity });
+    u4aMarkup += u4aText(u4aBeforeCenterX, 300, '前', { a: 'middle', s: 25, f: C.dim, o: u4aOpacity });
+    u4aMarkup += u4aText(u4aAfterCenterX, 300, '後', { a: 'middle', s: 25, f: C.dim, o: u4aOpacity });
+    u4aMarkup += u4aGrid(u4aCase.length, u4aCase.width, u4aBeforeCenterX - u4aBeforeW / 2, u4aGridY, u4aCellSize, u4aOpacity, C.chalk);
+    u4aMarkup += u4aArrow(u4aBeforeCenterX + u4aBeforeW / 2 + 20, u4aArrowY, u4aAfterCenterX - u4aAfterW / 2 - 20, u4aArrowY, u4aOpacity);
+    u4aMarkup += u4aGrid(u4aAfterLength, u4aAfterWidth, u4aAfterCenterX - u4aAfterW / 2, u4aGridY, u4aCellSize, u4aOpacity, u4aCase.color, 'rgba(242,193,78,.08)');
+    const u4aBeforeArea = u4aArea(u4aCase.length, u4aCase.width);
+    const u4aAfterArea = u4aArea(u4aAfterLength, u4aAfterWidth);
+    const u4aBeforePerimeter = u4aPerimeter(u4aCase.length, u4aCase.width);
+    const u4aAfterPerimeter = u4aPerimeter(u4aAfterLength, u4aAfterWidth);
+    u4aMarkup += u4aText(u4aX + 365, 690, `格數（面積）：${u4aBeforeArea} → ${u4aAfterArea}`, {
+      a: 'middle', s: 27, f: C.chalk, o: u4aOpacity,
+    });
+    u4aMarkup += u4aText(u4aX + 365, 740, `邊數（周長）：${u4aBeforePerimeter} → ${u4aAfterPerimeter}`, {
+      a: 'middle', s: 27, f: C.yellow, o: u4aOpacity,
+    });
+  }
+  return u4aPaint(u4aMarkup);
+}
+
+function s4(u) {
+  let u4aMarkup = head(u, '造例', '整理例子');
+  const u4aOpacity = u4aK(u, 0.35, 0.8);
+  u4aMarkup += u4aText(800, 210, '數邊算周長，數格子算面積', { a: 'middle', s: 29, f: C.dim, o: u4aOpacity });
+  u4aMarkup += u4aText(245, 275, '小組', { a: 'middle', s: 27, w: 1, f: C.dim, o: u4aOpacity });
+  u4aMarkup += u4aText(715, 275, '周長：前 → 後', { a: 'middle', s: 27, w: 1, f: C.yellow, o: u4aOpacity });
+  u4aMarkup += u4aText(1215, 275, '面積：前 → 後', { a: 'middle', s: 27, w: 1, f: C.blue, o: u4aOpacity });
+  for (let u4aIndex = 0; u4aIndex < U4A_GROUPS.length; u4aIndex++) {
+    const u4aGroup = U4A_GROUPS[u4aIndex];
+    const u4aY = 300 + u4aIndex * 112;
+    const u4aRowOpacity = u4aK(u, 0.7 + u4aIndex * 0.55, 0.65);
+    const u4aAfterLength = u4aGroup.length * U4A_SCALE;
+    const u4aAfterWidth = u4aGroup.width * U4A_SCALE;
+    u4aMarkup += u4aFrame(90, u4aY, 1420, 88, u4aGroup.color, u4aRowOpacity, 'rgba(0,0,0,.06)');
+    u4aMarkup += u4aText(245, u4aY + 55, `${u4aGroup.key}組`, { a: 'middle', s: 30, w: 1, f: u4aGroup.color, o: u4aRowOpacity });
+    u4aMarkup += u4aText(715, u4aY + 55, `${u4aPerimeter(u4aGroup.length, u4aGroup.width)} → ${u4aPerimeter(u4aAfterLength, u4aAfterWidth)}`, {
+      a: 'middle', s: 30, f: C.chalk, o: u4aRowOpacity,
+    });
+    u4aMarkup += u4aText(1215, u4aY + 55, `${u4aArea(u4aGroup.length, u4aGroup.width)} → ${u4aArea(u4aAfterLength, u4aAfterWidth)}`, {
+      a: 'middle', s: 30, f: C.chalk, o: u4aRowOpacity,
+    });
+  }
+  return u4aPaint(u4aMarkup);
+}
+
+function s5(u) {
+  let u4aMarkup = head(u, '提出猜想', '猜想牆');
+  u4aMarkup += u4aText(800, 205, '有憑有據、大膽猜；一張只寫一個想法', {
+    a: 'middle', s: 27, f: C.dim, o: u4aK(u, 0.3, 0.7),
+  });
+  for (let u4aIndex = 0; u4aIndex < U4A_CLAIMS.length; u4aIndex++) {
+    const u4aClaim = U4A_CLAIMS[u4aIndex];
+    const u4aX = u4aIndex % 2 === 0 ? 75 : 825;
+    const u4aY = u4aIndex < 2 ? 245 : 465;
+    const u4aOpacity = u4aK(u, 0.7 + u4aIndex * 0.8, 0.7);
+    u4aMarkup += u4aFrame(u4aX, u4aY, 700, 185, u4aClaim.color, u4aOpacity, 'rgba(26,43,35,.78)');
+    u4aMarkup += u4aText(u4aX + 34, u4aY + 53, `${u4aClaim.key}組`, { s: 31, w: 1, f: u4aClaim.color, o: u4aOpacity });
+    const u4aLines = u4aWrap(u4aClaim.text, 18);
+    for (let u4aLine = 0; u4aLine < u4aLines.length; u4aLine++) {
+      u4aMarkup += u4aText(u4aX + 34, u4aY + 115 + u4aLine * 44, u4aLines[u4aLine], {
+        s: 30, w: 1, f: C.chalk, o: u4aOpacity,
+      });
+    }
+  }
+  const u4aSentenceFrameOpacity = u4aK(u, 7.8, 0.7);
+  u4aMarkup += hframe(95, 675, 1410, 90, u4aSentenceFrameOpacity, '', C.yellow);
+  u4aMarkup += u4aText(800, 730, '我們發現＿＿＿，因為＿＿＿。', {
+    a: 'middle', s: 32, w: 1, f: C.chalk, o: u4aSentenceFrameOpacity,
+  });
+  return u4aPaint(u4aMarkup);
+}
+
+function s6(u) {
+  let u4aMarkup = head(u, '效化', '考驗甲組');
+  const u4aClaim = U4A_CLAIMS[0];
+  const u4aClaimOpacity = u4aK(u, 0.35, 0.7);
+  u4aMarkup += u4aFrame(70, 280, 600, 190, u4aClaim.color, u4aClaimOpacity, 'rgba(26,43,35,.78)');
+  u4aMarkup += u4aText(110, 330, '甲組猜想', { s: 29, w: 1, f: u4aClaim.color, o: u4aClaimOpacity });
+  const u4aClaimLines = u4aWrap(u4aClaim.text, 16);
+  for (let u4aLine = 0; u4aLine < u4aClaimLines.length; u4aLine++) {
+    u4aMarkup += u4aText(110, 386 + u4aLine * 42, u4aClaimLines[u4aLine], { s: 29, f: C.chalk, o: u4aClaimOpacity });
+  }
+  u4aMarkup += u4aMark(615, 330, 'cross', C.red, u4aK(u, 4.0, 0.6));
+
+  const u4aBeforeSide = U4A_GROUPS[1].length;
+  const u4aAfterSide = u4aBeforeSide * U4A_SCALE;
+  const u4aBeforeArea = u4aArea(u4aBeforeSide, u4aBeforeSide);
+  const u4aAfterArea = u4aArea(u4aAfterSide, u4aAfterSide);
+  const u4aIncrease = u4aAfterArea - u4aBeforeArea;
+  const u4aClaimedIncrease = Number(u4aClaim.text.match(/\d+$/)?.[0]);
+  const u4aProofOpacity = u4aK(u, 0.9, 0.7);
+  u4aMarkup += u4aFrame(735, 235, 795, 455, C.dim, u4aProofOpacity, 'rgba(0,0,0,.06)');
+  u4aMarkup += u4aText(930, 290, '乙組例子：面積', { a: 'middle', s: 27, f: C.dim, o: u4aProofOpacity });
+  u4aMarkup += u4aText(1300, 290, '放大後', { a: 'middle', s: 27, f: C.dim, o: u4aProofOpacity });
+  u4aMarkup += u4aGrid(u4aBeforeSide, u4aBeforeSide, 930 - u4aGridWidth(u4aBeforeSide) / 2, 335, U4A_CELL, u4aProofOpacity, C.chalk);
+  u4aMarkup += u4aArrow(1035, 420, 1165, 420, u4aProofOpacity);
+  u4aMarkup += u4aGrid(u4aAfterSide, u4aAfterSide, 1300 - u4aGridWidth(u4aAfterSide) / 2, 335, U4A_CELL, u4aProofOpacity, C.orange, 'rgba(232,135,91,.10)');
+  u4aMarkup += u4aText(930, 540, `邊長 ${u4aBeforeSide}：${u4aBeforeArea}`, { a: 'middle', s: 27, f: C.chalk, o: u4aProofOpacity });
+  u4aMarkup += u4aText(1300, 540, `邊長 ${u4aAfterSide}：${u4aAfterArea}`, { a: 'middle', s: 27, f: C.chalk, o: u4aProofOpacity });
+  u4aMarkup += u4aText(1130, 625, `面積多了 ${u4aIncrease}，不是多 ${u4aClaimedIncrease}`, {
+    a: 'middle', s: 30, w: 1, f: C.red, o: u4aK(u, 5.0, 0.7),
+  });
+  return u4aPaint(u4aMarkup);
+}
+
+function s7(u) {
+  let u4aMarkup = head(u, '效化', '考驗乙組');
+  const u4aClaim = U4A_CLAIMS[1];
+  u4aMarkup += u4aFrame(100, 195, 1400, 88, u4aClaim.color, u4aK(u, 0.3, 0.6), 'rgba(26,43,35,.65)');
+  u4aMarkup += u4aText(800, 252, `乙組：${u4aClaim.text}`, { a: 'middle', s: 29, f: C.chalk, o: u4aK(u, 0.3, 0.6) });
+  u4aMarkup += u4aMark(1430, 230, 'cross', C.red, u4aK(u, 7.0, 0.6));
+  const u4aSides = [U4A_GROUPS[1].length, U4A_GROUPS[1].length * U4A_SCALE, U4A_GROUPS[2].length * U4A_SCALE];
+  const u4aEqualSides = u4aSides.filter((u4aSide) => u4aArea(u4aSide, u4aSide) === u4aPerimeter(u4aSide, u4aSide));
+  const u4aOtherSides = u4aSides.filter((u4aSide) => !u4aEqualSides.includes(u4aSide));
+  for (let u4aIndex = 0; u4aIndex < u4aSides.length; u4aIndex++) {
+    const u4aSide = u4aSides[u4aIndex];
+    const u4aX = 55 + u4aIndex * 500;
+    const u4aOpacity = u4aK(u, 0.75 + u4aIndex * 0.7, 0.65);
+    const u4aGridW = u4aGridWidth(u4aSide);
+    u4aMarkup += u4aFrame(u4aX, 305, 480, 420, C.dim, u4aOpacity, 'rgba(0,0,0,.05)');
+    u4aMarkup += u4aText(u4aX + 240, 350, `邊長 ${u4aSide}`, { a: 'middle', s: 28, w: 1, f: C.chalk, o: u4aOpacity });
+    u4aMarkup += u4aGrid(u4aSide, u4aSide, u4aX + 240 - u4aGridW / 2, 375, U4A_CELL, u4aOpacity, U4A_GROUPS[u4aIndex].color, 'rgba(239,233,216,.08)');
+    const u4aDataY = 375 + u4aGridW + 38;
+    u4aMarkup += u4aText(u4aX + 240, u4aDataY, `周長 ${u4aPerimeter(u4aSide, u4aSide)}`, { a: 'middle', s: 26, f: C.yellow, o: u4aOpacity });
+    u4aMarkup += u4aText(u4aX + 240, u4aDataY + 40, `面積 ${u4aArea(u4aSide, u4aSide)}`, { a: 'middle', s: 26, f: C.blue, o: u4aOpacity });
+  }
+  const u4aNoteOpacity = u4aK(u, 6.1, 0.7);
+  u4aMarkup += u4aText(800, 780, `邊長 ${u4aEqualSides[0]} 只是碰巧相等；換成 ${u4aOtherSides[0]} 或 ${u4aOtherSides[1]} 就不相等`, {
+    a: 'middle', s: 28, w: 1, f: C.yellow, o: u4aNoteOpacity,
+  });
+  return u4aPaint(u4aMarkup);
+}
+
+function s8(u) {
+  let u4aMarkup = head(u, '效化', '考驗丙組');
+  const u4aClaim = U4A_CLAIMS[2];
+  const u4aClaimOpacity = u4aK(u, 0.35, 0.7);
+  u4aMarkup += u4aFrame(100, 185, 1400, 110, u4aClaim.color, u4aClaimOpacity, 'rgba(26,43,35,.65)');
+  u4aMarkup += u4aText(800, 250, `${u4aClaim.key}組猜想：${u4aClaim.text}`, { a: 'middle', s: 29, f: C.chalk, o: u4aClaimOpacity });
+  u4aMarkup += u4aMark(1400, 220, 'triangle', C.orange, u4aClaimOpacity);
+  u4aMarkup += u4aText(1400, 278, '少了條件', { a: 'middle', s: 23, w: 1, f: C.orange, o: u4aClaimOpacity });
+  const u4aOnlyLength = { length: 2, width: 1 };
+  const u4aLengthOnlyAfter = { length: u4aOnlyLength.length * U4A_SCALE, width: u4aOnlyLength.width };
+  const u4aBothAfter = { length: u4aOnlyLength.length * U4A_SCALE, width: u4aOnlyLength.width * U4A_SCALE };
+  const u4aRows = [
+    { y: 310, label: '只把長變 2 倍', after: u4aLengthOnlyAfter, color: C.orange },
+    { y: 530, label: '長和寬都變 2 倍', after: u4aBothAfter, color: C.green },
+  ];
+  for (let u4aIndex = 0; u4aIndex < u4aRows.length; u4aIndex++) {
+    const u4aRow = u4aRows[u4aIndex];
+    const u4aOpacity = u4aK(u, 0.45 + u4aIndex * 1.1, 0.7);
+    const u4aBeforeArea = u4aArea(u4aOnlyLength.length, u4aOnlyLength.width);
+    const u4aAfterArea = u4aArea(u4aRow.after.length, u4aRow.after.width);
+    u4aMarkup += u4aFrame(80, u4aRow.y, 1440, 205, u4aRow.color, u4aOpacity, 'rgba(0,0,0,.05)');
+    u4aMarkup += u4aText(800, u4aRow.y + 42, u4aRow.label, { a: 'middle', s: 29, w: 1, f: u4aRow.color, o: u4aOpacity });
+    u4aMarkup += u4aGrid(u4aOnlyLength.length, u4aOnlyLength.width, 405, u4aRow.y + 72, 40, u4aOpacity, C.chalk);
+    u4aMarkup += u4aArrow(540, u4aRow.y + 118, 700, u4aRow.y + 118, u4aOpacity);
+    u4aMarkup += u4aGrid(u4aRow.after.length, u4aRow.after.width, 825, u4aRow.y + 72, 40, u4aOpacity, u4aRow.color, 'rgba(239,233,216,.08)');
+    u4aMarkup += u4aText(1130, u4aRow.y + 118, `面積 ${u4aBeforeArea} → ${u4aAfterArea}`, { a: 'middle', s: 27, f: C.chalk, o: u4aOpacity });
+    u4aMarkup += u4aText(1130, u4aRow.y + 160, `變成 ${u4aAfterArea / u4aBeforeArea} 倍`, { a: 'middle', s: 26, f: u4aRow.color, o: u4aOpacity });
+  }
+  const u4aRatioOnly = u4aArea(u4aLengthOnlyAfter.length, u4aLengthOnlyAfter.width) / u4aArea(u4aOnlyLength.length, u4aOnlyLength.width);
+  u4aMarkup += u4aText(800, 785, `只拉長是 ${u4aRatioOnly} 倍；少了寬也變 2 倍這個條件`, {
+    a: 'middle', s: 28, w: 1, f: C.yellow, o: u4aK(u, 6.7, 0.7),
+  });
+  return u4aPaint(u4aMarkup);
+}
+
+function s9(u) {
+  let u4aMarkup = head(u, '效化', '考驗丁組');
+  u4aMarkup += u4aText(800, 210, '逐組比較放大前後的周長', { a: 'middle', s: 29, f: C.dim, o: u4aK(u, 0.3, 0.7) });
+  for (let u4aIndex = 0; u4aIndex < U4A_GROUPS.length; u4aIndex++) {
+    const u4aGroup = U4A_GROUPS[u4aIndex];
+    const u4aAfterLength = u4aGroup.length * U4A_SCALE;
+    const u4aAfterWidth = u4aGroup.width * U4A_SCALE;
+    const u4aBeforePerimeter = u4aPerimeter(u4aGroup.length, u4aGroup.width);
+    const u4aAfterPerimeter = u4aPerimeter(u4aAfterLength, u4aAfterWidth);
+    const u4aOpacity = u4aK(u, 0.45 + u4aIndex * 0.8, 0.7);
+    const u4aY = 260 + u4aIndex * 112;
+    u4aMarkup += u4aFrame(115, u4aY, 1370, 88, u4aGroup.color, u4aOpacity, 'rgba(0,0,0,.04)');
+    u4aMarkup += u4aText(240, u4aY + 56, `${u4aGroup.key}組`, { a: 'middle', s: 30, w: 1, f: u4aGroup.color, o: u4aOpacity });
+    u4aMarkup += u4aText(740, u4aY + 56, `${u4aBeforePerimeter} → ${u4aAfterPerimeter}`, { a: 'middle', s: 31, f: C.chalk, o: u4aOpacity });
+    u4aMarkup += u4aText(1100, u4aY + 56, `${u4aAfterPerimeter / u4aBeforePerimeter} 倍`, { a: 'middle', s: 29, f: C.yellow, o: u4aOpacity });
+    u4aMarkup += tick(1375, u4aY + 43, 18, u4aOpacity, C.green);
+  }
+  u4aMarkup += hframe(370, 695, 860, 86, u4aK(u, 5.8, 0.7), '', C.yellow);
+  u4aMarkup += u4aText(800, 750, '目前找不到反例，丁組暫時留下', { a: 'middle', s: 27, w: 1, f: C.yellow, o: u4aK(u, 5.8, 0.7) });
+  return u4aPaint(u4aMarkup);
+}
+
+function s10(u) {
+  let u4aMarkup = head(u, '一般化', '把猜想說得更完整');
+  const u4aExample = U4A_GROUPS[3];
+  const u4aAfterLength = u4aExample.length * U4A_SCALE;
+  const u4aAfterWidth = u4aExample.width * U4A_SCALE;
+  const u4aPerimeterFactor = u4aPerimeter(u4aAfterLength, u4aAfterWidth) / u4aPerimeter(u4aExample.length, u4aExample.width);
+  const u4aAreaFactor = u4aArea(u4aAfterLength, u4aAfterWidth) / u4aArea(u4aExample.length, u4aExample.width);
+  const u4aOpacity = u4aK(u, 0.4, 0.8);
+  u4aMarkup += u4aFrame(110, 195, 1380, 165, C.yellow, u4aOpacity, 'rgba(242,193,78,.05)');
+  u4aMarkup += u4aText(800, 250, `任何長方形（正方形也算），長和寬都變 ${U4A_SCALE} 倍，周長都變 ${u4aPerimeterFactor} 倍。`, {
+    a: 'middle', s: 27, w: 1, f: C.yellow, o: u4aOpacity,
+  });
+  u4aMarkup += u4aText(800, 315, `任何長方形（正方形也算），長和寬都變 ${U4A_SCALE} 倍，面積都變 ${u4aAreaFactor} 倍。`, {
+    a: 'middle', s: 27, w: 1, f: C.yellow, o: u4aOpacity,
+  });
+  u4aMarkup += u4aGrid(u4aExample.length, u4aExample.width, 280, 380, 48, u4aK(u, 1.2, 0.7), C.chalk);
+  u4aMarkup += u4aArrow(510, 425, 650, 425, u4aK(u, 2.1, 0.6));
+  u4aMarkup += u4aGrid(u4aAfterLength, u4aAfterWidth, 760, 365, 48, u4aK(u, 2.5, 0.7), C.yellow, 'rgba(242,193,78,.08)');
+  u4aMarkup += u4aText(420, 565, `周長 ${u4aPerimeter(u4aExample.length, u4aExample.width)} → ${u4aPerimeter(u4aAfterLength, u4aAfterWidth)}`, {
+    a: 'middle', s: 28, f: C.chalk, o: u4aK(u, 3.3, 0.7),
+  });
+  u4aMarkup += u4aText(420, 615, `周長變 ${u4aPerimeterFactor} 倍`, { a: 'middle', s: 30, w: 1, f: C.yellow, o: u4aK(u, 4.0, 0.7) });
+  u4aMarkup += u4aText(1150, 565, `面積 ${u4aArea(u4aExample.length, u4aExample.width)} → ${u4aArea(u4aAfterLength, u4aAfterWidth)}`, {
+    a: 'middle', s: 28, f: C.chalk, o: u4aK(u, 3.7, 0.7),
+  });
+  u4aMarkup += u4aText(1150, 615, `面積變 ${u4aAreaFactor} 倍`, { a: 'middle', s: 30, w: 1, f: C.blue, o: u4aK(u, 4.4, 0.7) });
+  u4aMarkup += u4aText(800, 735, '補上「任何」和條件，讓猜想說得完整', {
+    a: 'middle', s: 29, f: C.dim, o: u4aK(u, 6.2, 0.8),
+  });
+  return u4aPaint(u4aMarkup);
+}
+
+function s11(u) {
+  let u4aMarkup = head(u, '證實', '切成 4 塊原圖');
+  const u4aBaseLength = U4A_GROUPS[3].length;
+  const u4aBaseWidth = U4A_GROUPS[3].width;
+  const u4aAfterLength = u4aBaseLength * U4A_SCALE;
+  const u4aAfterWidth = u4aBaseWidth * U4A_SCALE;
+  const u4aBeforeArea = u4aArea(u4aBaseLength, u4aBaseWidth);
+  const u4aAfterArea = u4aArea(u4aAfterLength, u4aAfterWidth);
+  const u4aBeforePerimeter = u4aPerimeter(u4aBaseLength, u4aBaseWidth);
+  const u4aAfterPerimeter = u4aPerimeter(u4aAfterLength, u4aAfterWidth);
+  const u4aCutOpacity = u4aK(u, 3.0, 0.8);
+  const u4aTileOpacity = u4aK(u, 5.2, 0.8);
+  u4aMarkup += u4aText(335, 270, '原圖', { a: 'middle', s: 30, w: 1, f: C.chalk, o: u4aK(u, 0.5, 0.7) });
+  u4aMarkup += u4aGrid(u4aBaseLength, u4aBaseWidth, 215, 325, 60, u4aK(u, 0.5, 0.7), C.chalk);
+  u4aMarkup += u4aText(335, 510, `${u4aBaseLength} × ${u4aBaseWidth}`, { a: 'middle', s: 27, f: C.dim, o: u4aK(u, 0.7, 0.7) });
+  u4aMarkup += u4aArrow(445, 430, 590, 430, u4aK(u, 1.4, 0.7));
+  u4aMarkup += u4aText(940, 270, '長和寬都變 2 倍後，直的、橫的各切一刀', {
+    a: 'middle', s: 28, f: C.dim, o: u4aK(u, 1.8, 0.8),
+  });
+  const u4aGridX = 770;
+  const u4aGridY = 345;
+  const u4aCellSize = 60;
+  const u4aGridW = u4aGridWidth(u4aAfterLength, u4aCellSize);
+  const u4aGridH = u4aGridWidth(u4aAfterWidth, u4aCellSize);
+  u4aMarkup += u4aGrid(u4aAfterLength, u4aAfterWidth, u4aGridX, u4aGridY, u4aCellSize, 1 - u4aCutOpacity, C.chalk);
+  u4aMarkup += u4aQuadrantGrid(u4aAfterLength, u4aAfterWidth, u4aGridX, u4aGridY, u4aCellSize, u4aCutOpacity);
+  if (u4aCutOpacity > 0) {
+    const u4aMidX = u4aGridX + u4aGridWidth(u4aBaseLength, u4aCellSize) + U4A_GAP / 2;
+    const u4aMidY = u4aGridY + u4aGridWidth(u4aBaseWidth, u4aCellSize) + U4A_GAP / 2;
+    u4aMarkup += `<g opacity="${u4aCutOpacity}"><line x1="${u4aMidX}" y1="${u4aGridY - 6}" x2="${u4aMidX}" y2="${u4aGridY + u4aGridH + 2}" stroke="${C.chalk}" stroke-width="5"/><line x1="${u4aGridX - 6}" y1="${u4aMidY}" x2="${u4aGridX + u4aGridW + 2}" y2="${u4aMidY}" stroke="${C.chalk}" stroke-width="5"/></g>`;
+  }
+  u4aMarkup += u4aText(u4aGridX + u4aGridW / 2, 530, `${U4A_SCALE} × ${U4A_SCALE} = ${U4A_SCALE * U4A_SCALE} 塊原圖`, {
+    a: 'middle', s: 30, w: 1, f: C.yellow, o: u4aTileOpacity,
+  });
+  u4aMarkup += u4aText(800, 630, `面積：${u4aBeforeArea} → ${u4aAfterArea}（${u4aAfterArea / u4aBeforeArea} 倍）`, {
+    a: 'middle', s: 29, f: C.blue, o: u4aTileOpacity,
+  });
+  u4aMarkup += u4aText(800, 680, `周長：${u4aBeforePerimeter} → ${u4aAfterPerimeter}（${u4aAfterPerimeter / u4aBeforePerimeter} 倍）`, {
+    a: 'middle', s: 29, f: C.yellow, o: u4aTileOpacity,
+  });
+  u4aMarkup += u4aText(800, 755, '每一塊都和原圖一樣，四塊拼成放大後的圖形', {
+    a: 'middle', s: 27, f: C.chalk, o: u4aTileOpacity,
+  });
+  return u4aPaint(u4aMarkup);
+}
+
+function u4aHatchCard(x, y, width, height, label, index, opacity) {
+  const u4aClipId = `u4aCardClip${index}`;
+  let u4aMarkup = `<defs><clipPath id="${u4aClipId}"><rect x="${x}" y="${y}" width="${width}" height="${height}" rx="16"/></clipPath></defs>`;
+  u4aMarkup += `<g opacity="${opacity}"><rect x="${x}" y="${y}" width="${width}" height="${height}" rx="16" fill="rgba(0,0,0,.08)" stroke="${C.chalk}" stroke-width="3"/>`;
+  u4aMarkup += `<g clip-path="url(#${u4aClipId})" stroke="rgba(239,233,216,.32)" stroke-width="5">`;
+  for (let u4aOffset = -height; u4aOffset < width + height; u4aOffset += 38) {
+    u4aMarkup += `<line x1="${x + u4aOffset}" y1="${y + height}" x2="${x + u4aOffset + height}" y2="${y}"/>`;
+  }
+  u4aMarkup += '</g>';
+  u4aMarkup += u4aText(x + width / 2, y + 70, label, { a: 'middle', s: 34, w: 1, f: C.yellow });
+  u4aMarkup += u4aText(x + width / 2, y + 138, '？', { a: 'middle', s: 58, w: 1, f: C.chalk });
+  return u4aMarkup + '</g>';
+}
+
+function s12(u) {
+  let u4aMarkup = head(u, '換你們了', '這個單元的任務');
+  const u4aCardOpacity = u4aK(u, 1.0, 0.8);
+  for (let u4aIndex = 0; u4aIndex < U4A_GROUPS.length; u4aIndex++) {
+    const u4aX = 125 + u4aIndex * 365;
+    u4aMarkup += u4aHatchCard(u4aX, 270, 320, 195, `第 ${u4aIndex + 1} 組`, u4aIndex + 1, u4aCardOpacity);
+  }
+  const u4aTaskOpacity = u4aK(u, 4.3, 0.8);
+  u4aMarkup += hframe(95, 535, 1410, 245, u4aTaskOpacity, '', C.yellow);
+  const u4aTaskLines = [
+    '請找出卡片上兩個數的倍數，再圈出它們共同的倍數，',
+    `由小到大寫出前 ${U4A_TASK_MULTIPLE_MIN} 到 ${U4A_TASK_MULTIPLE_MAX} 個。最後圈出其中最小的一個：`,
+    '這些共同的倍數，和最小的那個有什麼關係？',
+  ];
+  for (let u4aIndex = 0; u4aIndex < u4aTaskLines.length; u4aIndex++) {
+    u4aMarkup += u4aText(800, 610 + u4aIndex * 45, u4aTaskLines[u4aIndex], {
+      a: 'middle', s: 27, f: C.chalk, o: u4aTaskOpacity,
+    });
+  }
+  return u4aPaint(u4aMarkup);
+}
+
+const SEGS = [
+  { len: 12, grp: "開場", name: "像偵探一樣找規律", scene: s1,
+    cap: "規律不是老師直接告訴你的，而是<b>你自己找出來的</b>。先用一個暖身題，練習這五個步驟。" },
+  { len: 12, grp: "造例", name: "每組拿到不同的卡", scene: s2,
+    cap: "暖身題：長和寬都變成 2 倍，周長和面積會變怎樣？每組圖形<b>不一樣</b>，例子才豐富。" },
+  { len: 14, grp: "造例", name: "在方格紙上畫", scene: s3,
+    cap: "在方格紙上畫，<b>數格子</b>算面積、<b>數邊</b>算周長。" },
+  { len: 12, grp: "造例", name: "整理例子", scene: s4,
+    cap: "組員輪流說出例子，有人不同意就<b>當場重畫、重數</b>。例子越正確，越好找規律。" },
+  { len: 14, grp: "提出猜想", name: "猜想牆", scene: s5,
+    cap: "<b>有憑有據、大膽猜</b>，一張只寫一個想法。每組交 1 條，老師先不說對錯。" },
+  { len: 11, grp: "效化", name: "考驗甲組", scene: s6,
+    cap: "乙組的面積 4 變 16，多了 12，不是多 3。<b>換別組的例子</b>就找到反例了。" },
+  { len: 12, grp: "效化", name: "考驗乙組", scene: s7,
+    cap: "邊長 4 只是<b>剛好</b>一樣大，換別的邊長就不一樣了，乙組被推翻。" },
+  { len: 12, grp: "效化", name: "考驗丙組", scene: s8,
+    cap: "只把長變 2 倍，面積只變 2 倍。丙組不是全錯，是<b>少了條件</b>：長和寬都要變。" },
+  { len: 11, grp: "效化", name: "考驗丁組", scene: s9,
+    cap: "四組的周長都變 2 倍，找不到反例，丁組<b>暫時留下</b>。" },
+  { len: 12, grp: "一般化", name: "對所有長方形都成立", scene: s10,
+    cap: "加上「<b>任何</b>」，表示所有長方形都成立；再補上條件「長和寬都變 2 倍」。" },
+  { len: 15, grp: "證實", name: "切成 4 塊原圖", scene: s11,
+    cap: "放大後直的、橫的各切一刀，剛好是<b>4 塊一模一樣的原圖</b>，所以面積一定是 4 倍。" },
+  { len: 13, grp: "換你們了", name: "這個單元的任務", scene: s12,
+    cap: "這個單元的卡片上課才翻開。<b>答案要靠你們自己找</b>：多造例、大膽猜、找反例！" },
+];
+
+// ===================== 工具（通常不用改）=====================
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const P = (u, a, b) => clamp((u - a) / (b - a), 0, 1);           // u 在 [a,b] 的進度 0–1
+const ease = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const lerp = (a, b, k) => a + (b - a) * k;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); } // 固定種子亂數
+function txt(x, y, s, o = {}) {
+  const a = o.a || 'start', size = o.s || 32, fill = o.f || 'var(--chalk)', op = o.o ?? 1, w = o.w ? 700 : 400, cls = o.c || 't-chalk';
+  return `<text x="${x}" y="${y}" class="${cls}" font-size="${size}" font-weight="${w}" text-anchor="${a}" fill="${fill}" opacity="${op}">${esc(s)}</text>`;
+}
+function box(x, y, w, h, stroke = 'var(--chalk)', op = 1, fill = 'none') {
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${fill}" stroke="${stroke}" stroke-width="3" opacity="${op}"/>`;
+}
+function head(u, kicker, title) {
+  const o = ease(P(u, 0, 0.8));
+  return txt(80, 90, kicker, { c: 't-body', s: 24, f: 'var(--chalk-dim)', o }) + txt(80, 150, title, { s: 50, w: 1, o });
+}
+
+let acc = 0; SEGS.forEach((s) => { s.a = acc; acc += s.len; s.b = acc; });
+window.DURATION = acc;
+window.SEGS = SEGS.map(({ len, grp, name, cap, a, b }) => ({ len, grp, name, cap, a, b }));
+const stage = document.getElementById('stage'), capEl = document.getElementById('caption');
+const segIndex = (t) => { for (let i = 0; i < SEGS.length; i++) if (t < SEGS[i].b) return i; return SEGS.length - 1; };
+window.seek = async function (t) {
+  t = clamp(Number(t) || 0, 0, window.DURATION);
+  const i = segIndex(t), s = SEGS[i];
+  const u = t - s.a;
+  // 段落切換時淡入淡出（只由 t 決定）
+  const fade = Math.min(P(u, 0, 0.35), i === SEGS.length - 1 ? 1 : 1 - P(u, s.len - 0.35, s.len));
+  stage.innerHTML = `<g opacity="${fade.toFixed(3)}">${s.scene(u)}</g>` +
+    txt(1520, 870, `${i + 1} / ${SEGS.length}・${s.grp}・${s.name}`, { a: 'end', c: 't-body', s: 18, f: 'var(--chalk-dim)' });
+  capEl.innerHTML = s.cap; // 字幕只來自本檔 SEGS（作者撰寫、只含 <b>）
+  return true;
+};
+window.ready = Promise.all([document.fonts ? document.fonts.ready.catch(() => null) : null]);
+
+// ===================== 播放器外殼（只呼叫 seek）=====================
+document.title = META.title;
+document.getElementById('title').textContent = META.title;
+document.getElementById('subtitle').textContent = META.subtitle;
+document.getElementById('note').textContent = META.note;
+stage.setAttribute('aria-label', META.ariaLabel);
+const works = document.getElementById('works');
+if (!META.works.length) document.querySelector('.works').hidden = true;
+for (const [label, desc, href] of META.works) {
+  const li = document.createElement('li'), a = document.createElement('a'), sp = document.createElement('span');
+  a.href = href; a.textContent = label; a.target = '_blank'; a.rel = 'noopener'; sp.textContent = desc;
+  li.append(a, sp); works.append(li);
+}
+const playBtn = document.getElementById('play'), scrub = document.getElementById('scrub'), timeEl = document.getElementById('time');
+scrub.max = window.DURATION;
+// 分段刻度：每段分界一條細線（段落起點／總長）；刻度只畫在 #seekMarks，不影響 range 本身
+const playerMarks = document.getElementById('seekMarks');
+SEGS.forEach((s, i) => { if (i > 0) { const d = document.createElement('i'); d.style.left = (s.a / window.DURATION * 100) + '%'; playerMarks.append(d); } });
+// 進度條列收合：預設收起；只有獨立播放（非 embed）才讀寫 localStorage 的 UI 狀態，embed 一律不碰；不可用時只留在記憶體
+const playerEmbed = document.documentElement.classList.contains('embed');
+const playerUiGet = (k) => { if (playerEmbed) return false; try { return localStorage.getItem(k) === '1'; } catch { return false; } };
+const playerUiSet = (k, v) => { if (playerEmbed) return; try { localStorage.setItem(k, v ? '1' : '0'); } catch { /* 不可用時只留在記憶體 */ } };
+let playerSeekOpen = playerUiGet('anim.ui.seek');
+const playerToggle = document.getElementById('toggleSeek'), playerSeekRow = document.getElementById('seekrow');
+function playerApplyUi() {
+  playerSeekRow.hidden = !playerSeekOpen;
+  playerToggle.setAttribute('aria-expanded', String(playerSeekOpen));
+  playerToggle.textContent = playerSeekOpen ? '進度條 ▾' : '進度條 ▸';
+}
+playerToggle.onclick = () => { playerSeekOpen = !playerSeekOpen; playerUiSet('anim.ui.seek', playerSeekOpen); playerApplyUi(); };
+playerApplyUi();
+// ===== 標註工具（手寫筆跡＋文字；以段落為單位、只存在記憶體、不送網路）=====
+// 與研習平台頁同一套操作：畫筆、文字、5 色色票、收回上一筆、清除本段標註；「標註工具 ▸／▾」可收合（預設收起，鍵 anim.ui.ink）。
+// ?embed=1 完全不啟用（研習平台自己有標註）。座標一律存 0–1 的相對位置，舞台縮放或長寬比改變時筆跡仍落在同一處。
+(() => {
+  if (document.documentElement.classList.contains('embed')) return;
+  const stageEl = document.getElementById('stage') || document.getElementById('c');
+  const ctl = document.querySelector('.controls') || document.getElementById('bar');
+  if (!stageEl || !ctl || typeof window.seek !== 'function') return;
+  const COLORS = ['#efe9d8', '#f2c14e', '#e8875b', '#7fb6d9', '#8fd18a'];
+  const ends = typeof SEGS !== 'undefined' ? SEGS.map((s) => s.b) : TIMING.map((s) => s.end);
+  const segOf = (t) => { for (let i = 0; i < ends.length; i++) if (t < ends[i]) return i; return ends.length - 1; };
+  const uiGet = () => { try { return localStorage.getItem('anim.ui.ink') === '1'; } catch { return false; } };
+  const uiSet = (v) => { try { localStorage.setItem('anim.ui.ink', v ? '1' : '0'); } catch { /* 不可用時只留在記憶體 */ } };
+  const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+  const store = new Map(); // 段落索引 → [{k:'s',color,pts} | {k:'l',x,y,text,color}]（依畫下順序）
+  const items = (i) => { let a = store.get(i); if (!a) store.set(i, (a = [])); return a; };
+  let seg = 0, tool = null, penColor = COLORS[1], drawing = null, labelAt = null, open = uiGet();
+
+  // 標註層：有 .board 就掛在木框內（與 SVG 同尺寸）；沒有（如純 canvas 舞台）就掛在舞台父層並追蹤舞台矩形
+  const board = stageEl.closest('.board'), host = board || stageEl.parentElement;
+  if (!board) host.style.position = 'relative';
+  const layer = mk('div', 'annoLayer'), cv = mk('canvas'), labels = mk('div', 'annoLabels'), inp = mk('input', 'annoInput');
+  cv.setAttribute('aria-label', '標註區');
+  inp.type = 'text'; inp.maxLength = 60; inp.hidden = true; inp.placeholder = '輸入文字，按 Enter 放上；Esc 取消'; inp.setAttribute('aria-label', '文字標註');
+  layer.append(cv, labels, inp); host.append(layer);
+  const ctx = cv.getContext('2d');
+
+  // 工具列（控制列第三列）與切換鈕
+  const toggle = mk('button', '', '標註工具 ▸'), row = mk('div', 'annoRow');
+  toggle.id = 'toggleInk'; toggle.type = 'button'; toggle.setAttribute('aria-controls', 'annoTools'); toggle.setAttribute('aria-expanded', 'false');
+  row.id = 'annoTools'; row.hidden = true;
+  const penBtn = mk('button', '', '畫筆'), textBtn = mk('button', '', '文字'), sw = mk('span', 'annoSwatches'), undoBtn = mk('button', '', '收回上一筆'), clearBtn = mk('button', '', '清除本段標註');
+  for (const b of [penBtn, textBtn, undoBtn, clearBtn]) b.type = 'button';
+  penBtn.setAttribute('aria-pressed', 'false'); textBtn.setAttribute('aria-pressed', 'false');
+  const swBtns = COLORS.map((c, i) => {
+    const b = mk('button', 'annoSwatch'); b.type = 'button'; b.style.background = c; b.setAttribute('aria-label', `顏色 ${i + 1}`); b.setAttribute('aria-pressed', c === penColor ? 'true' : 'false');
+    b.onclick = () => { penColor = c; swBtns.forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')); if (labelAt) { inp.style.color = c; inp.focus(); } else if (!tool) setTool('pen'); };
+    sw.append(b); return b;
+  });
+  row.append(penBtn, textBtn, sw, undoBtn, clearBtn);
+  const seekToggle = document.getElementById('toggleSeek');
+  if (seekToggle && seekToggle.parentNode === ctl) seekToggle.after(toggle); else ctl.append(toggle);
+  ctl.append(row);
+
+  function fit() {
+    if (!board) { layer.style.inset = 'auto'; Object.assign(layer.style, { left: stageEl.offsetLeft + 'px', top: stageEl.offsetTop + 'px', width: stageEl.offsetWidth + 'px', height: stageEl.offsetHeight + 'px' }); }
+    const w = layer.clientWidth, h = layer.clientHeight, d = window.devicePixelRatio || 1;
+    layer.style.setProperty('--u', (w / 1600) + 'px');
+    cv.width = Math.max(1, Math.round(w * d)); cv.height = Math.max(1, Math.round(h * d));
+    redraw();
+  }
+  function strokePath(s) {
+    const p = s.pts, W = cv.width, H = cv.height, d = W / (layer.clientWidth || W);
+    if (p.length < 4) return;
+    ctx.strokeStyle = s.color; ctx.lineWidth = Math.max(2 * d, 5 * W / 1600); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(p[0] * W, p[1] * H);
+    for (let i = 2; i < p.length; i += 2) ctx.lineTo(p[i] * W, p[i + 1] * H);
+    ctx.stroke();
+  }
+  function redraw() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (const it of items(seg)) if (it.k === 's') strokePath(it);
+    if (drawing && drawing.seg === seg) strokePath(drawing);
+  }
+  function renderLabels() {
+    labels.replaceChildren(...items(seg).filter((i) => i.k === 'l').map((l) => {
+      const d = mk('div', 'annoLabel', l.text);
+      d.style.left = (l.x * 100) + '%'; d.style.top = (l.y * 100) + '%'; d.style.color = l.color; d.style.borderColor = l.color;
+      return d;
+    }));
+  }
+  function setTool(t) {
+    tool = t;
+    penBtn.setAttribute('aria-pressed', t === 'pen' ? 'true' : 'false');
+    textBtn.setAttribute('aria-pressed', t === 'text' ? 'true' : 'false');
+    cv.classList.toggle('on', !!t); cv.classList.toggle('text-mode', t === 'text');
+    if (t !== 'text') closeInput();
+  }
+  function openInput(x, y) {
+    labelAt = { x, y, seg };
+    inp.value = ''; inp.style.left = (Math.min(x, 0.62) * 100) + '%'; inp.style.top = (Math.max(0.05, Math.min(y, 0.95)) * 100) + '%'; inp.style.color = penColor;
+    inp.hidden = false; requestAnimationFrame(() => inp.focus());
+  }
+  function closeInput() { inp.hidden = true; labelAt = null; }
+  function norm(e) {
+    const r = cv.getBoundingClientRect();
+    return [Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 10000) / 10000, Math.round(Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) * 10000) / 10000];
+  }
+  function endStroke() {
+    if (!drawing) return;
+    const s = drawing; drawing = null;
+    if (s.pts.length === 2) s.pts.push(s.pts[0] + 1 / 1600, s.pts[1] + 1 / 900); // 點一下也留下一個點
+    items(s.seg).push(s);
+    if (s.seg === seg) redraw();
+  }
+  cv.addEventListener('pointerdown', (e) => {
+    if (!tool) return;
+    e.preventDefault();
+    const [x, y] = norm(e);
+    if (tool === 'text') { openInput(x, y); return; }
+    cv.setPointerCapture(e.pointerId);
+    drawing = { k: 's', seg, color: penColor, pts: [x, y] };
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!drawing) return;
+    const [x, y] = norm(e), p = drawing.pts, r = cv.getBoundingClientRect();
+    if (Math.hypot((x - p[p.length - 2]) * r.width, (y - p[p.length - 1]) * r.height) < 3 || p.length >= 800) return;
+    p.push(x, y); redraw();
+  });
+  cv.addEventListener('pointerup', endStroke);
+  cv.addEventListener('pointercancel', endStroke);
+  cv.addEventListener('click', (e) => e.stopPropagation()); // 全螢幕「點畫面播放／暫停」不被標註動作觸發
+  // 文字輸入：所有按鍵都不往上送，空白鍵、方向鍵、F 不會觸發播放器快捷鍵
+  inp.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      const text = inp.value.trim();
+      if (text && labelAt) { items(labelAt.seg).push({ k: 'l', x: labelAt.x, y: labelAt.y, text, color: penColor }); if (labelAt.seg === seg) renderLabels(); }
+      closeInput();
+    } else if (e.key === 'Escape') closeInput();
+  });
+  inp.addEventListener('keyup', (e) => e.stopPropagation());
+  inp.addEventListener('blur', (e) => { if (e.relatedTarget && row.contains(e.relatedTarget)) return; closeInput(); }); // 點色票／按鈕時保留輸入，點別處就取消
+  penBtn.onclick = () => setTool(tool === 'pen' ? null : 'pen');
+  textBtn.onclick = () => setTool(tool === 'text' ? null : 'text');
+  undoBtn.onclick = () => { if (items(seg).pop()) { redraw(); renderLabels(); } };
+  clearBtn.onclick = () => { if (items(seg).length && confirm('清除本段所有筆跡與文字標註？')) { items(seg).length = 0; redraw(); renderLabels(); } };
+  function applyUi() {
+    row.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.textContent = open ? '標註工具 ▾' : '標註工具 ▸';
+    if (!open) setTool(null);
+  }
+  toggle.onclick = () => { open = !open; uiSet(open); applyUi(); };
+  // 全螢幕下不放工具列；進入全螢幕時關閉畫筆，筆跡仍顯示（標註層在全螢幕元素內）
+  document.addEventListener('fullscreenchange', () => { if (document.fullscreenElement) setTool(null); });
+  // 換段時顯示該段的標註：包住 seek，不改變 seek 的畫面與回傳值
+  const baseSeek = window.seek;
+  window.seek = async function (t) {
+    const r = await baseSeek.call(this, t);
+    const i = segOf(Number(t) || 0);
+    if (i !== seg) { seg = i; closeInput(); redraw(); renderLabels(); }
+    return r;
+  };
+  new ResizeObserver(fit).observe(board || stageEl);
+  applyUi(); fit();
+})();
+let cur = 0, playing = false, last = 0;
+const chap = document.getElementById('chapters');
+const btns = SEGS.map((s, i) => {
+  const li = document.createElement('li'), b = document.createElement('button');
+  b.type = 'button'; b.textContent = `${i + 1}・${s.name}`; b.onclick = () => { playerPause(); playerShow(s.a); };
+  li.append(b); chap.append(li); return b;
+});
+function playerShow(t) {
+  cur = clamp(t, 0, window.DURATION); scrub.value = cur;
+  timeEl.textContent = `${cur.toFixed(1)} / ${window.DURATION.toFixed(1)}`;
+  window.seek(cur);
+  const i = segIndex(cur); btns.forEach((b, j) => b.setAttribute('aria-current', j === i ? 'true' : 'false'));
+}
+function playerTick(now) { if (!playing) return; cur += (now - last) / 1000; last = now; if (cur >= window.DURATION) { cur = window.DURATION; playerPause(); } playerShow(cur); if (playing) requestAnimationFrame(playerTick); }
+function playerPlay() { if (cur >= window.DURATION - 0.05) cur = 0; playing = true; playBtn.textContent = '暫停'; last = performance.now(); requestAnimationFrame(playerTick); }
+function playerPause() { playing = false; playBtn.textContent = '播放'; }
+playBtn.onclick = () => (playing ? playerPause() : playerPlay());
+scrub.oninput = () => { playerPause(); playerShow(Number(scrub.value)); };
+document.getElementById('prev').onclick = () => { playerPause(); playerShow(SEGS[segIndex(cur - 0.6)].a); };
+document.getElementById('next').onclick = () => { playerPause(); const i = segIndex(cur) + 1; playerShow(i < SEGS.length ? SEGS[i].a : window.DURATION); };
+document.getElementById('fs').onclick = () => { const th = document.getElementById('theater'); document.fullscreenElement ? document.exitFullscreen() : th.requestFullscreen?.(); };
+addEventListener('keydown', (e) => {
+  if (document.documentElement.classList.contains('embed')) return;
+  if (e.target.closest('input,button')) return;
+  if (e.key === ' ') { e.preventDefault(); playing ? playerPause() : playerPlay(); }
+  else if (e.key === 'ArrowRight') document.getElementById('next').click();
+  else if (e.key === 'ArrowLeft') document.getElementById('prev').click();
+  else if (e.key === 'f' || e.key === 'F') document.getElementById('fs').click();
+});
+window.ready.then(() => playerShow(cur));
+// 研習平台嵌入契約（postMessage 握手，鍵名 ptt 為相容用）：被嵌入時才啟用
+addEventListener('message', (e) => {
+  if (e.source !== window.parent || window.parent === window) return;
+  const m = e.data;
+  if (!m || m.ptt !== 1 || m.type !== 'seek' || typeof m.t !== 'number' || !Number.isFinite(m.t)) return;
+  window.seek(m.t);
+});
+if (window.parent !== window) window.ready.then(() => parent.postMessage({ ptt: 1, type: 'ready', duration: window.DURATION }, '*'));
+</script>
+</html>

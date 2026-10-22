@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="zh-Hant">
+<script>if(/[?&]embed=1\b/.test(location.search))document.documentElement.classList.add('embed')</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第六單元 整數四則運算：兩堆乘法可以合起來算嗎？</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=swap">
+<style>
+/* repo 轉教學動畫網頁｜通用骨架（黑板舞台）。新動畫只改「設定區」與「場景區」。 */
+:root{
+  --board:#23392f; --board-deep:#1a2b23; --frame:#6e4c31;
+  --chalk:#efe9d8; --chalk-dim:#a9b3a6;
+  --yellow:#f2c14e; --orange:#e8875b; --blue:#7fb6d9; --green:#8fd18a; --red:#e66a5c;
+  --font-chalk:"LXGW WenKai TC","Kaiti TC","DFKai-SB","BiauKai",serif;
+  --font-body:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif;
+  color-scheme:dark;
+}
+html,body{background:var(--board-deep);color:var(--chalk)}
+body{margin:0;font-family:var(--font-body)}
+/* ===== 播放器版面公版（研習平台頁同一套規則）=====
+   1) 播放區 .player（標題列＋舞台＋字幕＋控制列）剛好佔一個視窗高；章節、延伸閱讀、出處在下方，往下捲才看到。
+   2) 舞台吃「扣掉標題列、字幕、控制列後的剩餘空間」：.stage-area 是容器查詢容器，.board 用 cqw／cqh 算出 16:9 最大尺寸並置中；
+      木框寬度只用 --bw 變數計入（SVG 本身維持 16:9），不得再用固定像素去扣高度。
+   3) 進度條列可收合（#toggleSeek），預設收起；收起時舞台自動變大。字幕至少預留兩行，段落切換時舞台不跳動。    4) 標註工具（手寫筆跡＋文字，.annoLayer 掛在 .board 內）：「標註工具 ▸／▾」（#toggleInk）收合一列工具列，預設收起；標註以段落為單位、只存在記憶體；?embed=1 不啟用。 */
+.wrap{max-width:1600px;margin:0 auto;padding-inline:16px;padding-bottom:28px;display:flex;flex-direction:column;gap:14px}
+.player{box-sizing:border-box;height:100vh;height:100dvh;padding-block:12px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.player>header,.player>.controls{flex:none}
+.theater{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:10px;align-items:center}
+.theater .caption{align-self:stretch;flex:none}
+.stage-area{flex:1 1 0;min-height:0;align-self:stretch;display:flex;align-items:center;justify-content:center;container-type:size}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 16px}
+h1{font-family:var(--font-chalk);font-weight:700;font-size:clamp(1.3rem,2.6vw,1.9rem);margin:0}
+.sub{color:var(--chalk-dim);font-size:.95rem;margin:0}
+.board{--bw:14px;box-sizing:border-box;border:var(--bw) solid var(--frame);border-radius:6px;background:var(--board);box-shadow:inset 0 0 60px rgba(0,0,0,.45);flex:none;max-width:100%;
+  width:100%;width:min(100cqw, calc((100cqh - 2 * var(--bw)) * 16 / 9 + 2 * var(--bw)))}
+/* 全螢幕：theater 本身就是全螢幕元素，沿用同一套規則（舞台吃剩餘空間、字幕預留兩行；字幕字級與行高用 vh／vw） */
+.theater:fullscreen{background:var(--board-deep);gap:1.5vh;padding:2vh 2vw;box-sizing:border-box}
+.theater:fullscreen .caption{text-align:center;font-size:min(2.4vw,3.2vh);line-height:1.4;min-height:2.8em;max-width:100%}
+@media (max-width:640px){.board{--bw:8px}}
+/* 內嵌（?embed=1）：只留舞台與字幕，尺寸全用 vh，播放由外層 postMessage 控制（版面公版不套用） */
+html.embed body{padding:0;overflow:hidden}
+html.embed header,html.embed .controls,html.embed .chapters,html.embed .works,html.embed .note{display:none}
+html.embed .wrap{max-width:none;gap:0;padding:0}
+html.embed .player,html.embed .stage-area{display:contents}
+html.embed .stage-area{container-type:normal}
+html.embed .theater{flex:none;gap:1vh}
+html.embed .board{width:min(100%, calc(89vh * 16 / 9));border-width:1.4vh}
+html.embed .caption{font-size:2.6vh;line-height:1.4;min-height:3.8vh;text-align:center;padding:0 1vh;margin:0}
+.board svg{display:block;width:100%;height:auto;aspect-ratio:16/9}
+.caption{font-family:var(--font-chalk);text-align:center;font-size:clamp(1.05rem,2.2vw,1.45rem);line-height:1.5;min-height:3em;margin:0}
+.caption b{color:var(--yellow);font-weight:700}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+#fs{margin-left:auto}
+button{font:inherit;font-size:.95rem;color:var(--chalk);background:transparent;border:1.5px solid var(--chalk-dim);border-radius:999px;padding:.4em 1em;cursor:pointer}
+button:hover{border-color:var(--yellow);color:var(--yellow)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--yellow);outline-offset:2px}
+#play{min-width:5.5em;border-color:var(--yellow);color:var(--yellow)}
+#toggleSeek[aria-expanded="true"]{border-color:var(--yellow);color:var(--yellow)}
+/* 進度條列：獨佔 .controls 的第二列；黃色 6px 粗軌道畫在 #seekMarks（細線＝段落分界），上面疊透明的 range 與 16px 圓拇指 */
+.seekrow{display:flex;flex:1 0 100%;align-items:center;gap:12px}
+.seekrow[hidden]{display:none}
+#seekWrap{position:relative;flex:1 1 200px;min-width:120px;height:20px}
+#scrub{position:relative;z-index:1;-webkit-appearance:none;appearance:none;display:block;width:100%;height:20px;padding:0;margin:0;border:0;border-radius:0;background:transparent;cursor:pointer}
+#scrub::-webkit-slider-runnable-track{height:6px;background:transparent}
+#scrub::-moz-range-track{height:6px;border:0;background:transparent}
+#scrub::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:-5px;border:2px solid var(--board-deep);border-radius:50%;background:var(--yellow)}
+#scrub::-moz-range-thumb{box-sizing:border-box;width:16px;height:16px;border:2px solid var(--board-deep);border-radius:50%;background:var(--yellow)}
+#seekMarks{position:absolute;left:8px;right:8px;top:7px;height:6px;border-radius:3px;overflow:hidden;background:var(--yellow);pointer-events:none}
+#seekMarks i{position:absolute;top:0;bottom:0;width:1px;background:var(--board-deep)}
+#time{flex:none;width:8.5em;text-align:right;font-variant-numeric:tabular-nums;color:var(--chalk-dim);font-size:.85rem}
+/* 標註工具（手寫筆跡＋文字）：標註層蓋在舞台上，平常 pointer-events:none，只有畫筆／文字啟用時才攔截；?embed=1 不建立 */
+.board{position:relative}
+.annoLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2;--u:1px}
+.annoLayer canvas{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;background:none;border-radius:0;aspect-ratio:auto;box-shadow:none}
+.annoLayer canvas.on{pointer-events:auto;touch-action:none;cursor:crosshair}
+.annoLayer canvas.on.text-mode{cursor:text}
+.annoLabels{position:absolute;inset:0;pointer-events:none}
+.annoLabel{position:absolute;transform:translateY(-50%);font-family:var(--font-chalk,serif);font-size:calc(34 * var(--u));font-weight:700;line-height:1.25;padding:calc(4 * var(--u)) calc(14 * var(--u));background:rgba(26,43,35,.82);border:calc(2 * var(--u)) solid;border-radius:calc(10 * var(--u));white-space:pre-wrap;max-width:56%;word-break:break-word}
+.annoInput{position:absolute;transform:translateY(-50%);box-sizing:border-box;width:max(180px,32%);max-width:92%;font-family:var(--font-chalk,serif);font-size:max(16px,calc(30 * var(--u)));font-weight:700;pointer-events:auto;background:rgba(26,43,35,.95);border:2px dashed var(--yellow,#f2c14e);color:var(--chalk,#efe9d8)}
+.annoInput[hidden]{display:none}
+#toggleInk[aria-expanded="true"]{border-color:var(--yellow,#f2c14e);color:var(--yellow,#f2c14e)}
+/* 工具列：獨佔 .controls 的一整列 */
+.annoRow{display:flex;flex:1 0 100%;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.annoRow[hidden]{display:none}
+.annoSwatches{display:inline-flex;align-items:center;gap:8px}
+.annoSwatch{width:26px;height:26px;border-radius:50%;padding:0;border:2px solid transparent}
+.annoSwatch[aria-pressed="true"]{border-color:#fff;outline:2px solid var(--board-deep,var(--bg,#1a2b23))}
+.annoRow button[aria-pressed="true"]:not(.annoSwatch){border-color:var(--yellow,#f2c14e);color:var(--board-deep,#1a2b23);background:var(--yellow,#f2c14e)}
+.chapters{display:flex;flex-wrap:wrap;gap:6px;padding:0;margin:0;list-style:none}
+.chapters button{font-size:.85rem;padding:.25em .8em;border-color:rgba(239,233,216,.25);color:var(--chalk-dim)}
+.chapters button[aria-current="true"]{border-color:var(--yellow);color:var(--yellow)}
+.note{color:var(--chalk-dim);font-size:.85rem;margin:0}
+.works h2{font-family:var(--font-chalk);font-size:1.15rem;margin:0 0 6px;color:var(--yellow)}
+.works ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 16px}
+.works a{color:var(--chalk);text-underline-offset:3px}
+.works span{display:block;color:var(--chalk-dim);font-size:.85rem}
+.t-chalk{font-family:var(--font-chalk);fill:var(--chalk)}
+.t-body{font-family:var(--font-body);fill:var(--chalk)}
+</style>
+
+<div class="wrap">
+  <section class="player" aria-label="動畫播放器">
+    <header>
+      <h1 id="title"></h1>
+      <p class="sub" id="subtitle"></p>
+    </header>
+    <div class="theater" id="theater">
+      <div class="stage-area"><div class="board"><svg id="stage" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" role="img"></svg></div></div>
+      <p class="caption" id="caption" aria-live="polite"></p>
+    </div>
+    <div class="controls">
+      <button id="prev" type="button">上一段</button>
+      <button id="play" type="button">播放</button>
+      <button id="next" type="button">下一段</button>
+      <button id="toggleSeek" type="button" aria-expanded="false" aria-controls="seekrow">進度條 ▸</button>
+      <button id="fs" type="button">全螢幕</button>
+      <div class="seekrow" id="seekrow" hidden>
+        <div id="seekWrap">
+          <input id="scrub" type="range" min="0" max="1" step="0.05" value="0" aria-label="時間軸">
+          <div id="seekMarks" aria-hidden="true"></div>
+        </div>
+        <span id="time"></span>
+      </div>
+    </div>
+  </section>
+  <ul class="chapters" id="chapters"></ul>
+  <section class="works" aria-labelledby="works-h"><h2 id="works-h">延伸閱讀</h2><ul id="works"></ul></section>
+  <p class="note" id="note"></p>
+</div>
+
+<script>
+'use strict';
+// ===================== 設定區（段落與字幕由 timing.json 注入）=====================
+// ===== 教學動畫共用圖形（不得與範本播放器或工具重名）=====
+const C = { yellow: 'var(--yellow)', blue: 'var(--blue)', green: 'var(--green)', red: 'var(--red)', orange: 'var(--orange)', purple: '#b9a3e3', chalk: 'var(--chalk)', dim: 'var(--chalk-dim)', deep: 'var(--board-deep)' };
+function arrow(x1, y1, x2, y2, color = C.dim, op = 1, both = false, k = 1, dash = '') {
+  const ex = lerp(x1, x2, k), ey = lerp(y1, y2, k);
+  const ang = Math.atan2(y2 - y1, x2 - x1), h = 16;
+  const head = (x, y, a) => `<polygon points="${x},${y} ${x - h * Math.cos(a - 0.45)},${y - h * Math.sin(a - 0.45)} ${x - h * Math.cos(a + 0.45)},${y - h * Math.sin(a + 0.45)}" fill="${color}"/>`;
+  let g = `<g opacity="${op}"><line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}" stroke="${color}" stroke-width="4" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
+  if (k >= 0.99) { g += head(x2, y2, ang); if (both) g += head(x1, y1, ang + Math.PI); }
+  return g + '</g>';
+}
+// 曲線箭頭：二次貝茲，k 為繪製進度（以 dasharray 截斷）
+function curve(x1, y1, cx, cy, x2, y2, color = C.dim, op = 1, k = 1, label = '', lx = 0, ly = 0) {
+  const len = 1400;
+  let g = `<g opacity="${op}"><path d="M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="4" stroke-dasharray="10 9" pathLength="${len}" style="stroke-dashoffset:0"/>`;
+  if (k < 0.99) g = `<g opacity="${op}"><path d="M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="4" pathLength="${len}" stroke-dasharray="${(len * k).toFixed(1)} ${len}"/>`;
+  else {
+    const a = Math.atan2(y2 - cy, x2 - cx), h = 16;
+    g += `<polygon points="${x2},${y2} ${x2 - h * Math.cos(a - 0.45)},${y2 - h * Math.sin(a - 0.45)} ${x2 - h * Math.cos(a + 0.45)},${y2 - h * Math.sin(a + 0.45)}" fill="${color}"/>`;
+  }
+  if (label) g += txt(lx, ly, label, { c: 't-body', s: 24, f: color, o: k >= 0.99 ? 1 : 0 });
+  return g + '</g>';
+}
+function hframe(x, y, w, h, op, label = '', color = C.yellow, glow = 0, size = 32) {
+  return `<g opacity="${op}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="26" fill="rgba(242,193,78,${0.04 + 0.08 * glow})" stroke="${color}" stroke-width="${4 + 2 * glow}" stroke-dasharray="16 12"/>` +
+    (label ? txt(x + 26, y + 44, label, { s: size, w: 1, f: color }) : '') + '</g>';
+}
+function card(x, y, W, h, op, lines, color = C.chalk) {
+  // lines: [[文字, 字級, 顏色, 粗體, 字型類別, 置中]]，依序往下排
+  let g = `<g opacity="${op}">${box(x, y, W, h, color, 1, C.deep)}`;
+  let yy = y + 14;
+  for (const [s, size = 28, f = C.chalk, bold = false, c = 't-chalk', cx = false] of lines) {
+    yy += size * 1.25;
+    g += txt(cx ? x + W / 2 : x + 24, yy, s, { s: size, f, w: bold, c, a: cx ? 'middle' : 'start' });
+    yy += size * 0.3;
+  }
+  return g + '</g>';
+}
+function ccard(x, y, w, h, op, title, sub, color = C.chalk, tsize = 32, ssize = 24) {
+  return `<g opacity="${op}">${box(x, y, w, h, color, 1, C.deep)}` +
+    txt(x + w / 2, y + h / 2 + (sub ? -6 : tsize * 0.35), title, { a: 'middle', s: tsize, w: 1, f: color }) +
+    (sub ? txt(x + w / 2, y + h / 2 + ssize + 8, sub, { a: 'middle', c: 't-body', s: ssize, f: C.dim }) : '') + '</g>';
+}
+function chip(x, y, w, label, op, color = C.chalk, size = 26, h = 58) {
+  return `<g opacity="${op}">${box(x, y, w, h, color, 1, C.deep)}${txt(x + w / 2, y + h / 2 + size * 0.36, label, { a: 'middle', s: size, f: color })}</g>`;
+}
+function tick(x, y, s, op, color = C.green) {
+  return `<path d="M${x - s} ${y} L${x - s / 3} ${y + s * 0.7} L${x + s} ${y - s * 0.8}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="${op}"/>`;
+}
+function cross(x, y, s, op, color = C.red) {
+  return `<g opacity="${op}" stroke="${color}" stroke-width="12" stroke-linecap="round"><line x1="${x - s}" y1="${y - s}" x2="${x + s}" y2="${y + s}"/><line x1="${x + s}" y1="${y - s}" x2="${x - s}" y2="${y + s}"/></g>`;
+}
+function dot(x, y, r, color, op = 1) { return `<circle cx="${x}" cy="${y}" r="${r}" fill="${color}" opacity="${op}"/>`; }
+function underline(x1, x2, y, k, color = C.yellow, op = 1) { return `<line x1="${x1}" y1="${y}" x2="${lerp(x1, x2, k)}" y2="${y}" stroke="${color}" stroke-width="4" opacity="${op}"/>`; }
+// 依進度逐一出現：第 i 個元素在 t0 + i*step 開始、花 dur 秒
+const stagger = (u, t0, i, step = 0.6, dur = 0.7) => ease(P(u, t0 + i * step, t0 + i * step + dur));
+
+const META = {
+  title: "第六單元 整數四則運算：兩堆乘法可以合起來算嗎？",
+  subtitle: "13 段・165 秒｜可停在任一段",
+  ariaLabel: "說明兩個乘法有相同因數時如何用點陣合併或拆開，並以反例檢驗猜想、一般化分配律，最後用點陣說明加法與減法。",
+  note: "出處：臆測五階段教學設計稿（第六單元任務一）與本系列舊版動畫。點陣、合併與拆分是視覺表徵；卡 C 與 101×23 的方塊標為示意。所有算式結果與條件判斷由程式計算。鍵盤：空白鍵播放／暫停，左右方向鍵切換段落，F 鍵全螢幕。畫面只由時間決定。",
+  works: [],
+};
+
+const U6B_STEPS = ["造例", "提出猜想", "效化", "一般化", "證實"];
+const U6B_DOT_RADIUS = 20;
+const U6B_DOT_GAP = 48;
+const U6B_DATA = {
+  A: {
+    metalPerPack: 6, metalPacks: 5,
+    woodPerPack: 4, woodPacks: 5,
+  },
+  B: { perRow: 5, redRows: 4, greenRows: 3 },
+  C: { juicePerBox: 18, sodaPerBox: 12, boxes: 5 },
+  D: {
+    applePerBox: 6, appleBoxes: 5,
+    orangePerBox: 4, orangeBoxes: 3,
+  },
+  checks: [
+    { a: 5, b: 4, c: 3, mode: "left", sign: "+" },
+    { a: 7, b: 5, c: 2, mode: "right", sign: "+" },
+    { a: 8, b: 6, c: 3, mode: "right", sign: "−" },
+  ],
+  noCommon: { a: 7, b: 5, c: 2, d: 3 },
+  wallExamples: [
+    { a: 6, b: 5, c: 4, mode: "right", sign: "+" },
+    { a: 5, b: 4, c: 3, mode: "left", sign: "+" },
+    { a: 18, b: 5, c: 12, mode: "right", sign: "+" },
+  ],
+  noParentheses: { a: 5, b: 4, c: 3 },
+  proof: { first: 6, firstRows: 5, second: 4, secondRows: 5, subRows: 6, perRow: 8, remove: 3 },
+  shortcut: { a: 101, b: 23, c: 99 },
+};
+
+function u6bK(u, a, d) {
+  return ease(P(u, a, a + d));
+}
+
+function u6bLines(x, y, lines, size, color, anchor, lineGap, op, bold) {
+  let u6bMarkup = "<g opacity=\"" + op + "\">";
+  for (let u6bIndex = 0; u6bIndex < lines.length; u6bIndex++) {
+    u6bMarkup += txt(x, y + u6bIndex * lineGap, lines[u6bIndex], {
+      a: anchor || "start", s: size, f: color || C.chalk, w: Boolean(bold),
+    });
+  }
+  return u6bMarkup + "</g>";
+}
+
+function u6bGrid(cx, cy, cols, rows, gap, radius, colorAt, op, opacityAt) {
+  let u6bMarkup = "<g>";
+  const u6bStartX = cx - (cols - 1) * gap / 2;
+  const u6bStartY = cy - (rows - 1) * gap / 2;
+  for (let u6bRow = 0; u6bRow < rows; u6bRow++) {
+    for (let u6bCol = 0; u6bCol < cols; u6bCol++) {
+      const u6bColor = typeof colorAt === "function" ? colorAt(u6bCol, u6bRow) : colorAt;
+      const u6bDotOpacity = op * (typeof opacityAt === "function" ? opacityAt(u6bCol, u6bRow) : 1);
+      u6bMarkup += dot(u6bStartX + u6bCol * gap, u6bStartY + u6bRow * gap, radius, u6bColor, u6bDotOpacity);
+    }
+  }
+  return u6bMarkup + "</g>";
+}
+
+function u6bFactCard(x, y, w, h, label, color, lines, op) {
+  let u6bMarkup = "<g opacity=\"" + op + "\">";
+  u6bMarkup += box(x, y, w, h, color, 1, "rgba(0,0,0,.10)");
+  u6bMarkup += txt(x + 28, y + 46, "圖卡 " + label, { s: 30, w: 1, f: color });
+  u6bMarkup += u6bLines(x + 30, y + 96, lines, 25, C.chalk, "start", 40, 1, false);
+  return u6bMarkup + "</g>";
+}
+
+function u6bClaimCard(x, y, w, h, group, lines, verdict, color, op) {
+  let u6bMarkup = "<g opacity=\"" + op + "\">";
+  u6bMarkup += box(x, y, w, h, color, 1, "rgba(0,0,0,.10)");
+  u6bMarkup += txt(x + 24, y + 42, "第 " + group + " 組", { s: 28, w: 1, f: color });
+  u6bMarkup += u6bLines(x + 26, y + 86, lines, 25, C.chalk, "start", 36, 1, false);
+  const u6bMarkX = x + w - 52;
+  const u6bMarkY = y + 42;
+  if (verdict === "ok") {
+    u6bMarkup += '<circle cx="' + u6bMarkX + '" cy="' + u6bMarkY + '" r="24" fill="none" stroke="' + C.green + '" stroke-width="5"/>';
+    u6bMarkup += tick(u6bMarkX, u6bMarkY, 12, 1, C.green);
+  } else if (verdict === "no") {
+    u6bMarkup += cross(u6bMarkX, u6bMarkY, 16, 1, C.red);
+  } else if (verdict === "maybe") {
+    u6bMarkup += '<polygon points="' + u6bMarkX + "," + (u6bMarkY - 25) + " " + (u6bMarkX + 24) + "," + (u6bMarkY + 20) + " " + (u6bMarkX - 24) + "," + (u6bMarkY + 20) + '" fill="none" stroke="' + C.orange + '" stroke-width="5"/>';
+  }
+  return u6bMarkup + "</g>";
+}
+
+function u6bFactoredText(item) {
+  const u6bA = item.a, u6bB = item.b, u6bC = item.c;
+  if (item.sign === "−") {
+    const u6bDifference = u6bA - u6bC;
+    return u6bA + "×" + u6bB + "−" + u6bC + "×" + u6bB +
+      "＝(" + u6bA + "−" + u6bC + ")×" + u6bB +
+      "＝" + u6bDifference + "×" + u6bB + "＝" + (u6bDifference * u6bB);
+  }
+  if (item.mode === "left") {
+    const u6bFactor = u6bA * (u6bB + u6bC);
+    return u6bA + "×" + u6bB + "＋" + u6bA + "×" + u6bC +
+      "＝" + u6bA + "×(" + u6bB + "＋" + u6bC + ")" +
+      "＝" + u6bA + "×" + (u6bB + u6bC) + "＝" + u6bFactor;
+  }
+  const u6bFactor = (u6bA + u6bC) * u6bB;
+  return u6bA + "×" + u6bB + "＋" + u6bC + "×" + u6bB +
+    "＝(" + u6bA + "＋" + u6bC + ")×" + u6bB +
+    "＝" + (u6bA + u6bC) + "×" + u6bB + "＝" + u6bFactor;
+}
+
+function u6bCardDActual() {
+  const u6bD = U6B_DATA.D;
+  return u6bD.applePerBox * u6bD.appleBoxes + u6bD.orangePerBox * u6bD.orangeBoxes;
+}
+
+function u6bPaint(svg) {
+  return '<style>#stage > text:last-child{font-size:22px!important}</style>' +
+    svg.replace(/<text ([^>]*?)fill="([^"]+)"/g, '<text $1style="fill:$2" fill="$2"');
+}
+
+function s1(u) {
+  let u6bMarkup = head(u, "單元後講解", "兩堆乘法可以合起來算嗎？");
+  u6bMarkup += txt(800, 220, "同一張圖，換一種數法，會發現什麼？", {
+    a: "middle", s: 34, w: 1, f: C.yellow, o: u6bK(u, 0.2, 0.7),
+  });
+  for (let u6bIndex = 0; u6bIndex < U6B_STEPS.length; u6bIndex++) {
+    const u6bX = 65 + u6bIndex * 305;
+    const u6bOpacity = u6bK(u, 1.1 + u6bIndex * 0.65, 0.55);
+    u6bMarkup += box(u6bX, 385, 250, 118, C.yellow, u6bOpacity, "rgba(0,0,0,.08)");
+    u6bMarkup += txt(u6bX + 125, 456, U6B_STEPS[u6bIndex], {
+      a: "middle", s: 29, w: 1, f: C.chalk, o: u6bOpacity,
+    });
+    if (u6bIndex < U6B_STEPS.length - 1) {
+      u6bMarkup += arrow(u6bX + 258, 444, u6bX + 294, 444, C.yellow, u6bOpacity);
+    }
+  }
+  u6bMarkup += txt(800, 620, "先做例子，再用例子檢驗想法", {
+    a: "middle", s: 31, f: C.dim, o: u6bK(u, 5.0, 0.7),
+  });
+  return u6bPaint(u6bMarkup);
+}
+
+function s2(u) {
+  let u6bMarkup = head(u, "造例", "每組拿到不同的圖卡");
+  const u6bA = U6B_DATA.A, u6bB = U6B_DATA.B, u6bC = U6B_DATA.C, u6bD = U6B_DATA.D;
+  const u6bFade = u6bK(u, 0.35, 0.65);
+  u6bMarkup += txt(800, 205, "圖卡上只有圖，沒有算式；先算總數，再找兩種數法", {
+    a: "middle", s: 27, f: C.dim, o: u6bFade,
+  });
+  u6bMarkup += u6bFactCard(75, 245, 700, 235, "A", C.yellow, [
+    "金屬鈕扣：每包 " + u6bA.metalPerPack + " 顆，共 " + u6bA.metalPacks + " 包",
+    "木頭鈕扣：每包 " + u6bA.woodPerPack + " 顆，共 " + u6bA.woodPacks + " 包",
+  ], u6bFade);
+  u6bMarkup += u6bFactCard(825, 245, 700, 235, "B", C.red, [
+    "每排 " + u6bB.perRow + " 張貼紙",
+    "紅色 " + u6bB.redRows + " 排、綠色 " + u6bB.greenRows + " 排",
+  ], u6bFade);
+  u6bMarkup += u6bFactCard(75, 520, 700, 235, "C", C.blue, [
+    "果汁每箱 " + u6bC.juicePerBox + " 瓶；汽水每箱 " + u6bC.sodaPerBox + " 瓶",
+    "兩種飲料各有 " + u6bC.boxes + " 箱",
+  ], u6bFade);
+  u6bMarkup += u6bFactCard(825, 520, 700, 235, "D", C.green, [
+    "蘋果每箱 " + u6bD.applePerBox + " 顆，共 " + u6bD.appleBoxes + " 箱",
+    "橘子每箱 " + u6bD.orangePerBox + " 顆，共 " + u6bD.orangeBoxes + " 箱",
+  ], u6bFade);
+  return u6bPaint(u6bMarkup);
+}
+
+function s3(u) {
+  let u6bMarkup = head(u, "造例", "卡 A 的兩種圈法");
+  const u6bA = U6B_DATA.A;
+  const u6bCols = u6bA.metalPerPack + u6bA.woodPerPack;
+  const u6bTotal = u6bA.metalPerPack * u6bA.metalPacks + u6bA.woodPerPack * u6bA.woodPacks;
+  const u6bBefore = 1 - u6bK(u, 6.0, 0.5);
+  const u6bAfter = u6bK(u, 6.7, 0.5);
+  u6bMarkup += txt(800, 220, "分開數與一包一包數", { a: "middle", s: 29, f: C.dim });
+  u6bMarkup += txt(800, 274, "分開：" + u6bA.metalPerPack + "×" + u6bA.metalPacks + "＋" +
+    u6bA.woodPerPack + "×" + u6bA.woodPacks + "＝" + u6bTotal, {
+    a: "middle", s: 31, w: 1, f: C.chalk, o: u6bBefore,
+  });
+  u6bMarkup += txt(800, 320, "合併：(" + u6bA.metalPerPack + "＋" + u6bA.woodPerPack + ")×" +
+    u6bA.metalPacks + "＝" + u6bTotal, {
+    a: "middle", s: 31, w: 1, f: C.yellow, o: u6bBefore,
+  });
+  u6bMarkup += txt(380, 370, "金屬鈕扣", { a: "middle", s: 25, f: C.yellow, o: u6bBefore });
+  u6bMarkup += txt(1220, 370, "木頭鈕扣", { a: "middle", s: 25, f: C.orange, o: u6bBefore });
+  u6bMarkup += u6bGrid(380, 515, u6bA.metalPerPack, u6bA.metalPacks, 50, U6B_DOT_RADIUS, C.yellow, u6bBefore);
+  u6bMarkup += u6bGrid(1220, 515, u6bA.woodPerPack, u6bA.woodPacks, 50, U6B_DOT_RADIUS, C.orange, u6bBefore);
+  u6bMarkup += txt(800, 528, "＋", { a: "middle", s: 58, w: 1, f: C.chalk, o: u6bBefore });
+  u6bMarkup += u6bGrid(800, 515, u6bCols, u6bA.metalPacks, 50, U6B_DOT_RADIUS, (u6bCol) =>
+    u6bCol < u6bA.metalPerPack ? C.yellow : C.orange, u6bAfter);
+  u6bMarkup += txt(800, 700, u6bCols + " 顆一排，共 " + u6bA.metalPacks + " 排；合計 " + u6bTotal + " 顆", {
+    a: "middle", s: 28, w: 1, f: C.yellow, o: u6bAfter,
+  });
+  u6bMarkup += txt(800, 755, "答案相同，圖上的點沒有變", {
+    a: "middle", s: 27, f: C.dim, o: u6bAfter,
+  });
+  return u6bPaint(u6bMarkup);
+}
+
+function s4(u) {
+  let u6bMarkup = head(u, "造例", "卡 B、卡 C");
+  const u6bB = U6B_DATA.B, u6bC = U6B_DATA.C;
+  const u6bBRows = u6bB.redRows + u6bB.greenRows;
+  const u6bBTotal = u6bB.perRow * u6bBRows;
+  const u6bCTotal = (u6bC.juicePerBox + u6bC.sodaPerBox) * u6bC.boxes;
+  u6bMarkup += box(70, 205, 710, 570, C.red, 1, "rgba(0,0,0,.07)");
+  u6bMarkup += box(820, 205, 710, 570, C.blue, 1, "rgba(0,0,0,.07)");
+  u6bMarkup += txt(105, 252, "卡 B｜前面的數一樣", { s: 28, w: 1, f: C.red });
+  u6bMarkup += txt(855, 252, "卡 C｜後面的數一樣", { s: 28, w: 1, f: C.blue });
+  u6bMarkup += txt(425, 302, "兩色貼紙排成一塊", { a: "middle", s: 25, f: C.dim });
+  u6bMarkup += u6bGrid(425, 480, u6bB.perRow, u6bBRows, 48, U6B_DOT_RADIUS, (u6bCol, u6bRow) =>
+    u6bRow < u6bB.redRows ? C.red : C.green, 1);
+  u6bMarkup += txt(425, 680, u6bB.perRow + "×" + u6bB.redRows + "＋" + u6bB.perRow + "×" +
+    u6bB.greenRows + "＝" + u6bBTotal, { a: "middle", s: 26, w: 1, f: C.chalk });
+  u6bMarkup += txt(425, 728, u6bB.perRow + "×(" + u6bB.redRows + "＋" + u6bB.greenRows + ")＝" +
+    u6bBTotal, { a: "middle", s: 26, w: 1, f: C.yellow });
+  u6bMarkup += txt(1175, 302, "瓶數太多，改用方塊", { a: "middle", s: 25, f: C.dim });
+  u6bMarkup += txt(1175, 360, "示意", { a: "middle", s: 25, w: 1, f: C.orange });
+  u6bMarkup += ccard(905, 390, 220, 120, 1, "每箱 " + u6bC.juicePerBox + " 瓶", "果汁", C.blue, 27, 23);
+  u6bMarkup += txt(1175, 450, "＋", { a: "middle", s: 48, w: 1, f: C.yellow });
+  u6bMarkup += ccard(1225, 390, 220, 120, 1, "每箱 " + u6bC.sodaPerBox + " 瓶", "汽水", C.green, 27, 23);
+  u6bMarkup += txt(1175, 555, "各 " + u6bC.boxes + " 箱", { a: "middle", s: 27, f: C.chalk });
+  u6bMarkup += txt(1175, 640, u6bC.juicePerBox + "×" + u6bC.boxes + "＋" +
+    u6bC.sodaPerBox + "×" + u6bC.boxes + "＝(" + u6bC.juicePerBox + "＋" +
+    u6bC.sodaPerBox + ")×" + u6bC.boxes + "＝" + u6bCTotal, {
+    a: "middle", s: 25, w: 1, f: C.yellow,
+  });
+  u6bMarkup += txt(1175, 695, "換一種圈法，總數相同", { a: "middle", s: 25, f: C.dim });
+  return u6bPaint(u6bMarkup);
+}
+
+function s5(u) {
+  let u6bMarkup = head(u, "造例", "卡 D 圈不出第二種");
+  const u6bD = U6B_DATA.D;
+  const u6bTotal = u6bCardDActual();
+  const u6bOpacity = u6bK(u, 0.4, 0.6);
+  const u6bGap = 52;
+  const u6bApproach = u6bK(u, 4.1, 0.9);
+  const u6bRetreat = u6bK(u, 7.0, 0.9);
+  const u6bNear = u6bApproach * (1 - u6bRetreat);
+  const u6bAppleX = 510 + 162 * u6bNear;
+  const u6bOrangeX = 1090 - 160 * u6bNear;
+  const u6bOrangeY = 425 - u6bGap * u6bNear;
+  const u6bCaptionOpacity = u6bOpacity * (1 - u6bK(u, 4.1, 0.7));
+  const u6bFrameOpacity = u6bK(u, 4.8, 0.5) * (1 - u6bK(u, 7.1, 0.6));
+  const u6bMissingOpacity = u6bK(u, 5.1, 0.45) * (1 - u6bK(u, 6.85, 0.45));
+  const u6bAppleWidth = (u6bD.applePerBox - 1) * u6bGap + 2 * U6B_DOT_RADIUS;
+  const u6bAppleHeight = (u6bD.appleBoxes - 1) * u6bGap + 2 * U6B_DOT_RADIUS;
+  const u6bOrangeWidth = (u6bD.orangePerBox - 1) * u6bGap + 2 * U6B_DOT_RADIUS;
+  const u6bOrangeHeight = (u6bD.orangeBoxes - 1) * u6bGap + 2 * U6B_DOT_RADIUS;
+  const u6bAppleLeft = u6bAppleX - (u6bD.applePerBox - 1) * u6bGap / 2 - U6B_DOT_RADIUS;
+  const u6bAppleTop = 425 - (u6bD.appleBoxes - 1) * u6bGap / 2 - U6B_DOT_RADIUS;
+  const u6bOrangeLeft = u6bOrangeX - (u6bD.orangePerBox - 1) * u6bGap / 2 - U6B_DOT_RADIUS;
+  const u6bOrangeTop = u6bOrangeY - (u6bD.orangeBoxes - 1) * u6bGap / 2 - U6B_DOT_RADIUS;
+  const u6bAppleRight = u6bAppleX + (u6bD.applePerBox - 1) * u6bGap / 2 + U6B_DOT_RADIUS;
+  const u6bOrangeRight = u6bOrangeX + (u6bD.orangePerBox - 1) * u6bGap / 2 + U6B_DOT_RADIUS;
+  const u6bJoinSeamX = (u6bAppleRight + u6bOrangeLeft) / 2;
+  const u6bMissingTop = u6bOrangeY + (u6bD.orangeBoxes - 1) * u6bGap / 2 + u6bGap / 2;
+  const u6bMissingBottom = 425 + (u6bD.appleBoxes - 1) * u6bGap / 2 + U6B_DOT_RADIUS;
+  const u6bMissingWidth = u6bOrangeRight - u6bJoinSeamX;
+  const u6bMissingHeight = u6bMissingBottom - u6bMissingTop;
+  u6bMarkup += txt(510, 235, "蘋果：每箱 " + u6bD.applePerBox + " 顆，共 " + u6bD.appleBoxes + " 箱", {
+    a: "middle", s: 26, f: C.yellow, o: u6bCaptionOpacity,
+  });
+  u6bMarkup += txt(1090, 235, "橘子：每箱 " + u6bD.orangePerBox + " 顆，共 " + u6bD.orangeBoxes + " 箱", {
+    a: "middle", s: 26, f: C.blue, o: u6bCaptionOpacity,
+  });
+  u6bMarkup += '<rect x="' + u6bAppleLeft + '" y="' + u6bAppleTop + '" width="' +
+    u6bAppleWidth + '" height="' + u6bAppleHeight + '" rx="10" fill="none" stroke="' +
+    C.yellow + '" stroke-width="3" opacity="' + u6bFrameOpacity + '"/>';
+  u6bMarkup += '<rect x="' + u6bOrangeLeft + '" y="' + u6bOrangeTop + '" width="' +
+    u6bOrangeWidth + '" height="' + u6bOrangeHeight + '" rx="10" fill="none" stroke="' +
+    C.blue + '" stroke-width="3" opacity="' + u6bFrameOpacity + '"/>';
+  u6bMarkup += u6bGrid(u6bAppleX, 425, u6bD.applePerBox, u6bD.appleBoxes, u6bGap, U6B_DOT_RADIUS, C.yellow, u6bOpacity);
+  u6bMarkup += u6bGrid(u6bOrangeX, u6bOrangeY, u6bD.orangePerBox, u6bD.orangeBoxes, u6bGap, U6B_DOT_RADIUS, C.blue, u6bOpacity);
+  u6bMarkup += '<rect x="' + u6bJoinSeamX + '" y="' + u6bMissingTop + '" width="' +
+    u6bMissingWidth + '" height="' + u6bMissingHeight + '" rx="8" fill="none" stroke="' +
+    C.red + '" stroke-width="4" stroke-dasharray="12 9" opacity="' + u6bMissingOpacity + '"/>';
+  u6bMarkup += txt(u6bJoinSeamX + u6bMissingWidth / 2, u6bMissingTop + u6bMissingHeight / 2 + 8,
+    "少 " + (u6bD.appleBoxes - u6bD.orangeBoxes) + " 排", {
+      a: "middle", s: 23, w: 1, f: C.red, o: u6bMissingOpacity,
+    });
+  u6bMarkup += txt(800, 425, "＋", { a: "middle", s: 58, w: 1, f: C.chalk, o: u6bOpacity * (1 - u6bNear) });
+  u6bMarkup += txt(800, 635, u6bD.applePerBox + "×" + u6bD.appleBoxes + "＋" +
+    u6bD.orangePerBox + "×" + u6bD.orangeBoxes + "＝" + u6bTotal, {
+    a: "middle", s: 34, w: 1, f: C.yellow, o: u6bOpacity,
+  });
+  const u6bNoticeOpacity = u6bK(u, 6.0, 0.7);
+  u6bMarkup += '<rect x="250" y="690" width="1100" height="90" rx="26" fill="rgba(242,193,78,.04)" stroke="' +
+    C.orange + '" stroke-width="4" stroke-dasharray="16 12" opacity="' + u6bNoticeOpacity + '"/>';
+  u6bMarkup += txt(800, 744, "箱數不同、每箱顆數也不同，併不成一箱一箱", {
+    a: "middle", s: 27, w: 1, f: C.orange, o: u6bNoticeOpacity,
+  });
+  return u6bPaint(u6bMarkup);
+}
+
+function s6(u) {
+  let u6bMarkup = head(u, "提出猜想", "猜想牆");
+  const u6bShow = u6bK(u, 0.2, 0.55);
+  const u6bTests = U6B_DATA.wallExamples;
+  u6bMarkup += box(100, 190, 1400, 65, C.yellow, u6bShow, "rgba(0,0,0,.05)");
+  u6bMarkup += txt(800, 232, "我們發現＿＿＿，因為＿＿＿。說出你看哪幾個例子。", {
+    a: "middle", s: 26, w: 1, f: C.yellow, o: u6bShow,
+  });
+  for (let u6bIndex = 0; u6bIndex < u6bTests.length; u6bIndex++) {
+    const u6bY = 286 + u6bIndex * 35;
+    u6bMarkup += txt(800, u6bY, u6bFactoredText(u6bTests[u6bIndex]), {
+      a: "middle", s: 23, f: C.chalk, o: u6bK(u, 0.7 + u6bIndex * 0.45, 0.45),
+    });
+  }
+  u6bMarkup += u6bClaimCard(95, 395, 690, 180, 1, [
+    "兩堆都是『幾的 5 倍』，",
+    "合起來就是『（幾＋幾）的 5 倍』",
+  ], null, C.yellow, u6bK(u, 1.9, 0.55));
+  u6bMarkup += u6bClaimCard(815, 395, 690, 180, 2, [
+    "合起來不用加括號：",
+    "5×(4＋3) 可以寫成 5×4＋3",
+  ], null, C.orange, u6bK(u, 2.5, 0.55));
+  u6bMarkup += u6bClaimCard(95, 600, 690, 180, 3, [
+    "任何兩個乘法相加，",
+    "都可以把前面的數加起來，",
+    "再乘後面的數",
+  ], null, C.blue, u6bK(u, 3.0, 0.55));
+  u6bMarkup += u6bClaimCard(815, 600, 690, 180, 4, [
+    "兩個乘法沒有一樣的數，",
+    "就不能合起來",
+  ], null, C.green, u6bK(u, 3.5, 0.55));
+  return u6bPaint(u6bMarkup);
+}
+
+function s7(u) {
+  let u6bMarkup = head(u, "效化", "卡 D 來考驗第 3 組");
+  const u6bD = U6B_DATA.D;
+  const u6bRows = u6bD.appleBoxes;
+  const u6bActual = u6bCardDActual();
+  const u6bOtherRows = u6bD.orangeBoxes;
+  const u6bByAppleRows = (u6bD.applePerBox + u6bD.orangePerBox) * u6bRows;
+  const u6bByOrangeRows = (u6bD.applePerBox + u6bD.orangePerBox) * u6bOtherRows;
+  const u6bOpacity = u6bK(u, 0.4, 0.65);
+  u6bMarkup += u6bClaimCard(100, 235, 575, 260, 3, [
+    "任何兩個乘法相加，",
+    "都可以把前面的數加起來，",
+    "再乘後面的數",
+  ], "maybe", C.blue, u6bOpacity);
+  u6bMarkup += box(735, 235, 765, 260, C.dim, u6bOpacity, "rgba(0,0,0,.07)");
+  u6bMarkup += txt(1117, 286, "卡 D 的實際數量", { a: "middle", s: 26, w: 1, f: C.dim, o: u6bOpacity });
+  u6bMarkup += txt(1117, 350, u6bD.applePerBox + "×" + u6bRows + "＋" +
+    u6bD.orangePerBox + "×" + u6bOtherRows + "＝" + u6bActual, {
+    a: "middle", s: 31, w: 1, f: C.chalk, o: u6bOpacity,
+  });
+  u6bMarkup += txt(1117, 412, "若把前面的數相加：", { a: "middle", s: 25, f: C.dim, o: u6bOpacity });
+  u6bMarkup += txt(1117, 458, "(" + u6bD.applePerBox + "＋" + u6bD.orangePerBox + ")×" +
+    u6bRows + "＝" + u6bByAppleRows + "；(" + u6bD.applePerBox + "＋" +
+    u6bD.orangePerBox + ")×" + u6bOtherRows + "＝" + u6bByOrangeRows, {
+    a: "middle", s: 27, w: 1, f: C.orange, o: u6bOpacity,
+  });
+  u6bMarkup += hframe(145, 565, 1310, 150, u6bK(u, 5.0, 0.7), "卡 D 作為反例：合併後不是原來的總數", C.red, 0, 29);
+  u6bMarkup += txt(800, 775, "少了條件：兩個乘法要有相同的數", {
+    a: "middle", s: 29, w: 1, f: C.yellow, o: u6bK(u, 6.0, 0.7),
+  });
+  return u6bPaint(u6bMarkup);
+}
+
+function s8(u) {
+  let u6bMarkup = head(u, "效化", "檢驗第 1 組：前後相同都能合");
+  const u6bTests = U6B_DATA.checks;
+  const u6bLabels = ["前面的數相同", "後面的數相同", "減法也成立"];
+  for (let u6bIndex = 0; u6bIndex < u6bTests.length; u6bIndex++) {
+    const u6bY = 280 + u6bIndex * 160;
+    const u6bOpacity = u6bK(u, 0.5 + u6bIndex * 1.6, 0.65);
+    u6bMarkup += box(110, u6bY - 50, 1380, 125, C.dim, u6bOpacity, "rgba(0,0,0,.05)");
+    u6bMarkup += txt(150, u6bY - 8, u6bLabels[u6bIndex], { s: 25, w: 1, f: C.yellow, o: u6bOpacity });
+    u6bMarkup += txt(800, u6bY + 42, u6bFactoredText(u6bTests[u6bIndex]), {
+      a: "middle", s: 27, w: 1, f: C.chalk, o: u6bOpacity,
+    });
+    u6bMarkup += tick(1432, u6bY + 10, 14, u6bOpacity, C.green);
+  }
+  u6bMarkup += txt(800, 790, "共同的數可以留在括號外", {
+    a: "middle", s: 29, w: 1, f: C.green, o: u6bK(u, 6.0, 0.7),
+  });
+  return u6bPaint(u6bMarkup);
+}
+
+function s9(u) {
+  let u6bMarkup = head(u, "效化", "檢驗第 2 組：括號不能省");
+  const u6bData = U6B_DATA.noParentheses;
+  const u6bWith = u6bData.a * (u6bData.b + u6bData.c);
+  const u6bWithout = u6bData.a * u6bData.b + u6bData.c;
+  const u6bOpacity = u6bK(u, 0.4, 0.7);
+  u6bMarkup += u6bClaimCard(105, 245, 610, 205, 2, [
+    "合起來不用加括號：",
+    "5×(4＋3) 可以寫成 5×4＋3",
+  ], "no", C.orange, u6bOpacity);
+  u6bMarkup += box(805, 245, 690, 205, C.green, u6bOpacity, "rgba(0,0,0,.07)");
+  u6bMarkup += txt(1150, 300, "加上括號", { a: "middle", s: 26, w: 1, f: C.green, o: u6bOpacity });
+  u6bMarkup += txt(1150, 365, u6bData.a + "×(" + u6bData.b + "＋" + u6bData.c + ")＝" + u6bWith, {
+    a: "middle", s: 34, w: 1, f: C.chalk, o: u6bOpacity,
+  });
+  u6bMarkup += box(805, 485, 690, 205, C.red, u6bOpacity, "rgba(0,0,0,.07)");
+  u6bMarkup += txt(1150, 540, "拿掉括號：先算乘法", { a: "middle", s: 26, w: 1, f: C.red, o: u6bOpacity });
+  u6bMarkup += txt(1150, 605, u6bData.a + "×" + u6bData.b + "＋" + u6bData.c + "＝" + u6bWithout, {
+    a: "middle", s: 34, w: 1, f: C.chalk, o: u6bOpacity,
+  });
+  u6bMarkup += hframe(230, 725, 1140, 75, u6bK(u, 6.0, 0.7), "算式不同，括號不能省", C.yellow, 0, 28);
+  return u6bPaint(u6bMarkup);
+}
+
+function s10(u) {
+  let u6bMarkup = head(u, "效化", "檢驗第 4 組：換例子再試");
+  const u6bData = U6B_DATA.noCommon;
+  const u6bSeparate = u6bData.a * u6bData.b + u6bData.c * u6bData.d;
+  const u6bFirstTry = (u6bData.a + u6bData.c) * u6bData.b;
+  const u6bSecondTry = (u6bData.a + u6bData.c) * u6bData.d;
+  const u6bOpacity = u6bK(u, 0.4, 0.65);
+  u6bMarkup += u6bClaimCard(95, 245, 545, 235, 4, [
+    "兩個乘法沒有一樣的數，",
+    "就不能合起來",
+  ], "ok", C.green, u6bOpacity);
+  u6bMarkup += box(700, 235, 805, 280, C.dim, u6bOpacity, "rgba(0,0,0,.07)");
+  u6bMarkup += txt(1102, 286, "新例子：分開計算", { a: "middle", s: 27, f: C.dim, o: u6bOpacity });
+  u6bMarkup += txt(1102, 350, u6bData.a + "×" + u6bData.b + "＋" + u6bData.c + "×" +
+    u6bData.d + "＝" + u6bSeparate, { a: "middle", s: 32, w: 1, f: C.chalk, o: u6bOpacity });
+  u6bMarkup += txt(1102, 412, "若合併前面的數：", { a: "middle", s: 25, f: C.dim, o: u6bOpacity });
+  u6bMarkup += txt(1102, 465, "(" + u6bData.a + "＋" + u6bData.c + ")×" + u6bData.b +
+    "＝" + u6bFirstTry + "；(" + u6bData.a + "＋" + u6bData.c + ")×" +
+    u6bData.d + "＝" + u6bSecondTry, { a: "middle", s: 27, w: 1, f: C.orange, o: u6bOpacity });
+  u6bMarkup += hframe(150, 590, 1300, 145, u6bK(u, 5.0, 0.7), "分開算與合併算結果不同，沒有共同的數就不能這樣合", C.yellow, 0, 27);
+  return u6bPaint(u6bMarkup);
+}
+
+function s11(u) {
+  let u6bMarkup = head(u, "一般化", "換成任何數");
+  const u6bOpacity = u6bK(u, 0.35, 0.7);
+  const u6bRows = [
+    "○×□＋△×□＝(○＋△)×□",
+    "□×○＋□×△＝□×(○＋△)",
+    "○×□－△×□＝(○－△)×□",
+  ];
+  for (let u6bIndex = 0; u6bIndex < u6bRows.length; u6bIndex++) {
+    const u6bY = 270 + u6bIndex * 118;
+    const u6bRowOpacity = u6bK(u, 0.6 + u6bIndex * 1.7, 0.65);
+    u6bMarkup += box(165, u6bY - 48, 1270, 86, u6bIndex === 2 ? C.blue : C.dim,
+      u6bRowOpacity, "rgba(0,0,0,.06)");
+    u6bMarkup += txt(800, u6bY + 8, u6bRows[u6bIndex], {
+      a: "middle", s: 32, w: 1, f: C.chalk, o: u6bRowOpacity,
+    });
+  }
+  u6bMarkup += '<rect x="205" y="665" width="1190" height="86" rx="26" fill="rgba(242,193,78,.04)" stroke="' +
+    C.yellow + '" stroke-width="4" stroke-dasharray="16 12" opacity="' + u6bOpacity + '"/>';
+  u6bMarkup += txt(800, 719, "限制條件：兩個乘法要有相同的數 □", {
+    a: "middle", s: 29, w: 1, f: C.yellow, o: u6bOpacity,
+  });
+  u6bMarkup += txt(800, 824, "減法時，○ 要比 △ 大或一樣大", {
+    a: "middle", s: 26, f: C.dim, o: u6bK(u, 5.8, 0.7),
+  });
+  return u6bPaint(u6bMarkup);
+}
+
+function s12(u) {
+  let u6bMarkup = head(u, "一般化", "現在才取名字");
+  const u6bData = U6B_DATA.shortcut;
+  const u6bCombined = u6bData.a + u6bData.c;
+  const u6bAnswer = u6bCombined * u6bData.b;
+  const u6bOriginal = u6bData.a * u6bData.b + u6bData.c * u6bData.b;
+  const u6bFormula = u6bData.a + "×" + u6bData.b + "＋" + u6bData.c + "×" + u6bData.b +
+    "＝(" + u6bData.a + "＋" + u6bData.c + ")×" + u6bData.b +
+    "＝" + u6bCombined + "×" + u6bData.b + "＝" + u6bAnswer;
+  const u6bOpacity = u6bK(u, 0.35, 0.65);
+  u6bMarkup += txt(800, 245, "這個規律叫做「分配律」", {
+    a: "middle", s: 36, w: 1, f: C.yellow, o: u6bOpacity,
+  });
+  u6bMarkup += txt(800, 310, "乘法對加法，也能反過來用", {
+    a: "middle", s: 28, f: C.dim, o: u6bOpacity,
+  });
+  u6bMarkup += txt(800, 390, u6bFormula, {
+    a: "middle", s: 34, w: 1, f: C.chalk, o: u6bK(u, 1.0, 0.7),
+  });
+  u6bMarkup += txt(800, 455, "示意：把相同的 " + u6bData.b + " 倍放在一起看", {
+    a: "middle", s: 25, w: 1, f: C.orange, o: u6bK(u, 2.0, 0.65),
+  });
+  u6bMarkup += ccard(130, 520, 380, 125, u6bK(u, 2.5, 0.6),
+    u6bData.a + " 組", "每組 " + u6bData.b, C.yellow, 30, 24);
+  u6bMarkup += ccard(610, 520, 380, 125, u6bK(u, 3.3, 0.6),
+    u6bData.c + " 組", "每組 " + u6bData.b, C.blue, 30, 24);
+  u6bMarkup += txt(560, 595, "＋", { a: "middle", s: 42, w: 1, f: C.yellow, o: u6bK(u, 3.7, 0.6) });
+  u6bMarkup += arrow(1002, 585, 1070, 585, C.yellow, u6bK(u, 4.0, 0.6));
+  u6bMarkup += ccard(1090, 520, 380, 125, u6bK(u, 4.0, 0.6),
+    u6bCombined + " 組", "每組 " + u6bData.b, C.green, 30, 24);
+  u6bMarkup += txt(800, 730, "原式：" + u6bOriginal + "　合併後：" + u6bAnswer, {
+    a: "middle", s: 29, w: 1, f: u6bOriginal === u6bAnswer ? C.green : C.red, o: u6bK(u, 5.2, 0.7),
+  });
+  return u6bPaint(u6bMarkup);
+}
+
+function s13(u) {
+  let u6bMarkup = head(u, "證實", "接起來、拿掉");
+  const u6bData = U6B_DATA.proof;
+  const u6bTotalBefore = u6bData.first * u6bData.firstRows + u6bData.second * u6bData.secondRows;
+  const u6bTotalAfter = (u6bData.first + u6bData.second) * u6bData.firstRows;
+  const u6bRemainPerRow = u6bData.perRow - u6bData.remove;
+  const u6bRemainTotal = u6bRemainPerRow * u6bData.subRows;
+  const u6bAdditionConclusion = (u6bTotalBefore === u6bTotalAfter ? "點的數量沒變" : "點的數量改變") +
+    "（" + u6bTotalBefore + "＝" + u6bTotalAfter + "）";
+  const u6bSubConclusion = u6bData.perRow + "×" + u6bData.subRows + "－" + u6bData.remove +
+    "×" + u6bData.subRows + "＝(" + u6bData.perRow + "－" + u6bData.remove + ")×" +
+    u6bData.subRows + "＝" + u6bRemainPerRow + "×" + u6bData.subRows + "＝" + u6bRemainTotal;
+  const u6bLeftBefore = 1 - u6bK(u, 5.3, 0.45);
+  const u6bLeftAfter = u6bK(u, 6.0, 0.45);
+  const u6bRightBefore = 1 - u6bK(u, 7.1, 0.45);
+  const u6bRightAfter = u6bK(u, 7.8, 0.45);
+  const u6bRemoveProgress = u6bK(u, 7.1, 0.9);
+  const u6bRightGridOpacity = u6bK(u, 5.3, 0.45);
+  u6bMarkup += box(60, 205, 725, 540, C.yellow, 1, "rgba(0,0,0,.06)");
+  u6bMarkup += box(815, 205, 725, 540, C.blue, 1, "rgba(0,0,0,.06)");
+  u6bMarkup += txt(422, 248, "加法：每排接起來", { a: "middle", s: 28, w: 1, f: C.yellow });
+  u6bMarkup += txt(1177, 248, "減法：每排拿掉一樣多", { a: "middle", s: 28, w: 1, f: C.blue });
+  u6bMarkup += txt(422, 293, u6bData.first + "×" + u6bData.firstRows + "＋" +
+    u6bData.second + "×" + u6bData.secondRows + "＝" + u6bTotalBefore, {
+    a: "middle", s: 25, w: 1, f: C.chalk, o: u6bLeftBefore,
+  });
+  u6bMarkup += txt(422, 293, "(" + u6bData.first + "＋" + u6bData.second + ")×" +
+    u6bData.firstRows + "＝" + u6bTotalAfter, {
+    a: "middle", s: 25, w: 1, f: C.chalk, o: u6bLeftAfter,
+  });
+  u6bMarkup += u6bGrid(265, 455, u6bData.first, u6bData.firstRows, 50, 20, C.yellow, u6bLeftBefore);
+  u6bMarkup += u6bGrid(580, 455, u6bData.second, u6bData.secondRows, 50, 20, C.orange, u6bLeftBefore);
+  u6bMarkup += txt(448, 455, "＋", { a: "middle", s: 42, w: 1, f: C.chalk, o: u6bLeftBefore });
+  u6bMarkup += u6bGrid(422, 455, u6bData.first + u6bData.second, u6bData.firstRows, 50, 20,
+    (u6bCol) => u6bCol < u6bData.first ? C.yellow : C.orange, u6bLeftAfter);
+  u6bMarkup += txt(422, 700, u6bAdditionConclusion, {
+    a: "middle", s: 25, w: 1, f: u6bTotalBefore === u6bTotalAfter ? C.green : C.red, o: u6bK(u, 8.5, 0.6),
+  });
+  u6bMarkup += txt(1177, 293, u6bData.perRow + "×" + u6bData.subRows + "，每排拿掉 " + u6bData.remove + " 個", {
+    a: "middle", s: 25, w: 1, f: C.chalk, o: u6bRightBefore,
+  });
+  u6bMarkup += txt(1177, 293, "每排剩 " + u6bRemainPerRow + " 個，仍有 " +
+    u6bData.subRows + " 排", { a: "middle", s: 25, w: 1, f: C.chalk, o: u6bRightAfter });
+  u6bMarkup += u6bGrid(1177, 470, u6bData.perRow, u6bData.subRows, 50, 20,
+    (u6bCol) => u6bCol < u6bRemainPerRow ? C.green : C.orange, u6bRightGridOpacity,
+    (u6bCol) => u6bCol < u6bRemainPerRow ? 1 : 1 - u6bRemoveProgress);
+  u6bMarkup += txt(1177, 700, u6bSubConclusion, {
+    a: "middle", s: 25, w: 1, f: C.green, o: u6bK(u, 8.5, 0.6),
+  });
+  return u6bPaint(u6bMarkup);
+}
+
+const SEGS = [
+  { len: 12, grp: "開場", name: "這次的問題", scene: s1,
+    cap: "規律是<b>你自己找出來的</b>。這次的問題：同一張圖，換一種數法，會發現什麼？" },
+  { len: 12, grp: "造例", name: "每組拿到不同的圖卡", scene: s2,
+    cap: "圖卡上只有圖、沒有算式。任務：<b>算出總數，而且找出兩種數法</b>。" },
+  { len: 15, grp: "造例", name: "卡 A 的兩種圈法", scene: s3,
+    cap: "分開數是 6×5＋4×5；一包一包數是 (6＋4)×5。<b>你的圈法就是你的算法</b>，答案都是 50。" },
+  { len: 12, grp: "造例", name: "卡 B、卡 C", scene: s4,
+    cap: "卡 B 是<b>前面的數</b>一樣，卡 C 是<b>後面的數</b>一樣。兩種數法答案都一樣。" },
+  { len: 12, grp: "造例", name: "卡 D 圈不出第二種", scene: s5,
+    cap: "箱數不一樣、每箱顆數也不一樣，<b>併不成一箱一箱</b>。這張卡等一下會用到。" },
+  { len: 14, grp: "提出猜想", name: "猜想牆", scene: s6,
+    cap: "<b>有憑有據、大膽猜</b>，一張只寫一個想法。有對有錯，全部貼上去，下一步才能考驗。" },
+  { len: 13, grp: "效化", name: "考驗第 3 組", scene: s7,
+    cap: "拿卡 D 來試，合起來算都不是 42。不是「任何」都行，<b>少了條件</b>：要有一樣的數。" },
+  { len: 12, grp: "效化", name: "考驗第 1 組", scene: s8,
+    cap: "前面的數一樣也可以合，<b>連減法也行</b>。第 1 組經得起考驗。" },
+  { len: 12, grp: "效化", name: "考驗第 2 組", scene: s9,
+    cap: "少了括號就會先算乘法，35 變成 23。<b>一定要加括號</b>，第 2 組被推翻。" },
+  { len: 11, grp: "效化", name: "考驗第 4 組", scene: s10,
+    cap: "換新例子還是合不起來。第 4 組留下，它正好說出了<b>合併的限制條件</b>。" },
+  { len: 14, grp: "一般化", name: "換成任何數", scene: s11,
+    cap: "用 ○、△、□ 代表<b>任何數</b>，再加上限制條件：兩個乘法一定要有相同的數。" },
+  { len: 12, grp: "一般化", name: "現在才取名字", scene: s12,
+    cap: "這個規律叫做<b>分配律</b>，是你們自己找出來的。反過來用，計算會變簡單。" },
+  { len: 14, grp: "證實", name: "接起來、拿掉", scene: s13,
+    cap: "點的數量沒變，只是<b>換個方式數</b>。每排拿掉一樣多，剩下的也還是整整齊齊。" },
+];
+
+// ===================== 工具（通常不用改）=====================
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const P = (u, a, b) => clamp((u - a) / (b - a), 0, 1);           // u 在 [a,b] 的進度 0–1
+const ease = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const lerp = (a, b, k) => a + (b - a) * k;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); } // 固定種子亂數
+function txt(x, y, s, o = {}) {
+  const a = o.a || 'start', size = o.s || 32, fill = o.f || 'var(--chalk)', op = o.o ?? 1, w = o.w ? 700 : 400, cls = o.c || 't-chalk';
+  return `<text x="${x}" y="${y}" class="${cls}" font-size="${size}" font-weight="${w}" text-anchor="${a}" fill="${fill}" opacity="${op}">${esc(s)}</text>`;
+}
+function box(x, y, w, h, stroke = 'var(--chalk)', op = 1, fill = 'none') {
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="18" fill="${fill}" stroke="${stroke}" stroke-width="3" opacity="${op}"/>`;
+}
+function head(u, kicker, title) {
+  const o = ease(P(u, 0, 0.8));
+  return txt(80, 90, kicker, { c: 't-body', s: 24, f: 'var(--chalk-dim)', o }) + txt(80, 150, title, { s: 50, w: 1, o });
+}
+
+let acc = 0; SEGS.forEach((s) => { s.a = acc; acc += s.len; s.b = acc; });
+window.DURATION = acc;
+window.SEGS = SEGS.map(({ len, grp, name, cap, a, b }) => ({ len, grp, name, cap, a, b }));
+const stage = document.getElementById('stage'), capEl = document.getElementById('caption');
+const segIndex = (t) => { for (let i = 0; i < SEGS.length; i++) if (t < SEGS[i].b) return i; return SEGS.length - 1; };
+window.seek = async function (t) {
+  t = clamp(Number(t) || 0, 0, window.DURATION);
+  const i = segIndex(t), s = SEGS[i];
+  const u = t - s.a;
+  // 段落切換時淡入淡出（只由 t 決定）
+  const fade = Math.min(P(u, 0, 0.35), i === SEGS.length - 1 ? 1 : 1 - P(u, s.len - 0.35, s.len));
+  stage.innerHTML = `<g opacity="${fade.toFixed(3)}">${s.scene(u)}</g>` +
+    txt(1520, 870, `${i + 1} / ${SEGS.length}・${s.grp}・${s.name}`, { a: 'end', c: 't-body', s: 18, f: 'var(--chalk-dim)' });
+  capEl.innerHTML = s.cap; // 字幕只來自本檔 SEGS（作者撰寫、只含 <b>）
+  return true;
+};
+window.ready = Promise.all([document.fonts ? document.fonts.ready.catch(() => null) : null]);
+
+// ===================== 播放器外殼（只呼叫 seek）=====================
+document.title = META.title;
+document.getElementById('title').textContent = META.title;
+document.getElementById('subtitle').textContent = META.subtitle;
+document.getElementById('note').textContent = META.note;
+stage.setAttribute('aria-label', META.ariaLabel);
+const works = document.getElementById('works');
+if (!META.works.length) document.querySelector('.works').hidden = true;
+for (const [label, desc, href] of META.works) {
+  const li = document.createElement('li'), a = document.createElement('a'), sp = document.createElement('span');
+  a.href = href; a.textContent = label; a.target = '_blank'; a.rel = 'noopener'; sp.textContent = desc;
+  li.append(a, sp); works.append(li);
+}
+const playBtn = document.getElementById('play'), scrub = document.getElementById('scrub'), timeEl = document.getElementById('time');
+scrub.max = window.DURATION;
+// 分段刻度：每段分界一條細線（段落起點／總長）；刻度只畫在 #seekMarks，不影響 range 本身
+const playerMarks = document.getElementById('seekMarks');
+SEGS.forEach((s, i) => { if (i > 0) { const d = document.createElement('i'); d.style.left = (s.a / window.DURATION * 100) + '%'; playerMarks.append(d); } });
+// 進度條列收合：預設收起；只有獨立播放（非 embed）才讀寫 localStorage 的 UI 狀態，embed 一律不碰；不可用時只留在記憶體
+const playerEmbed = document.documentElement.classList.contains('embed');
+const playerUiGet = (k) => { if (playerEmbed) return false; try { return localStorage.getItem(k) === '1'; } catch { return false; } };
+const playerUiSet = (k, v) => { if (playerEmbed) return; try { localStorage.setItem(k, v ? '1' : '0'); } catch { /* 不可用時只留在記憶體 */ } };
+let playerSeekOpen = playerUiGet('anim.ui.seek');
+const playerToggle = document.getElementById('toggleSeek'), playerSeekRow = document.getElementById('seekrow');
+function playerApplyUi() {
+  playerSeekRow.hidden = !playerSeekOpen;
+  playerToggle.setAttribute('aria-expanded', String(playerSeekOpen));
+  playerToggle.textContent = playerSeekOpen ? '進度條 ▾' : '進度條 ▸';
+}
+playerToggle.onclick = () => { playerSeekOpen = !playerSeekOpen; playerUiSet('anim.ui.seek', playerSeekOpen); playerApplyUi(); };
+playerApplyUi();
+// ===== 標註工具（手寫筆跡＋文字；以段落為單位、只存在記憶體、不送網路）=====
+// 與研習平台頁同一套操作：畫筆、文字、5 色色票、收回上一筆、清除本段標註；「標註工具 ▸／▾」可收合（預設收起，鍵 anim.ui.ink）。
+// ?embed=1 完全不啟用（研習平台自己有標註）。座標一律存 0–1 的相對位置，舞台縮放或長寬比改變時筆跡仍落在同一處。
+(() => {
+  if (document.documentElement.classList.contains('embed')) return;
+  const stageEl = document.getElementById('stage') || document.getElementById('c');
+  const ctl = document.querySelector('.controls') || document.getElementById('bar');
+  if (!stageEl || !ctl || typeof window.seek !== 'function') return;
+  const COLORS = ['#efe9d8', '#f2c14e', '#e8875b', '#7fb6d9', '#8fd18a'];
+  const ends = typeof SEGS !== 'undefined' ? SEGS.map((s) => s.b) : TIMING.map((s) => s.end);
+  const segOf = (t) => { for (let i = 0; i < ends.length; i++) if (t < ends[i]) return i; return ends.length - 1; };
+  const uiGet = () => { try { return localStorage.getItem('anim.ui.ink') === '1'; } catch { return false; } };
+  const uiSet = (v) => { try { localStorage.setItem('anim.ui.ink', v ? '1' : '0'); } catch { /* 不可用時只留在記憶體 */ } };
+  const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+  const store = new Map(); // 段落索引 → [{k:'s',color,pts} | {k:'l',x,y,text,color}]（依畫下順序）
+  const items = (i) => { let a = store.get(i); if (!a) store.set(i, (a = [])); return a; };
+  let seg = 0, tool = null, penColor = COLORS[1], drawing = null, labelAt = null, open = uiGet();
+
+  // 標註層：有 .board 就掛在木框內（與 SVG 同尺寸）；沒有（如純 canvas 舞台）就掛在舞台父層並追蹤舞台矩形
+  const board = stageEl.closest('.board'), host = board || stageEl.parentElement;
+  if (!board) host.style.position = 'relative';
+  const layer = mk('div', 'annoLayer'), cv = mk('canvas'), labels = mk('div', 'annoLabels'), inp = mk('input', 'annoInput');
+  cv.setAttribute('aria-label', '標註區');
+  inp.type = 'text'; inp.maxLength = 60; inp.hidden = true; inp.placeholder = '輸入文字，按 Enter 放上；Esc 取消'; inp.setAttribute('aria-label', '文字標註');
+  layer.append(cv, labels, inp); host.append(layer);
+  const ctx = cv.getContext('2d');
+
+  // 工具列（控制列第三列）與切換鈕
+  const toggle = mk('button', '', '標註工具 ▸'), row = mk('div', 'annoRow');
+  toggle.id = 'toggleInk'; toggle.type = 'button'; toggle.setAttribute('aria-controls', 'annoTools'); toggle.setAttribute('aria-expanded', 'false');
+  row.id = 'annoTools'; row.hidden = true;
+  const penBtn = mk('button', '', '畫筆'), textBtn = mk('button', '', '文字'), sw = mk('span', 'annoSwatches'), undoBtn = mk('button', '', '收回上一筆'), clearBtn = mk('button', '', '清除本段標註');
+  for (const b of [penBtn, textBtn, undoBtn, clearBtn]) b.type = 'button';
+  penBtn.setAttribute('aria-pressed', 'false'); textBtn.setAttribute('aria-pressed', 'false');
+  const swBtns = COLORS.map((c, i) => {
+    const b = mk('button', 'annoSwatch'); b.type = 'button'; b.style.background = c; b.setAttribute('aria-label', `顏色 ${i + 1}`); b.setAttribute('aria-pressed', c === penColor ? 'true' : 'false');
+    b.onclick = () => { penColor = c; swBtns.forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')); if (labelAt) { inp.style.color = c; inp.focus(); } else if (!tool) setTool('pen'); };
+    sw.append(b); return b;
+  });
+  row.append(penBtn, textBtn, sw, undoBtn, clearBtn);
+  const seekToggle = document.getElementById('toggleSeek');
+  if (seekToggle && seekToggle.parentNode === ctl) seekToggle.after(toggle); else ctl.append(toggle);
+  ctl.append(row);
+
+  function fit() {
+    if (!board) { layer.style.inset = 'auto'; Object.assign(layer.style, { left: stageEl.offsetLeft + 'px', top: stageEl.offsetTop + 'px', width: stageEl.offsetWidth + 'px', height: stageEl.offsetHeight + 'px' }); }
+    const w = layer.clientWidth, h = layer.clientHeight, d = window.devicePixelRatio || 1;
+    layer.style.setProperty('--u', (w / 1600) + 'px');
+    cv.width = Math.max(1, Math.round(w * d)); cv.height = Math.max(1, Math.round(h * d));
+    redraw();
+  }
+  function strokePath(s) {
+    const p = s.pts, W = cv.width, H = cv.height, d = W / (layer.clientWidth || W);
+    if (p.length < 4) return;
+    ctx.strokeStyle = s.color; ctx.lineWidth = Math.max(2 * d, 5 * W / 1600); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(p[0] * W, p[1] * H);
+    for (let i = 2; i < p.length; i += 2) ctx.lineTo(p[i] * W, p[i + 1] * H);
+    ctx.stroke();
+  }
+  function redraw() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (const it of items(seg)) if (it.k === 's') strokePath(it);
+    if (drawing && drawing.seg === seg) strokePath(drawing);
+  }
+  function renderLabels() {
+    labels.replaceChildren(...items(seg).filter((i) => i.k === 'l').map((l) => {
+      const d = mk('div', 'annoLabel', l.text);
+      d.style.left = (l.x * 100) + '%'; d.style.top = (l.y * 100) + '%'; d.style.color = l.color; d.style.borderColor = l.color;
+      return d;
+    }));
+  }
+  function setTool(t) {
+    tool = t;
+    penBtn.setAttribute('aria-pressed', t === 'pen' ? 'true' : 'false');
+    textBtn.setAttribute('aria-pressed', t === 'text' ? 'true' : 'false');
+    cv.classList.toggle('on', !!t); cv.classList.toggle('text-mode', t === 'text');
+    if (t !== 'text') closeInput();
+  }
+  function openInput(x, y) {
+    labelAt = { x, y, seg };
+    inp.value = ''; inp.style.left = (Math.min(x, 0.62) * 100) + '%'; inp.style.top = (Math.max(0.05, Math.min(y, 0.95)) * 100) + '%'; inp.style.color = penColor;
+    inp.hidden = false; requestAnimationFrame(() => inp.focus());
+  }
+  function closeInput() { inp.hidden = true; labelAt = null; }
+  function norm(e) {
+    const r = cv.getBoundingClientRect();
+    return [Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * 10000) / 10000, Math.round(Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)) * 10000) / 10000];
+  }
+  function endStroke() {
+    if (!drawing) return;
+    const s = drawing; drawing = null;
+    if (s.pts.length === 2) s.pts.push(s.pts[0] + 1 / 1600, s.pts[1] + 1 / 900); // 點一下也留下一個點
+    items(s.seg).push(s);
+    if (s.seg === seg) redraw();
+  }
+  cv.addEventListener('pointerdown', (e) => {
+    if (!tool) return;
+    e.preventDefault();
+    const [x, y] = norm(e);
+    if (tool === 'text') { openInput(x, y); return; }
+    cv.setPointerCapture(e.pointerId);
+    drawing = { k: 's', seg, color: penColor, pts: [x, y] };
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!drawing) return;
+    const [x, y] = norm(e), p = drawing.pts, r = cv.getBoundingClientRect();
+    if (Math.hypot((x - p[p.length - 2]) * r.width, (y - p[p.length - 1]) * r.height) < 3 || p.length >= 800) return;
+    p.push(x, y); redraw();
+  });
+  cv.addEventListener('pointerup', endStroke);
+  cv.addEventListener('pointercancel', endStroke);
+  cv.addEventListener('click', (e) => e.stopPropagation()); // 全螢幕「點畫面播放／暫停」不被標註動作觸發
+  // 文字輸入：所有按鍵都不往上送，空白鍵、方向鍵、F 不會觸發播放器快捷鍵
+  inp.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      const text = inp.value.trim();
+      if (text && labelAt) { items(labelAt.seg).push({ k: 'l', x: labelAt.x, y: labelAt.y, text, color: penColor }); if (labelAt.seg === seg) renderLabels(); }
+      closeInput();
+    } else if (e.key === 'Escape') closeInput();
+  });
+  inp.addEventListener('keyup', (e) => e.stopPropagation());
+  inp.addEventListener('blur', (e) => { if (e.relatedTarget && row.contains(e.relatedTarget)) return; closeInput(); }); // 點色票／按鈕時保留輸入，點別處就取消
+  penBtn.onclick = () => setTool(tool === 'pen' ? null : 'pen');
+  textBtn.onclick = () => setTool(tool === 'text' ? null : 'text');
+  undoBtn.onclick = () => { if (items(seg).pop()) { redraw(); renderLabels(); } };
+  clearBtn.onclick = () => { if (items(seg).length && confirm('清除本段所有筆跡與文字標註？')) { items(seg).length = 0; redraw(); renderLabels(); } };
+  function applyUi() {
+    row.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.textContent = open ? '標註工具 ▾' : '標註工具 ▸';
+    if (!open) setTool(null);
+  }
+  toggle.onclick = () => { open = !open; uiSet(open); applyUi(); };
+  // 全螢幕下不放工具列；進入全螢幕時關閉畫筆，筆跡仍顯示（標註層在全螢幕元素內）
+  document.addEventListener('fullscreenchange', () => { if (document.fullscreenElement) setTool(null); });
+  // 換段時顯示該段的標註：包住 seek，不改變 seek 的畫面與回傳值
+  const baseSeek = window.seek;
+  window.seek = async function (t) {
+    const r = await baseSeek.call(this, t);
+    const i = segOf(Number(t) || 0);
+    if (i !== seg) { seg = i; closeInput(); redraw(); renderLabels(); }
+    return r;
+  };
+  new ResizeObserver(fit).observe(board || stageEl);
+  applyUi(); fit();
+})();
+let cur = 0, playing = false, last = 0;
+const chap = document.getElementById('chapters');
+const btns = SEGS.map((s, i) => {
+  const li = document.createElement('li'), b = document.createElement('button');
+  b.type = 'button'; b.textContent = `${i + 1}・${s.name}`; b.onclick = () => { playerPause(); playerShow(s.a); };
+  li.append(b); chap.append(li); return b;
+});
+function playerShow(t) {
+  cur = clamp(t, 0, window.DURATION); scrub.value = cur;
+  timeEl.textContent = `${cur.toFixed(1)} / ${window.DURATION.toFixed(1)}`;
+  window.seek(cur);
+  const i = segIndex(cur); btns.forEach((b, j) => b.setAttribute('aria-current', j === i ? 'true' : 'false'));
+}
+function playerTick(now) { if (!playing) return; cur += (now - last) / 1000; last = now; if (cur >= window.DURATION) { cur = window.DURATION; playerPause(); } playerShow(cur); if (playing) requestAnimationFrame(playerTick); }
+function playerPlay() { if (cur >= window.DURATION - 0.05) cur = 0; playing = true; playBtn.textContent = '暫停'; last = performance.now(); requestAnimationFrame(playerTick); }
+function playerPause() { playing = false; playBtn.textContent = '播放'; }
+playBtn.onclick = () => (playing ? playerPause() : playerPlay());
+scrub.oninput = () => { playerPause(); playerShow(Number(scrub.value)); };
+document.getElementById('prev').onclick = () => { playerPause(); playerShow(SEGS[segIndex(cur - 0.6)].a); };
+document.getElementById('next').onclick = () => { playerPause(); const i = segIndex(cur) + 1; playerShow(i < SEGS.length ? SEGS[i].a : window.DURATION); };
+document.getElementById('fs').onclick = () => { const th = document.getElementById('theater'); document.fullscreenElement ? document.exitFullscreen() : th.requestFullscreen?.(); };
+addEventListener('keydown', (e) => {
+  if (document.documentElement.classList.contains('embed')) return;
+  if (e.target.closest('input,button')) return;
+  if (e.key === ' ') { e.preventDefault(); playing ? playerPause() : playerPlay(); }
+  else if (e.key === 'ArrowRight') document.getElementById('next').click();
+  else if (e.key === 'ArrowLeft') document.getElementById('prev').click();
+  else if (e.key === 'f' || e.key === 'F') document.getElementById('fs').click();
+});
+window.ready.then(() => playerShow(cur));
+// 研習平台嵌入契約（postMessage 握手，鍵名 ptt 為相容用）：被嵌入時才啟用
+addEventListener('message', (e) => {
+  if (e.source !== window.parent || window.parent === window) return;
+  const m = e.data;
+  if (!m || m.ptt !== 1 || m.type !== 'seek' || typeof m.t !== 'number' || !Number.isFinite(m.t)) return;
+  window.seek(m.t);
+});
+if (window.parent !== window) window.ready.then(() => parent.postMessage({ ptt: 1, type: 'ready', duration: window.DURATION }, '*'));
+</script>
+</html>
