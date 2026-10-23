@@ -425,7 +425,7 @@ function s3(u) {
     markup += '<g opacity="' + op + '">' + box(575, panel.y, 950, 230, C.dim, 1, 'rgba(0,0,0,.06)');
     markup += txt(615, panel.y + 62, panel.label, { s: 31, w: 1, f: C.chalk });
     markup += txt(615, panel.y + 112, '亮起 ' + u2bN(digits.length) + ' 格', { s: 27, f: C.yellow });
-    markup += u2bDial(panel.divisor, 1360, panel.cy, 82, 24, op, u);
+    markup += u2bDial(panel.divisor, 1360, panel.cy, 72, 22, op, u);
     markup += '</g>';
   }
   return u2bPaint(markup);
