@@ -3068,7 +3068,7 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
       const currentStage = STAGES[appState.currentStageIndex];
       const isCompleted = appState.workflowProgress.status === 'workflow_completed';
 
-      document.getElementById('studentPanelTitle').textContent = isStudentView ? '作答畫面' : '學生作答畫面（僅顯示文件 A 層公開內容）';
+      document.getElementById('studentPanelTitle').textContent = isStudentView ? '' : '學生作答畫面（僅顯示文件 A 層公開內容）';
       document.getElementById('studentTaskSelect').value = appState.taskId;
       document.getElementById('manualStudentInput').placeholder = isStudentView ? '在這裡寫下你的想法…' : '請輸入學生的回答...';
       document.getElementById('btnSendManualTurn').textContent = isStudentView ? '送出' : '送出本輪訊息';
