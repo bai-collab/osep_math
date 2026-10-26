@@ -219,11 +219,13 @@
     .student-header-inner { max-width: 1320px; margin: 0 auto; padding: 10px 18px; }
     .student-header-title { font-size: 20px; font-weight: 800; line-height: 1.25; margin-bottom: 9px; }
     .student-header-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-    .student-task-control { display: flex; align-items: center; gap: 6px; font-weight: 700; }
-    .student-task-control select, .student-demo-controls select { padding: 6px 9px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #0f172a; }
+    .student-task-control, .student-arch-control { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+    .student-task-control select, .student-arch-control select, .student-demo-controls select { padding: 6px 9px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #0f172a; min-height: 44px; }
     .student-mode-switch { display: flex; gap: 5px; padding: 3px; border-radius: 8px; background: rgba(255,255,255,.13); }
     .student-mode-button { background: transparent; color: #fff; border: 1px solid transparent; padding: 6px 11px; border-radius: 6px; }
     .student-mode-button[aria-pressed="true"] { background: #fff; color: #1e3a8a; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+    .student-arch-status { margin-top: 8px; padding: 6px 9px; border-radius: 7px; background: rgba(255,255,255,.14); color: #eff6ff; font-size: 12px; line-height: 1.45; }
+    .student-arch-status[hidden] { display: none !important; }
     .student-demo-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-bottom: 8px; padding: 7px 8px; border-radius: 7px; background: #eff6ff; border: 1px solid #bfdbfe; }
     .student-demo-controls[hidden], .student-completion[hidden] { display: none !important; }
     .student-demo-status { font-size: 12px; font-weight: 700; color: #1e40af; margin-left: auto; }
@@ -237,6 +239,7 @@
     body.student-view .student-split { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 12px; }
     body.student-view .student-column > .panel > .panel-header { padding: 8px 12px; }
     body.student-view .student-column > .panel > .panel-body { padding: 10px 12px; }
+    body.student-view .student-header-controls .btn { min-height: 44px; }
     body.student-view .stage-stepper { gap: 4px; margin-bottom: 9px; }
     body.student-view .stage-step { padding: 5px 3px; }
     body.student-view .guide-box { padding: 8px 10px; margin-bottom: 9px; font-size: 13px; line-height: 1.55; }
@@ -249,6 +252,9 @@
       body.student-view .student-split { grid-template-columns: 1fr; }
       body.student-view .chat-container { height: 280px; }
       .student-header-title { font-size: 18px; }
+      .student-header-controls { align-items: stretch; }
+      .student-task-control, .student-arch-control { flex: 1 1 100%; }
+      .student-task-control select, .student-arch-control select { flex: 1 1 auto; min-width: 0; }
       .student-demo-status { margin-left: 0; }
     }
   </style>
@@ -266,12 +272,19 @@
             <option value="u7-3-unlike-denominator-addition">⑦-3 異分母分數加減</option>
           </select>
         </label>
+        <label class="student-arch-control" for="studentArchSelect">AI 架構
+          <select id="studentArchSelect" aria-describedby="studentArchStatus">
+            <option value="SAS_H">SAS_H（單一導師）</option>
+            <option value="MAS_H">MAS_H（多角色協作）</option>
+          </select>
+        </label>
         <div class="student-mode-switch" role="group" aria-label="作答方式">
           <button class="btn student-mode-button" id="btnStudentAnswerMode" type="button" aria-pressed="true">自己作答</button>
           <button class="btn student-mode-button" id="btnStudentDemoMode" type="button" aria-pressed="false">看示範</button>
         </div>
         <button class="btn btn-light" id="btnStudentRestart" type="button">重新開始</button>
       </div>
+      <div class="student-arch-status" id="studentArchStatus" role="status" aria-live="polite"></div>
     </div>
   </header>
 
@@ -559,6 +572,8 @@
     const isStudentView = new URLSearchParams(window.location.search).get('view') === 'student';
     let studentMode = 'answer';
     let studentAiMode = 'mock'; // 學生檢視的「模擬／真 AI」；與 studentMode（作答／示範）正交
+    let studentArch = 'SAS_H';
+    let studentArchNotice = '';
     let studentDemoTimer = null;
     let studentDemoPlaying = false;
     let studentDemoFinished = false;
@@ -571,6 +586,10 @@
     }
 
     const STAGES = ['造例', '猜想', '效化', '一般化', '證實'];
+    const STUDENT_ARCH_LABELS = Object.freeze({
+      SAS_H: 'SAS_H（單一導師）',
+      MAS_H: 'MAS_H（多角色協作）'
+    });
 
     const STAGE_CRITERIA = {
       '造例': [
@@ -1931,7 +1950,8 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
     }
 
     function setRealControlsBusy(busy) {
-      for (const id of ['selectTask', 'selectArch', 'selectScenario', 'selectMode', 'btnResetSession', 'btnSendManualTurn']) {
+      for (const id of ['selectTask', 'selectArch', 'selectScenario', 'selectMode', 'btnResetSession', 'btnSendManualTurn',
+        'studentTaskSelect', 'studentArchSelect', 'btnStudentAnswerMode', 'btnStudentDemoMode', 'btnStudentRestart']) {
         document.getElementById(id).disabled = busy;
       }
       document.getElementById('manualStudentInput').readOnly = busy;
@@ -1972,6 +1992,7 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
       realBusy = true;
       setRealControlsBusy(true);
       setRealStatus(isStudentView ? STUDENT_BUSY_MESSAGE : 'AI 導師思考中，請稍候……', true);
+      if (isStudentView) renderStudentArchitectureStatus();
       renderRealPanel();
       const trace = [];
       const outputs = {};
@@ -2927,8 +2948,66 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
       document.getElementById('btnStudentDemoMode').setAttribute('aria-pressed', String(studentMode === 'demo'));
     }
 
-    function resetStudentForCurrentMode(taskId = document.getElementById('selectTask').value) {
+    function normalizeStudentArch(value) {
+      return value === 'MAS_H' ? 'MAS_H' : 'SAS_H';
+    }
+
+    function setStudentArchControls(arch, notice = '') {
+      studentArch = normalizeStudentArch(arch);
+      studentArchNotice = notice;
+      const studentSelect = document.getElementById('studentArchSelect');
+      const devSelect = document.getElementById('selectArch');
+      if (studentSelect) studentSelect.value = studentArch;
+      if (devSelect) devSelect.value = studentArch;
+    }
+
+    function formatStudentRolePath(roles) {
+      if (roles.includes('mas.stage') && roles.includes('mas.difficulty')) return '階段分析 ∥ 困難分析 → 整合導師';
+      if (roles.includes('sas.proof_checker')) return '單一導師＋證明核對';
+      if (roles.includes('mas.tutor')) return '整合導師';
+      return '單一導師';
+    }
+
+    function renderStudentArchitectureStatus() {
+      if (!isStudentView || !appState) return;
+      const statusEl = document.getElementById('studentArchStatus');
+      const latest = appState.turnLogs[0];
+      const currentStage = STAGES[appState.currentStageIndex];
+      const currentGate = appState.workflowProgress.stage_gate[currentStage];
+      const hasRoles = !realBusy && Array.isArray(latest?.rolesCalled);
+      const phase = (hasRoles && latest.phaseAtSubmission) || currentGate?.phase || 'strict';
+      const roles = hasRoles
+        ? latest.rolesCalled
+        : planTurnRoles(appState, currentStage, phase).rolesCalled;
+      const timing = realBusy ? '本輪預計' : (hasRoles ? '上一輪' : '下一輪預計');
+      const phaseNote = appState.arch === 'MAS_H' && phase === 'strict'
+        ? '嚴格期為節省成本，先不啟用階段與困難分析角色。'
+        : '';
+      const modeNote = studentMode === 'demo'
+        ? '示範使用模擬資料，分析內容為固定替身。'
+        : appMode === 'real'
+        ? (realBusy ? '正在等候真 AI 回覆。' : latest?.isTechnicalStop
+          ? '真 AI 連線未完成，本輪沒有產生回覆。'
+          : latest?.realModel ? '上一輪真 AI 角色回覆已完成。' : '真 AI 模式送出後會呼叫上述角色。')
+        : '模擬模式只呈現角色調度，分析內容為固定替身。';
+      statusEl.textContent = [
+        studentArchNotice,
+        STUDENT_ARCH_LABELS[appState.arch],
+        `${timing}：${formatStudentRolePath(roles)}。`,
+        phaseNote,
+        modeNote
+      ].filter(Boolean).join(' ');
+      statusEl.hidden = false;
+    }
+
+    function resetStudentForCurrentMode(taskId = document.getElementById('selectTask').value, arch = studentArch, notice = '') {
       if (!isStudentView) return;
+      if (realBusy) {
+        setStudentArchControls(appState.arch, studentArchNotice);
+        document.getElementById('studentTaskSelect').value = appState.taskId;
+        document.getElementById('selectTask').value = appState.taskId;
+        return;
+      }
       clearStudentDemoTimer();
       studentDemoFinished = false;
       studentDemoStatus = studentMode === 'demo' ? '示範播放中' : '';
@@ -2936,16 +3015,18 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
       activeScenarioId = scenarioId;
       document.getElementById('selectTask').value = taskId;
       document.getElementById('studentTaskSelect').value = taskId;
-      document.getElementById('selectArch').value = 'SAS_H';
+      setStudentArchControls(arch, notice);
+      document.getElementById('manualStudentInput').value = '';
       appMode = studentAppMode();
       document.getElementById('selectMode').value = appMode;
-      initSession(taskId, 'SAS_H', scenarioId);
+      initSession(taskId, studentArch, scenarioId);
+      setRealStatus(appMode === 'real' && !isKeyUnlocked() ? STUDENT_NEED_UNLOCK_MESSAGE : '');
       setStudentModeButtons();
     }
 
-    // 學生檢視：appMode 跟隨 studentAiMode
+    // 示範固定使用模擬資料；自己作答才跟隨老師選擇的導師模式
     function studentAppMode() {
-      return studentAiMode === 'real' ? 'real' : 'mock';
+      return studentMode === 'answer' && studentAiMode === 'real' ? 'real' : 'mock';
     }
 
     function readStudentAiMode() {
@@ -2955,11 +3036,13 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
     }
 
     function startStudentAnswerMode() {
+      if (realBusy) return;
       studentMode = 'answer';
       resetStudentForCurrentMode();
     }
 
     function startStudentDemoMode() {
+      if (realBusy) return;
       studentMode = 'demo';
       resetStudentForCurrentMode();
     }
@@ -2973,6 +3056,7 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
     }
 
     function advanceStudentDemoTurn() {
+      if (studentMode !== 'demo' || realBusy) return;
       const scenario = PRESET_SCENARIOS[activeScenarioId];
       if (!scenario || scenarioStepCursor >= scenario.turns.length || appState.workflowProgress.status === 'workflow_completed') {
         finishStudentDemo();
@@ -2980,6 +3064,7 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
         return;
       }
       executeGovernedTurn(appState, scenario.turns[scenarioStepCursor]);
+      studentArchNotice = '';
       scenarioStepCursor += 1;
       if (scenarioStepCursor >= scenario.turns.length || appState.workflowProgress.status === 'workflow_completed') finishStudentDemo();
       else studentDemoStatus = '示範播放中';
@@ -3017,6 +3102,7 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
         const stateBefore = appState;
         const stageIndexBefore = appState.currentStageIndex;
         await runRealTurn();
+        studentArchNotice = '';
         if (appState === stateBefore && (appState.currentStageIndex !== stageIndexBefore || appState.workflowProgress.status === 'workflow_completed')) {
           studentStageOpsStartIndex = appState.history.length;
         }
@@ -3034,6 +3120,7 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
         scenarioDelta: judgment.scenarioDelta,
         modelStudentMessage: judgment.tutorMessage
       });
+      studentArchNotice = '';
       input.value = '';
       if (appState.currentStageIndex !== previousStageIndex || appState.workflowProgress.status === 'workflow_completed') {
         studentStageOpsStartIndex = appState.history.length;
@@ -3042,8 +3129,9 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
     }
 
     function initSession(taskId, arch, scenarioId) {
+      arch = normalizeStudentArch(arch);
       if (isStudentView) {
-        arch = 'SAS_H';
+        setStudentArchControls(arch, studentArchNotice);
         appMode = studentAppMode();
         if (!scenarioId) activeScenarioId = null;
       }
@@ -3082,6 +3170,7 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
       document.getElementById('studentDemoSpeed').value = String(studentDemoSpeedMs);
       document.getElementById('manualStudentInput').disabled = isStudentView && (studentMode !== 'answer' || isCompleted || realBusy);
       setStudentModeButtons();
+      if (isStudentView) renderStudentArchitectureStatus();
 
       const wfBadge = document.getElementById('studentWorkflowBadge');
       wfBadge.textContent = isCompleted ? '已完成五階段學習流程' : `目前階段：${currentStage}（第 ${appState.currentStageIndex + 1} / 5 階段）`;
@@ -3455,6 +3544,19 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
         const hasThreeCats = Boolean(document.getElementById('listStrictPass') && document.getElementById('listRelaxedPass') && document.getElementById('listForcedPass'));
         add('驗收 12', '教師端紀錄分「嚴格通過／放寬通過／強制給答」三類呈現', hasThreeCats, '教師端紀錄面板已獨立分列三類');
       }
+      // 13. 學生版架構白名單與角色路徑
+      {
+        const sas = createInitialState('u7-1-fraction-equivalence', 'SAS_H');
+        const sasProofRoles = planTurnRoles(sas, '證實', 'strict').rolesCalled;
+        const mas = createInitialState('u7-1-fraction-equivalence', 'MAS_H');
+        const masStrictRoles = planTurnRoles(mas, '造例', 'strict').rolesCalled;
+        const masRelaxedRoles = planTurnRoles(mas, '造例', 'relaxed').rolesCalled;
+        const ok = normalizeStudentArch('MAS_H') === 'MAS_H' && normalizeStudentArch('other') === 'SAS_H' &&
+          JSON.stringify(sasProofRoles) === JSON.stringify(['sas.tutor', 'sas.proof_checker']) &&
+          JSON.stringify(masStrictRoles) === JSON.stringify(['mas.tutor']) &&
+          JSON.stringify(masRelaxedRoles) === JSON.stringify(['mas.stage', 'mas.difficulty', 'mas.tutor']);
+        add('驗收 13', '學生版架構只接受 SAS_H／MAS_H，且 SAS 證實、MAS 嚴格期與放寬期角色路徑正確', ok, `SAS證實=[${sasProofRoles.join(',')}], MAS嚴格=[${masStrictRoles.join(',')}], MAS放寬=[${masRelaxedRoles.join(',')}]`);
+      }
 
       return results;
     }
@@ -3505,6 +3607,10 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
     document.getElementById('studentTaskSelect').addEventListener('change', e => {
       if (isStudentView) resetStudentForCurrentMode(e.target.value);
     });
+    document.getElementById('studentArchSelect').addEventListener('change', e => {
+      if (!isStudentView) return;
+      resetStudentForCurrentMode(appState?.taskId || document.getElementById('selectTask').value, e.target.value, '已切換架構，並重新開始本題。');
+    });
     document.getElementById('btnStudentAnswerMode').addEventListener('click', startStudentAnswerMode);
     document.getElementById('btnStudentDemoMode').addEventListener('click', startStudentDemoMode);
     document.getElementById('btnStudentRestart').addEventListener('click', () => resetStudentForCurrentMode());
@@ -3526,7 +3632,7 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
 
     document.getElementById('selectArch').addEventListener('change', e => {
       if (isStudentView) {
-        e.target.value = 'SAS_H';
+        resetStudentForCurrentMode(appState?.taskId || document.getElementById('selectTask').value, e.target.value, '已切換架構，並重新開始本題。');
         return;
       }
       initSession(document.getElementById('selectTask').value, e.target.value, activeScenarioId);
@@ -3733,7 +3839,7 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
       try { window.localStorage.setItem(STUDENT_AI_MODE_STORAGE, studentAiMode); } catch (e) { /* 只影響下次載入的預設值 */ }
       applyStudentAiModeUI();
       resetStudentForCurrentMode();
-      setRealStatus(studentAiMode === 'real' && !isKeyUnlocked() ? STUDENT_NEED_UNLOCK_MESSAGE : '');
+      setRealStatus(appMode === 'real' && !isKeyUnlocked() ? STUDENT_NEED_UNLOCK_MESSAGE : '');
     }
 
     function buildTeacherPanel() {
@@ -3801,11 +3907,11 @@ criterion_checks 必須為本階段每個 criterion 逐項評估：一般項目�
       applyStudentAiModeUI();
       document.getElementById('selectTask').value = 'u7-1-fraction-equivalence';
       document.getElementById('studentTaskSelect').value = 'u7-1-fraction-equivalence';
-      document.getElementById('selectArch').value = 'SAS_H';
+      setStudentArchControls('SAS_H');
       appMode = studentAppMode();
       document.getElementById('selectMode').value = appMode;
       activeScenarioId = null;
-      initSession('u7-1-fraction-equivalence', 'SAS_H', null);
+      initSession('u7-1-fraction-equivalence', studentArch, null);
       if (studentAiMode === 'real' && !isKeyUnlocked()) setRealStatus(STUDENT_NEED_UNLOCK_MESSAGE);
     } else {
       document.getElementById('selectMode').value = 'mock'; // 重新載入一律回到模擬資料模式（避免瀏覽器還原表單狀態）
